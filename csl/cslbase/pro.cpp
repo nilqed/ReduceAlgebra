@@ -1,9 +1,9 @@
-//  pro.cpp                           Copyright (C) 1989-2015 Codemist    
+// pro.cpp                                 Copyright (C) 1989-2017 Codemist    
 
-// Watcom C stack checking code
+// Watcom C stack checking code. This only remains as a historical relic!
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -31,12 +31,9 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: pro.cpp 4175 2017-08-29 16:28:29Z arthurcnorman $
 
 #include "headers.h"
-
-#include "version.h"
-
 
 static int spset = 0;
 static int32_t spbase = 0, spmin;

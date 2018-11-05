@@ -6,6 +6,7 @@
 % Created:      
 % Modified:     
 % Package:      
+% Status:       Open Source: BSD License
 %
 % (c) Copyright 1987, University of Utah
 %
@@ -178,7 +179,11 @@
 	 alsts&
 	 flagg&
 	 name&
-	 golist&
+	 golist&	    %% A-list ((go-label internal-lbl) . . .) of currently
+	                    %% known go labels, interspersed with information
+	                    %% about bound fluid variables. The latter is
+	                    %% used to correctly unbind them when a (go ...) or
+	                    %% (return ...) is encountered. /RmS
 	 codelist&
 	 branchpoint&       %   REPLACES CONDTAIL!&   scs
 	 tail&              %                         scs
@@ -207,6 +212,7 @@
 	 environment&
 	 holemap&
 	 localgensym&      % traveling pointer into GLOBALGENSYM!&
+	 exitlabel&	   % gensym for marking the "exit" label at the end of prog 
 	 ))
 
 
@@ -413,7 +419,7 @@
   % compiles a function body, returning the generated LAP;
   (prog (narg& codelist& flagg& jmplist& lblist& localgensym& llngth& 
                regs& regs1& alsts& exitt& toplab& slst& stomap& condtail& 
-               freebound& holemap& pregs& switch& exitregs& rn)
+               freebound& holemap& pregs& switch& exitregs& rn exitlabel&)
         (setq localgensym& globalgensym&)
         (setq pregs& nil)
         (setq regs& nil)
@@ -425,6 +431,7 @@
         (setq narg& (length (cadr exp)))
         (setq exitregs& nil)
         (setq exitt& (&genlbl))
+        (setq exitlabel& (&gensym))
         (setq toplab& (&genlbl))
         (setq stomap& nil)
         (setq codelist& (list '(*alloc (*framesize))))
@@ -679,7 +686,8 @@
         (setq i 1)
         % Put this junk on the frame
         (setq alsts& (&varbind vars t))
-        % hm
+        % hm: push info about fluid bindings on &golist
+        % RmS: Note that this will fail if a go label is called "&freerstr"
         (when alsts& (push (cons '&freerstr alsts&) golist&))
         %Old fluid values saved;
         % compile the body
@@ -2224,11 +2232,100 @@
     (&comperror (list "Number expected for CASE label" x))
     ))
 
+%% RmS:
+%% RmS: go and return inside a lambda with a local variable binding inside a prog
+%% RmS:
+%% RmS: Here are cases that must be compiled correctly:
+%% RmS:
+%% RmS: % Simple return from inside a prog with a bound fluid:
+%% RmS: 
+%% RmS: (de otto () (prog (*echo y) (return y)))
+%% RmS: 
+%% RmS: % Return from inside a lambda with a bound fluid
+%% RmS: 
+%% RmS: (de hugo nil (prog (y) ((lambda (*echo) (return y)) y)))
+%% RmS: 
+%% RmS: % similar, but with go instead of return
+%% RmS: 
+%% RmS: (de hugo1 nil
+%% RmS:   (prog (y)
+%% RmS:     (print "Before lambda")
+%% RmS:     ((lambda (*echo) (print "In lambda") (go lbl)) y)
+%% RmS:     (print "After lambda")
+%% RmS:     (return 't)
+%% RmS:    lbl
+%% RmS:     (print "At lbl")
+%% RmS:     (return nil)
+%% RmS:   )
+%% RmS: )
+%% RmS: 
+%% RmS: 
+%% RmS: % two more complicated examples with two nested fluid bindings
+%% RmS: 
+%% RmS: (de egon nil 
+%% RmS:   (prog (*msg) 
+%% RmS:     (print "In outer prog")
+%% RmS:     (prog (y)
+%% RmS:       (print "Before lambda")
+%% RmS:       ((lambda (*echo) (print "In lambda") (return y)) y)
+%% RmS:       (print "After lambda")
+%% RmS:     )
+%% RmS:     (print "End outer prog")
+%% RmS:   )
+%% RmS: )
+%% RmS: 
+%% RmS: (de foobar nil
+%% RmS:   (prog(y)
+%% RmS:     (print "In outer prog")
+%% RmS:     (prog (*msg)
+%% RmS:       (print "Before lambda")
+%% RmS:       ((lambda (*echo) (print "In lambda") (return y)) y)
+%% RmS:       (print "After lambda")
+%% RmS:     )
+%% RmS:     (print "End outer prog")
+%% RmS:   )
+%% RmS: )
+%% RmS: 
+%% RmS: % similar but with go instead of return
+%% RmS: 
+%% RmS: (de egon nil
+%% RmS:   (prog (*msg)
+%% RmS:     (print "In outer prog")
+%% RmS:     (prog (y)
+%% RmS:       (print "Before lambda")
+%% RmS:       ((lambda (*echo) (print "In lambda") (go lbl)) y)
+%% RmS:       (print "After lambda")
+%% RmS:     )
+%% RmS:     lbl
+%% RmS:     (print "At lbl")
+%% RmS:     (return nil)
+%% RmS:   )
+%% RmS: )
+%% RmS: 
+%% RmS: (de foobar nil
+%% RmS:   (prog(y)
+%% RmS:     (print "In outer prog")
+%% RmS:     (prog (*msg)
+%% RmS:       (print "Before lambda")
+%% RmS:       ((lambda (*echo) (print "In lambda") (go lbl)) y)
+%% RmS:       (print "After lambda")
+%% RmS:     )
+%% RmS:     lbl
+%% RmS:     (print "At lbl")
+%% RmS:     (return nil)
+%% RmS:   ))
+%% RmS: 
+%% RmS: % And finally, a return without a prog
+%% RmS: 
+%% RmS: (de bla (*echo) (return nil))
+%% RmS: 
+
 (de &comgo (exp status&)
   % COMPFN: Compile GO inside PROG.
   %/ Should SLST& be cleared like this?
   % hm: look for label "by hand" in order to rebind variables
-  %   in between.
+  %   in between: walk along golist& to find label, unbinding 
+  %   found fluid variables before making the jump.
   (let((lab (cadr exp)) 
        nlab 
        (gl golist&))
@@ -2265,10 +2362,14 @@
         (setq oldstomap stomap&)
         %  scs
         (setq alsts& (&varbind proglis nil))
-         % hm
+        % hm: push info about bound fluid variables on golist&
         (when alsts& (push (cons '&freerstr alsts&) golist&))
         (foreach x in exp do (when (atom x)
                    (setq golist& (cons (cons x (&genlbl)) golist&))))
+        % RmS: push a special pair on golist to mark the end of the current prog context
+        % RmS: This is necessary to determine which fluid variables must be unbound when
+        % RmS: compiling a (return ...)
+        (setq golist& (cons (cons exitlabel& exitt&) golist&))
         (while exp
           (if (atom (car exp))
             (progn
@@ -2305,13 +2406,29 @@
   % COMPFN: Compile RETURN inside PROG
   %/ Should be better SLSTS handling, last return
   %/ Cf LAMBDA case
-  (setq exp (cdr exp))
-  %  test for 1,2?   scs
-  (when (or (lessp status& 4) (not (&nosideeffectp (car exp))))
-    (&comload exp))
-  (setq slst& nil)
-  (setq exitregs& (cons regs& exitregs&))
-  (&attjmp exitt&))
+  %
+  % RmS: don't forget to unbind variables on exit from lambda, e.g., in
+  % RmS: (de x () (prog (y) ((lambda (*echo) (return y)) y)))
+  % RmS: *echo must be unbound on exit from prog clause
+  % RmS: add appropriate calls to &freestr like in &comgo
+  %
+  (let (nlab
+        (gl golist&))
+    (setq exp (cdr exp))
+    %  test for 1,2?   scs
+    (when (or (lessp status& 4) (not (&nosideeffectp (car exp))))
+      (&comload exp))
+    (setq slst& nil)
+    % RmS: Walk along golist& until exitlabel& is found, unbinding fluid variables
+    (while (and (null nlab) gl)
+	   (cond ((eq (caar gl) exitlabel&) (setq nlab (cdar gl))) % found list of labels in current prog
+		 ((eq (caar gl) '&freerstr) (&freerstr (cdar gl))))
+	(setq gl (cdr gl)))
+    (when (null nlab)
+	  (&comperror "RETURN attempted outside the scope of a PROG"))
+    (setq exitregs& (cons regs& exitregs&))
+    (&attjmp exitt&))
+)
 
 (de &delmac (x)
   % Delete macro CAR X from CODELIST!&

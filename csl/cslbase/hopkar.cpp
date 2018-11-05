@@ -37,7 +37,7 @@
 //
 //                                    A C Norman, October 2015.
 
-// $Id$
+// $Id: hopkar.cpp 3897 2017-02-12 11:33:33Z arthurcnorman $
 
 #include <stdio.h>
 #include <stdlib.h>

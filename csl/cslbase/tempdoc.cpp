@@ -1,8 +1,8 @@
-// tempdoc.cpp                             Copyright (C) 2016 Codemist    
+// tempdoc.cpp                             Copyright (C) 2016-2017 Codemist    
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -30,7 +30,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: tempdoc.cpp 3896 2017-02-12 11:24:11Z arthurcnorman $
 
 
 //
@@ -151,15 +151,6 @@
  * material and collaborates with the mathematical display parts of CSL.
  */
 
-/*! predef [*native_code] \item [{\ttfamily !*native\_code}] \index{{\ttfamily "!*native\_code}} ~\newline
- * An experimental additional compiler for CSL that maps Lisp directly onto
- * native code for the current platform has been in development for some time,
- * but it is not in a state such as to make it useful for other than
- * people who wish to experiment, extend and debug it. This flag is to do
- * with enabling it. It is not supported but may possibly become so one day.
- */
-
-/*! predef [*notailcall] \item [{\ttfamily !*notailcall}] \index{{\ttfamily "!*notailcall}} ~\newline
  * The CSL compiler normally tries to detect patterns of recursion that it
  * can convert into iteration. This can dramatically reduce stack use and
  * so allow calculations to succeed when otherwise they would have failed.
@@ -186,10 +177,7 @@
  * When the CSL compiler runs to generate byte-codes if {\ttfamily !*plap} or
  * {\ttfamily !*pgwd} is set then the generated code is displayed. This may
  * be of interest when debugging or for anybody who wants to explore the
- * Lisp bytecode model that is used. If at some stage a full native compiler
- * is released then {\ttfamily !*plap} will control display of any intermediate
- * Lisp-specific material and {\ttfamily !*pgwd} will control display of the
- * final generated platform dependent machine code.
+ * Lisp bytecode model that is used.
  */
 
 /*! predef [*pretty-symmetric] \item [{\ttfamily !*pretty!-symmetric}] \index{{\ttfamily "!*pretty"!-symmetric}} ~\newline
@@ -925,10 +913,6 @@
 //
 
 /*! fns [copy-module]  \item [{\ttfamily copy!-module} {\itshape  expr}] \index{{\ttfamily copy"!-module} {\itshape  expr}} ~\newline
- * Not yet written
- */
-
-/*! fns [copy-native]  \item [{\ttfamily copy!-native} {\itshape  expr}] \index{{\ttfamily copy"!-native} {\itshape  expr}} ~\newline
  * Not yet written
  */
 
@@ -1787,10 +1771,6 @@
  * Not yet written
  */
 
-/*! fns [make-native]  \item [{\ttfamily make!-native} {\itshape  expr}] \index{{\ttfamily make"!-native} {\itshape  expr}} ~\newline
- * Not yet written
- */
-
 /*! fns [make-random-state]  \item [{\ttfamily make!-random!-state} {\itshape  expr}] \index{{\ttfamily make"!-random"!-state} {\itshape  expr}} ~\newline
  * Not yet written
  */
@@ -2064,22 +2044,6 @@
 // Not yet written
 //
 
-// fns [native!-address expr] \item [{\ttfamily native!-address} {\itshape  expr}] \index{{\ttfamily native"!-address} {\itshape  expr}} ~\newline
-// Not yet written
-//
-
-// fns [native!-getv expr] \item [{\ttfamily native!-getv} {\itshape  expr}] \index{{\ttfamily native"!-getv} {\itshape  expr}} ~\newline
-// Not yet written
-//
-
-// fns [native!-putv expr] \item [{\ttfamily native!-putv} {\itshape  expr}] \index{{\ttfamily native"!-putv} {\itshape  expr}} ~\newline
-// Not yet written
-//
-
-// fns [native!-type expr] \item [{\ttfamily native!-type} {\itshape  expr}] \index{{\ttfamily native"!-type} {\itshape  expr}} ~\newline
-// Not yet written
-//
-
 // fns [nconc expr] \item [{\ttfamily nconc} {\itshape  expr}] \index{{\ttfamily nconc} {\itshape  expr}} ~\newline
 // Not yet written
 //
@@ -2089,10 +2053,6 @@
 //
 
 // fns [neq expr] \item [{\ttfamily neq} {\itshape  expr}] \index{{\ttfamily neq} {\itshape  expr}} ~\newline
-// Not yet written
-//
-
-// fns [noisy!-setq fexpr] \item [{\ttfamily noisy!-setq} {\itshape  fexpr}] \index{{\ttfamily noisy"!-setq} {\itshape  fexpr}} ~\newline
 // Not yet written
 //
 
@@ -2943,10 +2903,6 @@
 // Not yet written
 //
 
-// fns [symbol!-set!-native expr] \item [{\ttfamily symbol!-set!-native} {\itshape  expr}] \index{{\ttfamily symbol"!-set"!-native} {\itshape  expr}} ~\newline
-// Not yet written
-//
-
 // fns [symbol!-value expr] \item [{\ttfamily symbol!-value} {\itshape  expr}] \index{{\ttfamily symbol"!-value} {\itshape  expr}} ~\newline
 // Not yet written
 //
@@ -3011,14 +2967,6 @@
 // Not yet written
 //
 
-// fns [traceset expr] \item [{\ttfamily traceset} {\itshape  expr}] \index{{\ttfamily traceset} {\itshape  expr}} ~\newline
-// Not yet written
-//
-
-// fns [traceset1 expr] \item [{\ttfamily traceset1} {\itshape  expr}] \index{{\ttfamily traceset1} {\itshape  expr}} ~\newline
-// Not yet written
-//
-
 // fns [truename expr] \item [{\ttfamily truename} {\itshape  expr}] \index{{\ttfamily truename} {\itshape  expr}} ~\newline
 // Not yet written
 //
@@ -3068,14 +3016,6 @@
 //
 
 // fns [untrace expr] \item [{\ttfamily untrace} {\itshape  expr}] \index{{\ttfamily untrace} {\itshape  expr}} ~\newline
-// Not yet written
-//
-
-// fns [untraceset expr] \item [{\ttfamily untraceset} {\itshape  expr}] \index{{\ttfamily untraceset} {\itshape  expr}} ~\newline
-// Not yet written
-//
-
-// fns [untraceset1 expr] \item [{\ttfamily untraceset1} {\itshape  expr}] \index{{\ttfamily untraceset1} {\itshape  expr}} ~\newline
 // Not yet written
 //
 

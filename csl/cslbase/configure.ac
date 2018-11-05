@@ -1,34 +1,30 @@
 ## Process this file with autoconf to produce a configure script.
 
-# A C Norman.                                         2008-2016
+# A C Norman.                                                     2008-2017
+
+# I guess that this file scan be subject to the same BSD license that
+# applies to almost all other parts of the code here.
+
+# $Id: configure.ac 4764 2018-09-18 06:49:28Z arthurcnorman $
 
 #
 # Special flags that can be used here:
 #
-#   --with-lto        Try link-time optimisation with gcc. EXPERIMENTAL.
-#   --with-cygwin     Build native cygwin X11 based system, 
-#                     Please note cygwin licensing issues, which do not
-#                     have any adverse effects so long as you retain BSD
-#                     licensing here. But if you included CSL in a closed
-#                     product (as BSD permits) think about this!
-#   --with-smallpage  build in way that may be better for small embedded
-#                     machines.
 #   --enable-debug    Switch on debugging.
 #
-#
+#   --with-cygwin     Build native cygwin X11 based system, 
+#   --with-smallpage  build in way that may be better for small embedded
+#                     machines.
+#   --with-lto        Try link-time optimisation with gcc. EXPERIMENTAL.
 #   --enable-conservative   development version not working yet!
 #   --enable-test     predefine a symbol EXPERIMENT used to protect
 #                     temporary or unfinished code developments.
-#   --enable-jit      another experimental and incomplete extension.
+#   --enable-experiment  same effect as --enable-text
 #   --enable-embedded well the EMBEDDED option is intended for use via
 #                     a heavily cleaned up minimalist build system, but
 #                     for testing purposes I allow a build here.
-
+#
 #   --host=<triplet>  cross compile for that host.
-# Eg if I have installed the 64-bit mingw compilers that cygwin supports
-# I can go  --host=x86_64-w64-mingw32  and build everything.
-# The "--with-mingw64" option is a convenience feature for use by
-# a higher level configure script and should not be used directly here.
 # 
 
 # FOX gets built in a directory whose name is based on the platform
@@ -37,17 +33,24 @@
 # change that. These are the things I note above as "special flags"
 
 # Specify the name of this "application" and a version number
-AC_INIT([REDUCE],[7.00])
+AC_INIT([REDUCE],[9.01])
+
+AC_CONFIG_AUX_DIR([.])
 
 # automake 1.13 was the first to support AC_CONFIG_MACRO_DIRS
 AM_INIT_AUTOMAKE([1.13 -Wno-portability -Wno-override foreign dist-bzip2])
+# The automake documentation feels that noisy rules are perhaps safer. This
+# is overridden here to make the output from use of "make" a lot more concise
+# and people who need to debug the build process can delete this line!
+AM_SILENT_RULES([yes])
 AC_CONFIG_MACRO_DIRS([m4])
 # I will use the older version too.
 AC_CONFIG_MACRO_DIR([m4])
 
 here=`pwd`
 AC_MSG_NOTICE([+++ Configure in directory $here +++])
-
+AC_MSG_NOTICE([Args: "$ac_configure_args"])
+ 
 # Explain that a file "config.h" should be generated
 AC_CONFIG_HEADERS([config.h])
 
@@ -60,6 +63,64 @@ AC_PREREQ(2.61)
 # messed up.
 AC_CONFIG_SRCDIR(csl.cpp)
 AC_CONFIG_FILES(Makefile)
+
+# The following is a messy hack related to building on Windows...
+
+AC_ARG_WITH(cygwin32,
+  AC_HELP_STRING([--with-cygwin32],
+                 [Force configure and build to be under cygwin32]),
+  [],
+  [with_cygwin32="no"])
+
+# If the "--with-cygwin32" flag was passed and I am at present running under
+# a 64-bit cygwin shell then I will insist on changing gear so that I run
+# using a 32-bit cygwin shell.
+uname_o=`uname -o`
+uname_m=`uname -m`
+uname_s=`uname -s`
+case "$uname_s" in
+*WOW)
+  wow="yes"
+  ;;
+*)
+  wow="no"
+  ;;
+esac
+
+AC_MSG_NOTICE([with_cygwin32=$with_cygwin32 with_cygwin64=$with_cygwin64 uname_o=$uname_o uname_m=$uname_m uname_s=$uname_s wow=$wow])
+
+if test "$with_cygwin32" != "no" &&
+   test "$uname_o" = "Cygwin" &&
+   test "$uname_m" = "x86_64"
+then
+  AC_MSG_NOTICE([Restart to use a 32-bit Cygwin shell])
+# I am on cygwin - and I will just assume that the directory with Reduce
+# in it is writable so I can put the cyg32 binary there. I always use a 32-bit
+# mingw-style compiler to create the program that can flip between 32 and
+# 64 bit usage.
+  i686-w64-mingw32-g++ -O3 -DFORCE32 $srcdir/other-cygwin.cpp -static -o ./cyg32
+  i686-w64-mingw32-strip ./cyg32
+  AC_MSG_NOTICE([./cyg32 $srcdir/configure $ac_configure_args])
+  exec /bin/sh -c "./cyg32 $srcdir/configure $ac_configure_args"
+fi
+
+AC_ARG_WITH(cygwin64,
+  AC_HELP_STRING([--with-cygwin64],
+                 [Force configure and build to be under cygwin64]),
+  [],
+  [with_cygwin64="no"])
+
+if test "$with_cygwin64" != "no"
+   test "$uname_o" = "Cygwin" &&
+   test "$uname_m" = "i686" &&
+   test "wow" = "yes"
+then
+  AC_MSG_NOTICE([Restart to use a 64-bit Cygwin shell])
+  i686-w64-mingw32-g++ -O3 -DFORCE64 $srcdir/other-cygwin.cpp -static -o ./cyg64
+  i686-w64-mingw32-strip ./cyg64
+  AC_MSG_NOTICE([./cyg64 $srcdir/configure $ac_configure_args])
+  exec /bin/sh -c "./cyg64 $srcdir/configure $ac_configure_args"
+fi
 
 # These days I am making all the source files for CSL ones in C++ not C
 # and so it is best to make configuration tests match.
@@ -79,6 +140,14 @@ AC_ARG_WITH(psl,
   AC_HELP_STRING([--with-psl], [Use the PSL Lisp system. Do not use here!]),
   [],
   [with_psl="no"])
+
+# By configuring "--without-redfront" you can avoid having a CSL built
+# making an attempt to coompile and instate the newfront version of redfront.
+
+AC_ARG_WITH(redfront,
+  AC_HELP_STRING([--with-redfront], [Build and install redfront]),
+  [],
+  [with_redfront="yes"])
 
 AC_ARG_WITH(mingw64,
   AC_HELP_STRING([--with-mingw64], [this option is ignored here!]),
@@ -151,8 +220,10 @@ AC_SUBST(DLL_CFLAGS)
 
 # The following are always to be defined when I go through this route
 
-AC_DEFINE(HAVE_FWIN,[1],[True if we will use the FWIN terminal code])
-AC_DEFINE(WINDOW_SYSTEM,[1],[True for a (potentially) Windowed system])
+if test "x$with_gui" != "xno"
+then
+  AC_DEFINE(WINDOW_SYSTEM,[1],[True for a (potentially) Windowed system])
+fi
 
 AC_DEFINE_UNQUOTED(HOST_CPU,"$host_cpu",[Name of CPU])
 AC_DEFINE_UNQUOTED(HOST_VENDOR,"$host_vendor",[Name of vendor])
@@ -180,7 +251,7 @@ AC_MSG_NOTICE([--with-wx=$with_wx])
 
 AC_ARG_WITH(cygwin,
   AC_HELP_STRING([--with-cygwin],
-                 [Force use of raw cywgin (note Cygwin license)]),
+                 [Force use of raw cywgin]),
   [],
   [with_cygwin="no"])
 
@@ -243,18 +314,6 @@ case $host in
   exeext="yes"
   if test "x$with_cygwin" != "xno"
   then
-# If you go "--with-cygwin" in the call to configure then I will build
-# in native cygwin mode, and not use the "-mno-cywgin" flag (or the more
-# modern cross-compiler-style equivalent mechanisms). As a consequence
-# some GPL libraries will be linked with your application. The cygwin
-# license has a special exception so that when cygwin1.dll is linked
-# with other code that is subject to an approved Open Source License
-# the GPL constraints do not come into force, but that nature of the
-# BSD license that CSL is subject to is that it would be quite proper
-# to extent it with non-open components or use it in a non-open context,
-# and the BSD license was adopted in part because I do not wish to apply
-# any constraints that would prevent that.
-#
 # The next line may ALMOST count as a lie, but under raw cygwin the world
 # is closer to Unix than to Windows so this does make some sense!
     AC_DEFINE(UNIX,[1],[True if we are running on Unix, Linux, BSD etc])
@@ -280,15 +339,15 @@ case $host in
   else
 # Here is the normal situation where cygwin is the BUILD environment. Mostly
 # that means using the mingw-style version of the compiler via
-# "i686-w64-mingw32-gcc".
+# "i686-w64-mingw32-g++" or "x86_64-w64-mingw32-g++".
     AC_MSG_NOTICE([Windows built creating native binary])
     AC_DEFINE(WIN32, [1], [True if we are running on Windows])
-# I seem to need to link with "-static" in a Windows mode or else things
-# like the C++ library do not get found when I try to run the executables.
-# This is of course liable to be an issue of my $PATH, but linking in static
-# mode will still keep me safe.
     LDFLAGS="$LDFLAGS -static"
     DLL_CFLAGS="$CFLAGS -shared"
+# As of May 2018 if I try using std::thread with the mingw32 compilers I
+# end up with a binary that relies on some awkward DLLs unless I add in
+# the extra curious directive here.
+    LIBS="$LIBS -static-libgcc -Wl,-Bstatic -lstdc++ -lpthread"
 # In this case I make the machine appear to be "i686-pc-windows" or some
 # such to distinguish it from the case where cygwin1.dll might be involved.
     foxdir=`echo $foxdir | sed -e 's/cygwin/windows/'`
@@ -310,7 +369,19 @@ case $host in
   AC_MSG_NOTICE([with_cygwin=<$with_cygwin> cyg32=$cyg32 cyg64=$cyg64])
   ;;
 *-*-msdos* | *-*-go32* | *-*-windows*)
-  AC_MSG_ERROR([For Windows you are expected to use cygwin as your build environment])
+    AC_MSG_NOTICE([Windows built creating native binary])
+    AC_DEFINE(WIN32, [1], [True if we are running on Windows])
+# I seem to need to link with "-static" in a Windows mode or else things
+# like the C++ library do not get found when I try to run the executables.
+# This is of course liable to be an issue of my $PATH, but linking in static
+# mode will still keep me safe.
+    LDFLAGS="$LDFLAGS -static"
+    DLL_CFLAGS="$CFLAGS -shared"
+# In this case I make the machine appear to be "i686-pc-windows" or some
+# such to distinguish it from the case where cygwin1.dll might be involved.
+    foxdir=`echo $foxdir | sed -e 's/cygwin/windows/'`
+    windows_build="yes"
+    exeext="yes"
   ;;
 *-*solaris*)
   AC_MSG_NOTICE([Building for Solaris])
@@ -420,6 +491,7 @@ case $host in
     fi
     LDFLAGS="$LDFLAGS -L/usr/X11R6/$XLL"
   fi
+  CPPFLAGS="$CPPFLAGS -I/usr/local/include"
   LDFLAGS="$LDFLAGS -pthread"
   DLL_CFLAGS="$CFLAGS -shared"
   XLIBS="-lXext -lX11"
@@ -455,14 +527,6 @@ case $host in
   ;;
 esac
 
-# I need a C++ compiler that is use to compile small utility programs.
-# Im some cases I can not use $CXX because that is a cross-compiler that
-# generates binaries that I can not run. I used to just use "g++" and hope,
-# but here I will see which of g++, clang++, c++ and CC is at least present.
-# I will then assume that that is a viable compiler to use.
-
-AC_PATH_PROGS(LOCALCXX, [g++ clang++ c++ CC], g++, [])
-
 # In some cases there may be explicitly GNU versions of various utilities,
 # and I will perhaps use them if I find them.
 
@@ -484,6 +548,29 @@ then
 fi
 
 AC_CHECK_PROGS(VALGRIND,[valgrind],[x])
+
+# I need a C++ compiler that is use to compile small utility programs.
+# Im some cases I can not use $CXX because that is a cross-compiler that
+# generates binaries that I can not run. I used to just use "g++" and hope,
+# but here I will see which of g++, clang++, c++ and CC is at least present.
+# I will then assume that that is a viable compiler to use.
+
+case $host in
+*-*-cygwin* | *-*-mingw*)
+# I use the native windows compilers here so that my scripts can run hosted
+# on either 32 or 64-bit cygwin equally happily - the x686-w64-mingw toolchain
+# should work on any varient of a Windows platform.
+  LOCALCXX="i686-w64-mingw32-g++ -static"
+  LOCALSTRIP="i686-w64-mingw32-strip"
+  ;;
+*)
+  AC_PATH_PROGS(LOCALCXX, [g++ clang++ c++ CC], g++, [])
+  LOCALSTRIP="$STRIP"
+  ;;
+esac
+
+AC_SUBST(LOCALCXX)
+AC_SUBST(LOCALSTRIP)
 
 AC_ARG_WITH(fox-pending,
   AC_HELP_STRING([--with-fox-pending],
@@ -516,6 +603,13 @@ AC_ARG_ENABLE(debug,
   [],
   [enable_debug="no"])
 AC_MSG_RESULT([$enable_debug])
+
+AC_ARG_ENABLE(profile,
+  AC_HELP_STRING([--enable-profile],
+                 [compile for profiling]),
+  [],
+  [enable_profile="no"])
+AC_MSG_RESULT([$enable_profile])
 
 if test "x$enable_debug" = "xyes"
 then
@@ -551,6 +645,18 @@ AC_ARG_ENABLE(test,
   [enable_test="no"])
 AC_MSG_RESULT([$enable_test])
 
+AC_ARG_ENABLE(experiment,
+  AC_HELP_STRING([--enable-experiment],
+                 [testing-mode version]),
+  [],
+  [enable_experiment="no"])
+AC_MSG_RESULT([$enable_experiment])
+
+if test "x$enable_experiment" = "xyes"
+then
+  enable_test="yes"
+fi
+
 if test "x$enable_test" = "xyes"
 then
 # I force EXPERIMENT into CPPFLAGS because when u01.cpp to u60.cpp get
@@ -558,19 +664,6 @@ then
 # on the option!
   CPPFLAGS="$CPPFLAGS -DEXPERIMENT=1"
   AC_DEFINE(EXPERIMENT, [1], [True if this is an experimental testing mode variant])
-fi
-
-# Note that if I go "--enable-test" that causes a default "--with-boehm",
-# so that the conservative garbage collector will be available.
-
-AC_ARG_WITH(boehm,
-   AC_HELP_STRING([--with-boehm], [Can be used to disable use of boehm]),
-   [],
-   [with_boehm=$enable_test])
-
-if test "x$with_boehm" != "xno"
-then
-  AC_DEFINE(HAVE_BOEHM, [1], [Boehm conservative collector should be available])
 fi
 
 # Want to build "embedded" variant?
@@ -619,6 +712,36 @@ CXXFLAGS="$old_CXXFLAGS"
 
 LT_INIT([disable-static])
 
+AC_ARG_WITH(ccache,
+  AC_HELP_STRING([--with-ccache],
+                 [--without-ccache can be used to disable use of ccache]),
+  [], [])
+
+if test "$with_ccache" != "no"
+then
+  AC_CHECK_PROG([CCACHE], [ccache], [ccache], [])
+  RAWCC="`which $CC 2> /dev/null`"
+  RAWCXX="`which $XX 2> /dev/null`"
+  if test "with_ccache" != "no" &&
+     test "$CC$CXX" = ""
+  then
+    RAWCC="`which $CC 2> /dev/null`"
+    RAWCXX="`which $XX 2> /dev/null`"
+    case "$CC$CXX `ls -l $RAWCC 2>/dev/null` `ls -l $RAWCXX 2>/dev/null`" in
+    *ccache*)
+      ;;
+    *)
+      d=`pwd`
+      printf "#! /bin/sh\nccache $CC \"\$@\"\n" > d/cachecc.sh
+      printf "#! /bin/sh\nccache $CXX \"\$@\"\n" > d/cachecxx.sh
+      chmod +x $d/cachecc.sh $d/cachecxx.sh
+      CC="$d/cachecc.sh"
+      CXX="$d/cachecxx.sh"
+      ;;
+    esac
+  fi
+fi
+
 if test "x$XLIBS" != "x"
 then
   AC_PATH_X
@@ -646,18 +769,88 @@ then
      AC_MSG_NOTICE(--hash-style=both not available)])
 fi
 
-AC_MSG_NOTICE([Checking for "--std=gnu++11"])
-if test "x$GCC" = "xyes"
+# The behaviour of signed shifts on negative left operands is implementation
+# defined. In most cases the shift will be arithmetic, but one could
+# imagine it being logical or even something worse. I am going to assume that
+# if the test I do here succeeds for type "int" that the same sort of thing
+# will be done for all integer types. Even that is not utterly guaranteed!
+# If I am cross-compiling and can not run the test program I take a
+# pessimistic stance and assume that shifts might not be tidy.
+
+# Note that left shifts on negative signed values are considered undefined,
+# and shifts on initially positive signed values that go as far as
+# populating the sign bit are only sanctioned from C++-14 onwards.
+
+AC_RUN_IFELSE([AC_LANG_PROGRAM([[]],
+  [[int x=-256; int y=x>>4; return (y==-16) ? 0 : 1;]])],
+  [arithmetic_shifts="yes"],   # True
+  [arithmetic_shifts="no"],    # False
+  [arithmetic_shifts="no"])    # Cross-compiling
+AC_MSG_NOTICE([Signed shifts status [yes for arithmetic] : $arithmetic_shifts])
+if test "x$arithmetic_shifts" = "xyes"
 then
-# I need gnu++11 so that non-ANSI functions such as putc-unlocked are
-# left available to me.
-  OLDCPPFLAGS="$CPPFLAGS"
-  CPPFLAGS="$CPPFLAGS --std=gnu++11"
-  AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]],
-                                  [[printf("\n");]])],
-    [AC_MSG_NOTICE(Will use --std=gnu++11)],
-    [CPPFLAGS="$OLDCPPFLAGS"
-     AC_MSG_NOTICE(--std=gnu++11 not available)])
+  AC_DEFINE(SIGNED_SHIFTS_ARE_ARITHMETIC, [1], [Not guaranteed by ANSI spec])
+fi
+
+# The following seems to be an "official" way to ensure that I have at least
+# -std=gnu++11 (or gnu++0x) available.
+
+AX_CXX_COMPILE_STDCXX([14], [ext], [optional])
+
+# If I can not use C++-14 I will INSIST on C++-11. This is somewhat an issue
+# in thet older platforms may not support this instantly. A particular case
+# is that Ubuntu 12.04 provides gcc-4.6 which would choke here, But a brief
+# web search will allow those using such a system to see how to install
+# gcc 4.9... and that MUST be done for Reduce to build. C++-11 provides
+# things like static_assert and type traits that at present are used in just
+# a small corner of the code, but that are potentially generally valuable.
+
+if test "x$HAVE_CXX14" != "x1"
+then
+    AX_CXX_COMPILE_STDCXX([11], [ext], [mandatory])
+fi
+
+# See if C++-11 attributes (specifically [[noreturn]]) will be accepted.
+# It jolly well ought to be now I am insisting on C++-11 compatibility!
+
+AC_COMPILE_IFELSE([AC_LANG_SOURCE(
+  [[#include <exception>
+    [[noreturn]] static void foo(void);
+    static void foo(void)
+    { throw std::exception();
+    }]])],
+  has_noreturn="yes",
+  has_noreturn="no")
+
+AC_MSG_NOTICE([noreturn = $has_noreturn])
+
+if test "x$has_noreturn" = "xyes"
+then
+  AC_DEFINE([NORETURN], [[[[noreturn]]]], [C++-11 attributes available?])
+else
+  AC_DEFINE([NORETURN], [[/* noreturn */]], [C++-11 attributes available?])
+fi
+
+AC_COMPUTE_INT(maxalign, alignof(std::max_align_t), [#include <cstddef>],
+               maxalign="0")
+if test "$maxalign" = "0"
+then
+# Any "good enough" c++ compiler will not trigger this fragment.
+  AC_COMPUTE_INT(maxalign, alignof(double), [#include <cstddef>],
+    AC_MSG_ERROR([Unable to get alignment of std::max_align_t]))
+fi
+
+# I will expect that malloc and new will return blocks of memory
+# aligned at least as per maxalign... and I require that it be at least
+# 8 so that I have 3 low bits for use as tags. In reality I fully expect
+# it to be 16 on most if not all 64-bit systems. The test here is in case
+# somebody tries a build on a system where everything can be placed at
+# arbitrary byte boundaries and hence where malloc (and friends) feel
+# entitles to return values that are not aligned at all.
+
+if test $maxalign -lt 8
+then
+  AC_MSG_ERROR([max_align_t must be at least 8 for CSL to work])
 fi
 
 # I have alternative ways of doing things on Windows and Macintosh, but
@@ -700,6 +893,20 @@ then
   AC_MSG_NOTICE([rdynamic=$rdynamic_available])
 fi
 
+# With g++ I can ask the compiler to avoid trying to colour diagnostics.
+# I find this very helpful when I collect a log of a compilation, because
+# the colouring leads to many embedded control characters ending up left in
+# the log file. Some people may have alternative work flows and so will
+# want to comment out this adjustment.
+OLDCPPFLAGS="$CPPFLAGS"
+CPPFLAGS="$CPPFLAGS -fno-diagnostic-color"
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]],
+                                [[printf("\n");]])],
+  [],
+  [CPPFLAGS="$OLDCPPFLAGS"])
+AC_MSG_NOTICE([CPPFLAGS now = $CPPFLAGS])
+
+
 case $host in
 i386* | i486* | i586* | i686*)
 # On 32-bit Intel-style machines I will try to build using gcc options
@@ -731,7 +938,7 @@ i386* | i486* | i586* | i686*)
    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]],
                                    [[printf("\n");]])],
      [sse2math_available="yes"],
-     [CPPFLAGS="$OLDLDFLAGS"
+     [CPPFLAGS="$OLDCPPFLAGS"
      sse2math_available="no"])
    AC_MSG_NOTICE([SSE math status = $sse2math_available])
    ;;
@@ -876,8 +1083,8 @@ then
           freetype_libs=`$FREETYPE_CONFIG --libs`
           XLIBS="$XLIBS $freetype_libs"
           xft_found="yes"
-          AC_CHECK_LIB(fontconfig, FcConfigCreate)
-          AC_CHECK_LIB(Xft, XftFontOpen,,[xft_found="no"])
+          AC_SEARCH_LIBS([FcConfigCreate], [fontconfig])
+          AC_SEARCH_LIBS([XftFontOpen], [Xft],,[xft_found="no"])
           AC_CHECK_HEADER(X11/Xft/Xft.h,,[xft_found="no"])
           if test "$xft_found" = "yes"
           then
@@ -887,8 +1094,8 @@ then
         else
 # Now a search without the benefit of helper tools.
           xft_found="yes"
-          AC_CHECK_LIB(fontconfig, FcConfigCreate)
-          AC_CHECK_LIB(Xft, XftFontOpen,,[xft_found="no"])
+          AC_SEARCH_LIBS([FcConfigCreate], [fontconfig])
+          AC_SEARCH_LIBS([XftFontOpen], [Xft],,[xft_found="no"])
           AC_CHECK_HEADER(X11/Xft/Xft.h,,[xft_found="no"])
           if test "$xft_found" = "yes"
           then
@@ -904,8 +1111,8 @@ then
   then
 # Now a search without the benefit of helper tools.
     xft_found="yes"
-    AC_CHECK_LIB(fontconfig, FcConfigCreate)
-    AC_CHECK_LIB(Xft, XftFontOpen,,[xft_found="no"])
+    AC_SEARCH_LIBS([FcConfigCreate], [fontconfig])
+    AC_SEARCH_LIBS([XftFontOpen], [Xft],,[xft_found="no"])
     AC_CHECK_HEADER(X11/Xft/Xft.h,,[xft_found="no"])
     if test "$xft_found" = "yes"
     then
@@ -916,20 +1123,6 @@ fi
 
 # find command to do best approx to "ln -s" and set LN_S		
 AC_PROG_LN_S
-
-# Building (experimental) version that has a JIT?
-AC_MSG_CHECKING(for JIT support)
-AC_ARG_ENABLE(jit,
-  AC_HELP_STRING([--enable-jit],
-                 [build in experimental JIT]),
-  [],
-  [enable_jit="no"])
-AC_MSG_RESULT([$enable_jit])
-
-if test "x$enable_jit" = "xyes"
-then
-  AC_DEFINE(JIT, [1], [True if we are building with a JIT])
-fi
 
 # Static linking wanted?
 # NOTE that at present I only do anything about this if compiling with "gcc"
@@ -943,7 +1136,7 @@ AC_ARG_ENABLE(static,
   [enable_static="no"])
 AC_MSG_RESULT([$enable_static])
 
-# In lots of cases I will be using gcc. In that case I will use -O2 for
+# In lots of cases I will be using gcc. In that case I will use -O3 for
 # release code, but -O0 when debugging. I also stick in -Wall so I get
 # loads of comments about code style etc. For other C compilers I do
 # not set any optimisation flags but I do expect "-g" to be available
@@ -960,12 +1153,15 @@ AC_MSG_RESULT([$enable_static])
 # though it hits performance a little. Furthermore in 2008 I found that
 # some things behaved in ways I did not understand with "-O1 -g" hence I
 # drop back to "-O0 -g".
-#
+# Now in 2016 I am moving back to -O3 for production use, but will remain
+# with a very conservative -O0 for debugging builds. Please note that these
+# settings are applied if the compiler is detected as gcc. Also note that
+# I may try to disable optimisations that exploit the strict aliasing rules.
 
 LOWOPT="-O0"
 if test "x$HIGHOPT" = "x"
 then
-  HIGHOPT="-O2"
+  HIGHOPT="-O3"
 fi
 
 case $CC in
@@ -991,27 +1187,30 @@ fi
 
 if test "x$GCC" = "xyes"
 then
+# At one stage I was concerned about "strict aliasing" so disabled the
+# exploitation of it. It still seems delicate in places, but experience is
+# now that enough works that I will allow g++ to optimise enthusiastically!
+  NSA=
+# NSA="-fno-strict-aliasing"
   if test "x$enable_debug" = "xyes"
   then
-# If only to see how many people get upset, I will put "-pg" in the command
-# line if debugging is requested. For gcc (at least on many platforms) this
+# I could put "-pg" in option list. For gcc (at least on many platforms) this
 # will enabling profiling so that "gprof" can be used after a run to observe
-# where theer were hot-spots. If I get keen I will put in extra tests here to
+# where there were hot-spots. If I get keen I will put in extra tests here to
 # check if the "-pg" option is at least acceptable to the compiler... but
-# for now it is unconditional based on a belief that those who specify
-# --enable-debug will be experienced enough to sort out any mess that could
-# arise. Beware: the initial release of cygwin-64 seems to fail if this is
-# used... but I will leave people to adjust for that manually.
-    PROFILE="-pg"
-#   PROFILE=""
-    CFLAGS="${CFLAGS} -fno-strict-aliasing ${LOWOPT} -g ${PROFILE} -DDEBUG=1 -Wall"
-    CXXFLAGS="${CXXFLAGS} -fno-strict-aliasing ${LOWOPT} -g ${PROFILE} -DDEBUG=1 -Wall"
-    DLL_CFLAGS="${DLL_CFLAGS} -fno-strict-aliasing ${LOWOPT} -g ${PROFILE} -DDEBUG=1 -Wall"
+# for now it is something that one puts in by manually editing this file or
+# the eventual Makefile.
+#
+#   PROFILE="-pg"
+    PROFILE=""
+    CFLAGS="${CFLAGS} ${NSA} ${LOWOPT} -g ${PROFILE} -DDEBUG=1 -Wall"
+    CXXFLAGS="${CXXFLAGS} ${NSA} ${LOWOPT} -g ${PROFILE} -DDEBUG=1 -Wall"
+    DLL_CFLAGS="${DLL_CFLAGS} ${NSA} ${LOWOPT} -g ${PROFILE} -DDEBUG=1 -Wall"
     LDFLAGS="${LDFLAGS} -g ${PROFILE}"
   else
-    CFLAGS="$CFLAGS -fno-strict-aliasing ${HIGHOPT} -Wall"
-    CXXFLAGS="$CXXFLAGS -fno-strict-aliasing ${HIGHOPT} -Wall"
-    DLL_CFLAGS="${DLL_CFLAGS} -fno-strict-aliasing ${HIGHOPT}"
+    CFLAGS="$CFLAGS ${NSA} ${HIGHOPT} -Wall"
+    CXXFLAGS="$CXXFLAGS ${NSA} ${HIGHOPT} -Wall"
+    DLL_CFLAGS="${DLL_CFLAGS} ${NSA} ${HIGHOPT}"
   fi
   if test "x$enable_static" = "xyes"
   then
@@ -1019,12 +1218,6 @@ then
     AC_MSG_NOTICE([including -static in linker flags])
   fi
 else
-#
-# BEWARE any other C compilers that take an enthusiastic view on Strict
-# Aliasing! It causes real problems with the way that Lisp data is mapped onto
-# machine resources. Actually my current reading of the standard makes it feel
-# perhaps less horrid than I had at one stage thought...
-# I am 
   if test "x$enable_debug" = "xyes"
   then
     CFLAGS="${CFLAGS} -g -DDEBUG=1"
@@ -1037,13 +1230,13 @@ fi
 # On at least some systems static linking against X11 needs -ldl
 # Also I will use dlopen (and friends) for dynamic loading of stuff
 # compiled via C.
-AC_CHECK_LIB(dl, dlopen)
+AC_SEARCH_LIBS([dlopen], [dl])
 
 # Fox 1.6 seems to use nanosleep in FXThread and on some systems at least
 # the means I must link against librt.
-AC_CHECK_LIB(rt, clock_nanosleep)
+AC_SEARCH_LIBS([clock_nanosleep], [rt])
 
-AC_CHECK_LIB(pthread, pthread_create)
+AC_SEARCH_LIBS([pthread_create], [pthread])
 
 if test "x$with_gui" != "xno"
 then
@@ -1068,12 +1261,14 @@ if test "x$windows_build" != "xyes" || test "x$with_cygwin" = "xyes"
 then
   AC_CHECK_HEADERS(termios.h sys/ioctl.h)
 
+  if test -d /usr/local/include/ncurses
+  then
+    CPPFLAGS="$CPPFLAGS -I/usr/local/include/ncurses"
+  fi
+
   AC_CHECK_HEADERS(curses.h ncurses.h)
 
   AC_MSG_NOTICE([curses=$HAVE_CURSES_H ncurses=$HAVE_NCURSES_H])
-
-  AC_CHECK_LIB(curses, tgetent, [],
-    [AC_CHECK_LIB(ncurses, tgetent)])
 
 # There is a misery here! "term.h" (on some machines) needs curses.h
 # included first (typically to define "bool" for it).
@@ -1094,6 +1289,37 @@ then
       #endif
       #endif])
 
+# I have come across a platform where the curses libraries must be fetched
+# from /usr/local/lib. I am trying to deal with this in a way where special
+# treatment will only be applied if (n)curses can not be found in the usual
+# way.
+  OLIBS="$LIBS"
+  LIBS="$OLIBS -lncurses"
+  AC_LINK_IFELSE(
+    [AC_LANG_SOURCE([#include <ncurses.h>
+       #include <term.h>
+       int main()
+       {  (void)tgetent(NULL, "xterm");
+          return 0;
+       } ])],
+    [AC_MSG_NOTICE([tgetent found in ncurses])],
+    [AC_MSG_NOTICE([tgetent NOT found in ncurses])
+     LIBS="$OLIBS -lcurses"
+     AC_LINK_IFELSE(
+       [AC_LANG_SOURCE([#include <curses.h>
+          #include <term.h>
+          int main()
+          {  (void)tgetent(NULL, "xterm");
+             return 0;
+          } ])],
+       [AC_MSG_NOTICE([tgetent found in curses])],
+       [AC_MSG_NOTICE([tgetent NOT found in curses])
+        LIBS="$OLIBS"
+        LDFLAGS="$LDFLAGS -L/usr/local/lib"
+        AC_SEARCH_LIBS([tgetent], [ncurses curses])
+       ])
+    ])
+
   AC_CHECK_FUNCS([tgetent tputs])
 
 # Now I have access to some terminfo support. I would like to know if
@@ -1102,6 +1328,37 @@ then
   AC_CHECK_FUNCS(cfmakeraw)
 
 fi
+
+
+AC_MSG_CHECKING([for __builtin_clz])
+AC_LINK_IFELSE([AC_LANG_PROGRAM(,
+                return ( __builtin_clz(0x10000u) == 15) ? 1 : 0)],
+[have_builtin_clz=yes
+ AC_MSG_RESULT([yes])],
+[have_builtin_clz=no
+ AC_MSG_RESULT([no])])
+if test x$have_builtin_clz = xyes
+then
+  AC_DEFINE([HAVE___BUILTIN_CLZ], [1],
+            [Define to 1 if the compiler support __builtin_clz.])
+fi
+
+AC_MSG_CHECKING([for __builtin_ctz])
+AC_LINK_IFELSE([AC_LANG_PROGRAM(,
+                return ( __builtin_ctz(0x10000u) == 16) ? 1 : 0)],
+[have_builtin_ctz=yes
+ AC_MSG_RESULT([yes])],
+[have_builtin_ctz=no
+ AC_MSG_RESULT([no])])
+if test x$have_builtin_ctz = xyes
+then
+  AC_DEFINE([HAVE___BUILTIN_CTZ], [1],
+            [Define to 1 if the compiler support __builtin_ctz.])
+fi
+
+# These days I want zlib to do the compression I want.
+AC_CHECK_HEADERS(zlib.h)
+AC_SEARCH_LIBS([deflate], [z])
 
 # Some platforms appear to require the Xcursor library. The next line
 # should arrange that it gets scanned if it is available.
@@ -1114,9 +1371,9 @@ if test "x$with_gui" != "xno" &&
    (test "x$windows_build" != "xyes" ||
      test "x$with_cygwin" = "xyes")
 then
-  AC_SEARCH_LIBS(XRenderCreateCursor, Xrender)
-  AC_SEARCH_LIBS(XcursorImageCreate, Xcursor)
-  AC_SEARCH_LIBS(XRRQueryVersion, Xrandr)
+  AC_SEARCH_LIBS([XRenderCreateCursor], [Xrender])
+  AC_SEARCH_LIBS([XcursorImageCreate], [Xcursor])
+  AC_SEARCH_LIBS([XRRQueryVersion], [Xrandr])
 fi
 
 # Checks for header files.
@@ -1124,16 +1381,12 @@ AC_HEADER_DIRENT
 AC_HEADER_SYS_WAIT
 
 AC_CHECK_HEADER([stdint.h],
-                [stdint_header=y
-                 AC_DEFINE(HAVE_STDINT_H, 1)],
-                [stdint_header=n])
-AC_MSG_NOTICE([stdint_header=$stdint_header])
+                [],
+                [AC_MSG_ERROR([header file <stdint.h> needed])])
 
 AC_CHECK_HEADER([inttypes.h],
-                [inttypes_header=y
-                 AC_DEFINE(HAVE_INTTYPES_H, 1)],
-                [inttypes_header=n])
-AC_MSG_NOTICE([inttypes_header=$inttypes_header])
+                [],
+                [AC_MSG_ERROR([header file <inttypes.h> needed])])
 
 AC_CHECK_HEADERS([complex.h])
 
@@ -1159,57 +1412,39 @@ AC_CHECK_TYPES([struct timeval], [], [],
     #include <sys/time.h>
     #endif])
 
+AC_CHECK_TYPES([struct sigaction], [], [],
+   [#ifdef HAVE_SIGNAL_H
+    #include <signal.h>
+    #endif])
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STAT
 AC_C_CONST
 AC_STRUCT_TM
 AC_C_VOLATILE
 
-AC_CHECK_TYPES([int8_t,int16_t,int32_t,int64_t,intptr_t], [], [],
-   [#ifdef HAVE_STDINT_H
-    #include <stdint.h>
-    #endif])
-AC_CHECK_TYPES([uint8_t,uint16_t,uint32_t,uint64_t,uintptr_t], [], [],
-   [#ifdef HAVE_STDINT_H
-    #include <stdint.h>
-    #endif])
-AC_CHECK_TYPES([u_int8_t,u_int16_t,u_int32_t,u_int64_t,u_intptr_t], [], [],
-   [#ifdef HAVE_STDINT_H
-    #include <stdint.h>
-    #endif])
 AC_CHECK_TYPES([complex double], [], [],
    [#ifdef HAVE_COMPLEX_H
     #include <complex.h>
     #endif])
 
-# With luck the above types from newer C standards will be available. If
-# they are I can rely on them an I then do not need to worry about
-# the sized of the older-style native types such as "long". And for
-# cross compilation and multi-architecture builds it can be delicate to
-# work out the size of types at configure time! But I will do so now and
-# use what I find as a fall-back for the unusual case when intptr_t is not
-# available. In that case I use these measurements just once to
-# define my own versions of int32_t etc etc.
+# On SOME platforms gcc (and clang) support a type "__int128". In particular
+# it is available on 64-bits Intel/AMD platforms, which are one of the
+# most common situations and hence one where using the hardware support
+# for multiplication and division here can be good.
 #
-# Note that if <stdint.h> is available, which should really almost always
-# be the case now, I do NOT do anything here.
+AC_CHECK_TYPES([__int128,unsigned __int128])
 
-if test "x$stdint_header" != "xy"
-then
-  AC_MSG_NOTICE([Falling back to finding datatype sizes at configure time.])
-  AC_CHECK_SIZEOF(void *)
-  AC_CHECK_SIZEOF(short int)
-  AC_CHECK_SIZEOF(int)
-  AC_CHECK_SIZEOF(long)
-  AC_CHECK_SIZEOF(long long)
-fi
+# I would view the following as a better names for an 128-bit integer type and
+# will map "unsigned __int128" etc onto it when relevant.
+AC_CHECK_TYPES([int128_t,uint128_t])
 
 AC_CHECK_SIZEOF(wchar_t)
 
 AC_CHECK_TYPES([socklen_t],[],[],[#include <sys/socket.h>])
 
-AC_CHECK_LIB(socket, socket)
-AC_CHECK_LIB(nsl, gethostbyname)
+AC_SEARCH_LIBS([socket], [socket])
+AC_SEARCH_LIBS([gethostbyname], [nsl])
 
 # Checks for library functions.
 AC_FUNC_CLOSEDIR_VOID
@@ -1377,25 +1612,22 @@ fi
 
 if test "x$macintosh_build" = "xyes"
 then
-# 10.0  Cheetah  )
-# 10.1  Puma     )
-# 10.2  Jaguar   ) I will not support these at all any more
-# 10.3  Panther  )
-# 10.4  Tiger    )
-# 10.5  Leopard  )
-# 10.6  Snow Leopard
-# 10.7  Lion
-# 10.8  Mountain Lion   This is the oldest version I will worry about,
-#                       and actually I am in the process of stopping
-#                       thinking about anything earlier than Yosemite.
-# 10.9  Mavericks       It seems that I may NEED to specify this as the
-#                       oldest supported platform, because changes that
-#                       Apple made that are triggered by (merely) setting
-#                       an earlier deployment target appear to cause trouble.
-# 10.10 Yosemite        My test machine runs this.
-# 10.11 El Capitan     ... I will now be moving to test on this
+# 10.0  Cheetah       )
+# 10.1  Puma          )
+# 10.2  Jaguar        ) I will not support these at all any more
+# 10.3  Panther       )
+# 10.4  Tiger         )
+# 10.5  Leopard       )
+# 10.6  Snow Leopard  )
+# 10.7  Lion          )
+# 10.8  Mountain Lion )
+# 10.9  Mavericks     )
+# 10.10 Yosemite       Now the oldest deployment target I support
+# 10.11 El Capitan
+# 10.12 Sierra
+# 10.13 High Sierra    Now the version I build and test on.
 
-# Well now that 10.11 has been released I will always target
+# Well now that 10.13 has been released I will always target
 # 10.10 and support for earlier versions is no longer guaranteed. I
 # take this rather agressive stance because my experience is that Apple
 # follow a line that old versions of anything can not be expected to work.
@@ -1409,25 +1641,7 @@ then
   CXX="$ENVP $CXX"
 # The eccentric code here insists that I use the "macports" version
 # of many libraries and it links in the .a files not the .dyld ones so
-# that the resulting executable is easier to distribute. At present
-# fontconfig seems to be problems in that macports only generates a
-# .dylib version not a .a one.
-# To cope with that - on my development machine - I found the fontconfig
-# sources where macports had fetched them, went "./configure --enable-static"
-# and built a libfontconfig.a, which I then copied back into /opt/local/lib.
-# The nad news is that me doing that means that ANYBODY building on a
-# Macintosh will need to do the same, so I will put a script in csl/cslbase
-# that can try to do that for you. But people will need to run that by hand
-# before they can build Reduce.
-#
-# I believe an alternative scheme would be to icnlude fontconfig in a
-# private custom framework to be included within the application bundle,
-# but at present the explanations and documenattion about how to achieve that
-# seem denser than I am willing to confront. Perhaps some Macintosh
-# enthusiast can improve on this. But building binaries that can not
-# be moved across to other computers that do not have macports installed
-# seems to me to be quite unsatisfactory!
-#
+# that the resulting executable is easier to distribute.
 # Note that all these libraries on my Macintosh have been compiled from
 # the source files that "macports" provides without me making any changes.
 # So relevant associated source code can be obtained from the macports
@@ -1462,6 +1676,7 @@ then
       $LL/libiconv.a \
       $LL/libXft.a \
       $LL/libfontconfig.a \
+      $LL/libintl.a \
       $LL/libexpat.a \
       -lpthread \
       -ldl"
@@ -1472,6 +1687,12 @@ then
   else
 # This is to try to force linking against a system-provided version.
     LDFLAGS="-L/usr/lib -lcurses $LDFLAGS"
+    LL=/opt/local/lib
+    LIBS="$LL/libz.a \
+      $LL/libbz2.a \
+      $LL/libiconv.a \
+      -lpthread \
+      -ldl"
   fi  
 fi
 
@@ -1487,6 +1708,77 @@ fi
 
 AC_SUBST(HOST)
 HOST="$host"
+
+# I really need an absolute path to the cyg32 or cyg64 utility, and at one
+# stage I fell into a trap that I could just use $abs_srcdir here, but I
+# can not.
+
+LOCALCYG=""
+CYG32=""
+CYG64=""
+AC_SUBST(LOCALCYG)
+AC_SUBST(CYG32)
+AC_SUBST(CYG64)
+
+if test "x$exeext" = "xyes"
+then
+  absolute_cyg32=`pwd -P`/cyg32
+  AC_SUBST(absolute_cyg32)
+  i686-w64-mingw32-g++ -O3 -DFORCE32 $srcdir/other-cygwin.cpp -static -o $absolute_cyg32
+  i686-w64-mingw32-strip $absolute_cyg32
+  absolute_cyg64=`pwd -P`/cyg64
+  AC_SUBST(absolute_cyg64)
+  i686-w64-mingw32-g++ -O3 -DFORCE64 $srcdir/other-cygwin.cpp -static -o $absolute_cyg64
+  i686-w64-mingw32-strip $absolute_cyg64
+  CYG32=$absolute_cyg32
+  CYG64=$absolute_cyg64
+fi
+
+if test "x$with_cygwin" = "xyes"
+then
+
+  if test "x$cyg32" = "xyes"
+  then
+    CC="\$(USE_CORRECT_CYGWIN) $CC"
+    CPP="\$(USE_CORRECT_CYGWIN) $CPP"
+    CXX="\$(USE_CORRECT_CYGWIN) $CXX"
+    CXXCPP="\$(USE_CORRECT_CYGWIN) $CXXCPP"
+    STRIP="\$(USE_CORRECT_CYGWIN) $STRIP"
+    RANLIB="\$(USE_CORRECT_CYGWIN) $RANLIB"
+    LOCALCYG="$absolute_cyg32"
+  fi
+
+  if test "x$cyg64" = "xyes"
+  then
+    CC="\$(USE_CORRECT_CYGWIN) $CC"
+    CPP="\$(USE_CORRECT_CYGWIN) $CPP"
+    CXX="\$(USE_CORRECT_CYGWIN) $CXX"
+    CXXCPP="\$(USE_CORRECT_CYGWIN) $CXXPP"
+    STRIP="\$(USE_CORRECT_CYGWIN) $STRIP"
+    RANLIB="\$(USE_CORRECT_CYGWIN) $RANLIB"
+    LOCALCYG="$absolute_cyg64"
+  fi
+fi
+
+AC_SUBST(CYGWIN_FLAVOUR)
+if test "x$cyg64" = "xyes"
+then
+  CYGWIN_FLAVOUR="x86_64"
+elif test "x$cyg32" = "xyes"
+then
+  CYGWIN_FLAVOUR="i686"
+else
+  CYGWIN_FLAVOUR=""
+fi
+
+# The nexy couple are to do with making it possible to use GNU make
+# conditionals within Makefile.am
+AC_SUBST(ELSEWORD)
+ELSEWORD="else"
+AC_SUBST(ENDIFWORD)
+ENDIFWORD="endif"
+AC_SUBST(EQUALS)
+EQUALS="="
 
 #
 # Make some things available for conditional segments of a Makefile
@@ -1506,12 +1798,11 @@ AM_CONDITIONAL(fox,test "x$fox_present" = "xyes")
 AM_CONDITIONAL(wx,test "x$with_wx" != "xno")
 AM_CONDITIONAL(gui,test "x$fox_present" = "xyes" || test "x$with_wx" != "xno")
 AM_CONDITIONAL(experiment,test "x$enable_test" = "xyes")
-AM_CONDITIONAL(jit,test "x$enable_jit" = "xyes")
 AM_CONDITIONAL(canrun,test "x$can_run_executables" = "xyes")
 AM_CONDITIONAL(cygpath, test "x$CYGPATH" != "xno")
 AM_CONDITIONAL(valgrind, test "x$VALGRIND" = "xvalgrind")
 AM_CONDITIONAL(crlibm, test "x$with_crlibm" != "xno")
-AM_CONDITIONAL(boehm, test "x$with_boehm" != "xno")
+AM_CONDITIONAL(redfront, test "x$with_redfront" != "xno")
 
 AC_OUTPUT
 

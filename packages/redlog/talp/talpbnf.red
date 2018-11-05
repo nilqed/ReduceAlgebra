@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: talpbnf.red 3071 2015-04-03 18:03:39Z arthurcnorman $
 % ----------------------------------------------------------------------
 % Copyright (c) 2004-2009 Andreas Dolzmann and Thomas Sturm
 % ----------------------------------------------------------------------
@@ -31,7 +31,7 @@
 lisp <<
    fluid '(talp_bnf_rcsid!* talp_bnf_copyright!*);
    talp_bnf_rcsid!* := 
-      "$Id$";
+      "$Id: talpbnf.red 3071 2015-04-03 18:03:39Z arthurcnorman $";
    talp_bnf_copyright!* :=
       "Copyright (c) 2004-2009 by A. Dolzmann, T. Sturm"
 >>;

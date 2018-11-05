@@ -1,4 +1,4 @@
-// termdemo.cpp                       Copyright (C) 2004-2015 Codemist    
+// termdemo.cpp                            Copyright (C) 2004-2017 Codemist    
 
 
 //
@@ -9,7 +9,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -38,7 +38,7 @@
  *************************************************************************/
 
 
-// $Id$
+// $Id: termdemo.cpp 4170 2017-08-29 15:01:55Z arthurcnorman $
 
 //
 // To the extent that (a) it is convenient and (b) that I have completed
@@ -121,7 +121,7 @@
 // M    Newline              [Module load menu] ($!)
 // N    Next history         Search history next  (also down arrow key)
 // O    Discard output (!?)  [Font menu] (!)
-//++ I think I see redfront binding ALT-OQ to "line_help"???
+//++ I think I see redfront binding ALT-OQ to "line_help"?
 // P    Previous history     Search history prev  (also up arrow key)
 // Q    Resume output (!?)   -
 //++ I am not quite certain about the status of ^S and ^Q for pausing
@@ -129,7 +129,7 @@
 //++ of what I want to!
 // R    Redisplay            [Break menu] (!)
 //++ redfront appears to use ^R to start a backwards incremental search
-//++ which if it searchs history is something I trigger with ALT-P ???
+//++ which if it searchs history is something I trigger with ALT-P ?
 // S    Pause output (!?)    [Switch menu] (!)
 // T    Transpose chars      -
 // U    Undo($!)escape srch  Uppercase word

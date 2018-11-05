@@ -1,9 +1,9 @@
-// bytes.h                             Copyright (C) Codemist 1993-2016
+// bytes.h                                 Copyright (C) Codemist 1993-2018
 
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2018, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -31,7 +31,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: bytes.h 4684 2018-07-02 16:36:00Z arthurcnorman $
 
 
 //
@@ -120,7 +120,7 @@
 #define OP_CALL2                0x49
 #define OP_CALL2R               0x4a
 #define OP_CALL3                0x4b
-#define OP_CALLN                0x4c
+#define OP_CALL4                0x4c
 #define OP_CALL0_0              0x4d
 #define OP_CALL0_1              0x4e
 #define OP_CALL0_2              0x4f
@@ -146,7 +146,7 @@
 #define OP_APPLY3               0x63
 #define OP_APPLY4               0x64
 #define OP_JCALL                0x65
-#define OP_JCALLN               0x66
+#define OP_unused_now           0x66   // spare
 #define OP_JUMP                 0x67
 #define OP_JUMP_B               0x68
 #define OP_JUMP_L               0x69
@@ -299,7 +299,8 @@
 #define OP_ICASE                0xfc
 #define OP_FASTGET              0xfd
 #define OP_ONEVALUE             0xfe
-#define OP_SPARE                0xff
+
+#define OP_SPARE                0xff  // A single truly spare opcode!
 
 #endif // header_bytes_h
 

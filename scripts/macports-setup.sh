@@ -40,14 +40,21 @@
 # netpbm      Used for documentation
 # polyml      My experiment with an ML implementation of TeX layout
 #             algorithms needs this.
-# psutils,
+# psutils
 # subversion  a newer version than the one that comes with OSX/Xcode
 # TeX stuff   For building documentation
+# timeout     Handy for making some scripts more robust
 # vim         Some of you may want emacs (too?)
 # wget        For fetching stuff from elsewhere.
 
+# Let me again stress that some of the above are not shown because they
+# are themselves needed for building Reduce, but because they call in
+# dependencies that are. Some may be used when building optional or
+# experimental variants on Reduce.
+
 here="$0";while test -L "$here";do here=`ls -ld "$here" | sed 's/.*-> //'`;done
-here=`cd \`dirname "$here"\` ; pwd -P`
+here=`dirname "$here"`
+here=`cd "$here"; pwd -P`
 
 save=`pwd`
 cd $here
@@ -56,6 +63,13 @@ cd $here
 # If it is then it should have the following two lines present:
 #   macosx_deployment_target 10.10
 #   buildfromsource always
+# My check is CRUDE here and can be confused in both directions. For instance
+# a line "buildfromsource always" with a comment marker in front of it might
+# be spotted by "grep" here and accepted even though it is not operational,
+# and a line with one of these directive but with variant whitespace (eg a
+# a tab rather than a single space) between the words might not get noticed.
+# I suggest you review the file by hand! But having a very simple test here
+# is perhaps better than nothing.
 
 conf=/opt/local/etc/macports/macports.conf
 if ! test -f $conf || \
@@ -76,40 +90,74 @@ sudo port install          \
   autoconf213              \
   automake                 \
   bc                       \
+  ccache                   \
   dvipng                   \
   findutils                \
+  fontconfig               \
   fontforge                \
   gdb                      \
   git                      \
-  gnome-system-monitor     \
   gnuplot                  \
   gnutar                   \
   gzip                     \
+  libffi                   \
+  libiconv                 \
   md5sha1sum               \
   netpbm                   \
   pkgconfig                \
   polyml                   \
   psutils                  \
+  rsync                    \
   subversion               \
+  texinfo                  \
   texlive-fonts-extra      \
-  texlive-htmlxml          \
+  texlive-formats-extra    \
   texlive-latex-extra      \
+  texlive-plain-generic    \
+  texlive-bin-extra        \
+  texlive-fonts-recommended \
+  timeout                  \
   vim                      \
   wget
 
-# MacPorts installs most stuff nicely, but at the time of writing
-# (January 2016) it does not generate a libfontconfig.a and I want one.
-# This next step fixes up for that! It is ugly but expedient. It is
-# required so that the Reduce binary I create does not include dynamic
-# links against libraries that it needs to have in /opt/local/lib. If
-# it did depend on the dynamic libraries then the binary would not work
-# if copied to a different computer that dis not have all the MacPorts
-# stuff installed.
+# I like to have gnome-system-monitor installed, however there was a period
+# when it failed to build and install via macports. If I left it listed
+# amongst the long list of essentials this caused the entire install to
+# end up incomplete.
+# Because this utility is not essential for building CSL or Reduce I just
+# lift the attempt to install it into a separate use of port, so that if the
+# install there fails all that happens is that the system monitor does not
+# get installed, and all important parts of Reduce are supported.
+# If it mattered to me more I would take more agressive action, as I used
+# to for fontconf g (see below).
+# For this particular case https://trac.macports.org/ticket/56809 explains
+# that basically "sudo port install gstreamer-gst-plugins-base +x11" will
+# sort things out, but obviously changing from the default options on any
+# package is to be done with some caution, and equally obviously it is
+# probable that there will be adjustments made to all the macports
+# configuration files so that manual action is not needed - so I am not going
+# to automate my work-around, but just include this comment to encourage
+# anybody who at some stage in the future faces a similar-looking problem.
+# I wish to stress that with a collection of packages as large and as dynamic
+# as that supported by macports it is utterly reasonable that at times one or
+# more of the parts of it needs a bit of help before it builds. Just as
+# a copy of Reduce fetched from subversion will - from time to time - be in
+# need of some patching before it builds successfully!
 
-cd $here/../csl/cslbase
-./make-static-fontconfig-for-macintosh.sh
+sudo port install  gnome-system-monitor
 
-cd $save
+# In around January 2016 and for some while after that I found that macports
+# did not generate a libfontconfig.a while installing fontconfig, and that
+# caused pain when I wanted to build my code with static linking. As of
+# September 2018 this issue no longer applies, and that naturally-build
+# fontconfig does all that I need. However again as an illustration of the
+# sort of way in which potential issues can be worked around I leave the
+# work-around that I used to have available but commented out.
+
+#- cd $here/../csl/cslbase
+#- ./make-static-fontconfig-for-macintosh.sh
+#- cd $save
 
 exit 0
+
 # end of script

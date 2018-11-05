@@ -36,7 +36,7 @@ package uk.co.codemist.jlisp.core;
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: LispFunction.java 3141 2015-06-21 19:23:30Z arthurcnorman $
 
 import java.io.*;
 

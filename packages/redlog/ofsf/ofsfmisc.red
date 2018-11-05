@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2009 Andreas Dolzmann and Thomas Sturm
-% ----------------------------------------------------------------------
+module ofsfmisc;  % Ordered field standard form miscellaneous
+
+revision('ofsfmisc, "$Id: ofsfmisc.red 4057 2017-05-22 17:45:49Z thomas-sturm $");
+
+copyright('ofsfmisc, "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -27,16 +28,6 @@
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
-
-lisp <<
-   fluid '(ofsf_misc_rcsid!* ofsf_misc_copyright!*);
-   ofsf_misc_rcsid!* :=
-      "$Id$";
-   ofsf_misc_copyright!* := "Copyright (c) 1995-2009 A. Dolzmann and T. Sturm"
->>;
-
-module ofsfmisc;
-% Ordered field standard form miscellaneous. Submodule of [ofsf].
 
 procedure ofsf_termprint(u);
    % Ordered field standard form term print term. [u] is a SF. The
@@ -88,7 +79,7 @@ procedure ofsf_fctrat(atf);
    % . d_i),...)$, where $f$ is an irreducible SF and $d$ is a
    % positive integer. We have $l=c \prod_i g_i^{d_i}$ for an integer
    % $c$.
-   cdr fctrf ofsf_arg2l atf;
+   cdr sfto_fctrf ofsf_arg2l atf;
 
 procedure ofsf_negateat(f);
    % Ordered field standard form negate atomic formula. [f] is an
@@ -104,7 +95,7 @@ procedure ofsf_varlat(atform);
       vl := kernels ofsf_arg2l atform;
       if !*rlbrkcxk then
 	 vl := for each v in vl join
-	    rltools_lpvarl v;
+	    lto_lpvarl v;
       return vl
    end;
 
@@ -247,7 +238,7 @@ procedure ofsf_structat(at,al);
 
 procedure ofsf_ifstructat(at,al);
    begin scalar w,r;
-      w := fctrf ofsf_arg2l at;
+      w := sfto_fctrf ofsf_arg2l at;
       r := car w;
       for each x in cdr w do
 	 r := multf(r,expf(numr simp cdr assoc(car x,al),cdr x));
@@ -262,6 +253,7 @@ procedure ofsf_termmlat(at);
       {(ofsf_arg2l at . 1)};
 
 procedure ofsf_multsurep(at,atl);
+   % Multiplicative sure predicate.
    if ofsf_op at eq 'equal then
       ofsf_multsurep!-equal(at,atl)
    else
@@ -344,7 +336,7 @@ procedure ofsf_posprep(f,resfnchkp);
 procedure ofsf_posconds(l,resfnchkp);
    for each v in l join
       if resfnchkp and pairp v and ofsf_rxffn car v then
-	 for each w in list2set ofsf_lpvarl v collect
+	 for each w in lto_list2set ofsf_lpvarl v collect
 	    ofsf_0mk2('greaterp,!*k2f w)
       else
 	 {ofsf_0mk2('greaterp,!*k2f v)};
@@ -676,6 +668,8 @@ procedure ofsf_float2dn(x);
       return '!:dn!: . compress(for each d in w join if not (d eq '!.) then {d}) . -dotpos
    end;
 
+rl_provideService rl_dima = ofsf_dima;
+
 procedure ofsf_dima(ql, p);
    % [ql] is a list of SF, [p] is an SF.
    begin scalar w, xl, yl, pt, qtl, ptt, sys, sl0, sl; integer k, n;
@@ -788,7 +782,7 @@ procedure ofsf_dima!-pgauss(eql, vl);
 
 procedure ofsf!-dima!-sol2formulas(ptt, sl0, yl);
    begin scalar phi, xl, vl, sl, w;
-%%       xl := list2set for each s in sl0 join
+%%       xl := lto_list2set for each s in sl0 join
 %% 	 for each pr in cdr s join
 %%  	    nconc(kernels numr cdr pr, kernels denr cdr pr);
 %%       vl := reversip append(yl, xl);
@@ -801,6 +795,49 @@ procedure ofsf!-dima!-sol2formulas(ptt, sl0, yl);
       >>;
       return sl
    end;
+
+asserted procedure ofsf_symbolify(f: Formula): List2;
+   begin scalar w;
+      w := ofsf_symbolify1(f, 0, nil);
+      return car w . reversip caddr w
+   end;
+
+asserted procedure ofsf_symbolify1(f: Formula, c: Integer, subl: Alist): List3;
+   begin scalar op, w, nargl; integer c;
+      op := rl_op f;
+      if rl_tvalp op then
+ 	 return {f, c, subl};
+      if rl_quap op then <<
+	 {w, c, subl} := ofsf_symbolify1(rl_mat f, c, subl);
+    	 return {rl_mkq(op, rl_var f, w), c, subl}
+      >>;
+      if rl_boolp op then <<
+	 nargl := for each arg in rl_argn f collect <<
+	    {w, c, subl} := ofsf_symbolify1(arg, c, subl);
+	    w
+	 >>;
+	 return {rl_mkn(op, nargl), c, subl}
+      >>;
+      % [f] is an atomic formula.
+      {w, c, subl} := sfto_symbolify1(ofsf_arg2l f, 'i, c, subl);
+      return {ofsf_0mk2(op, w), c, subl}
+   end;
+
+rl_provideService rl_dump = ofsf_dump;
+
+asserted procedure ofsf_dump(f: Formula, format: Id, fn: String);
+   if format eq 'qepcad then
+      qepcad_dump(f, fn, function qepcad_printer)
+   else if format eq 'slfq then
+      qepcad_dump(f, fn, function(lambda(x); mathprint rl_prepfof x))
+   else if format eq 'mathematica then
+      qepcad_dump(f, fn, function mma_printer)
+   else if format eq 'dfg then
+      cl_dfgPrint(f, fn)
+   else if format eq 'smt2 then
+      cl_smt2Print(f, fn, nil)
+   else
+      rederr {"rl_dump: format", format, "not known for domain real"};
 
 endmodule;  % [ofsfmisc]
 

@@ -1,7 +1,15 @@
-// preserve.cpp                       Copyright (c) Codemist    , 1990-2016
+#ifndef ZLIB_DEMO
+// preserve.cpp                           Copyright (C) Codemist, 1990-2017
+#else
+// zlibdemo.cpp                           Copyright (C) Codemist, 1990-2017
+#endif
+
+// The file preserve.cpp can be preprocessed to generate zlibdemo.cpp,
+// which is why the header line above is "strange".
+
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -29,12 +37,23 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: preserve.cpp 4681 2018-06-30 17:01:01Z arthurcnorman $
+
+
+#ifndef ZLIB_DEMO
+
+// If this file is compiled with ZLIB_DEMO defined it will be a program that
+// can be used as either
+//     zlibdemo source dest
+// to compress the source file and create the destination one, or
+//     slibdemo -d source dest
+// to uncompress from source to dest.
+//
+// I will use "unifdef" to create the separate file zlibdemo.cpp from this one
+// but this is the master version...
 
 
 #include "headers.h"
-
-#include "version.h"
 
 //
 // The following extra includes should probably be hidden away elsewere
@@ -44,6 +63,7 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <zlib.h>
 
 #ifndef S_IFMT
 # ifdef __S_IFMT
@@ -71,40 +91,6 @@
 # endif
 #endif
 
-
-
-//
-// I perform file compression when making checkpoint images.
-// This is achieved by having procedure Cfwrite and Cfread which
-// are much like fwrite and fread but which are entitled to use a
-// squashed format on the external medium.  It is fairly important that
-// Cfread should be reasonably fast - Cfwrite is just used by (preserve)
-// and is not so critical.  The overall compression strategy implemented
-// here is a variant on LZ - the compressed file is made up of 12-bit
-// characters.  The first 256 codes stand for bytes present in the original
-// data, while the remaining codes get allocated to stand for pairs of
-// characters found adjacent in the data.  Initial experiments show that
-// the simple version of the idea implemented here squashes binary image
-// files to about 60% of their original size, while more elaborate
-// schemes can not do MUCH better.
-//
-
-//
-// int32_t compression_worth_while = 128;
-//
-// Well for many years the above compression probably made sense, and
-// the space saving in the image file was useful. However my judgement now
-// is that disc space has become so cheap that the slow-down introduced
-// by this is no longer a sensible cost to pay. I achieve faster PRESERVE
-// and slightly faster start-up by disabling compression. Now fortunately
-// when I originally implemented this I put a byte in an image that marked
-// how compressed it was, and merely altering the value of the variable
-// "compression_worth_while" I can create uncompressed images and even old
-// copies of the system will load them without trouble....
-//
-
-// The change I was making maybe breaks things on 64-bit machines?
-
 #ifdef BUILTIN_IMAGE
 
 //
@@ -117,142 +103,324 @@
 #include "image.cpp"
 #endif
 
-int32_t compression_worth_while = 128; // 256*1024*1024;
+#else // ZLIB_DEMO
 
-static void Cfwrite(const char *a, int32_t size)
+// Free-standing demonstration of how I use zlib to compress image files.
+
+#include <stdio.h>
+#include <zlib.h>
+#include <string.h>
+#include <assert.h>
+
+
+FILE *src, *dest;
+
+static int Igetc()
+{   return getc(src);
+}
+
+static bool Iputc(int ch)
+{   return (putc(ch, dest) == EOF);
+}
+
+bool Iread(void *buff, size_t size)
+// Reads (size) bytes into the indicated buffer.  Returns true if
+// if fails to read the expected number of bytes.
 {
-//
-// I keep a table showing how single 12-bit characters in the
-// compressed file map onto character-pairs in the original.  The
-// field "where" in this table is notionally a quite separate
-// array, used to give hashed access to compressed codes.  The table is
-// only needed at startup time and when I am dumping a checkpoint file -
-// in each case nothing else is one the stack, so since the table is
-// only 16/32 Kbytes or so I allocate it on the stack: this code is only
-// used when the stack is otherwise almost empty. Well actually
-// with the introduction of the (checkpoint) function that can be
-// used to dump images whatever else is going on the stack may not
-// be so empty after all. I will nevertheless continue to allocate
-// my buffers on it.
-//
-    unsigned char pair_c[CODESIZE];                     // 4 Kbytes
-    unsigned short int pair_prev[CODESIZE], pair_where[CODESIZE];
-    // 16 Kbytes
-    const unsigned char *p = (const unsigned char *)a;
-    int32_t n = size, i;
-    uint32_t prev1;
-    int hash, step, half;
-    unsigned int next_code, prev, c;
+    unsigned char *p = (unsigned char *)buff;
+    while (size > 0)
+    {   int c;
+        if ((c = Igetc()) == EOF) return true;
+        *p++ = c;
+        size--;
+    }
+    return false;
+}
 
-    if (size < compression_worth_while)
-    {   if (size != 0) Iwrite(a, size);
-        return;
-    }
+bool Iwrite(const void *buff, size_t size)
 //
-// Clear the hash table and indicate that the next code to allocate is 256
+// Writes (size) bytes from the given buffer, returning true if trouble.
 //
-    memset(pair_where, 0, sizeof(pair_where));
-    next_code = 256;
-//
-// I deal with the first two characters by hand since they can not be
-// subject to compression.  After these first two I can apply uniform
-// processing.
-//
-    prev = *p++;
-    c = *p++;
-//
-// The hash function I use is not especially scientific, but a couple of
-// exclusive-or operations and a shift will be cheap to compute, and I
-// can eventually expect prev to be fairly evenly distributed, while the
-// distribution of c depends a lot on what sort of data is in the file.
-//
-    hash = prev ^ c ^ (c << 5);
-    prev1 = ((uint32_t)hash << 20) | ((uint32_t)prev << 8) | c;
-    Iputc(prev >> 4);
-    half = prev & 0xf;
-    prev = c;
-    for (i=2; i<n; i++)
-    {   c = *p++;
-        hash = (prev ^ c ^ (c << 5)) & 0xfff;
-        step = (prev - (c << 4)) | 1;
-//
-// I compute a hash value, and also a secondary hash to be used when
-// making repeated probes.  Since the table has size that is a power of
-// two I will be OK provided by step is an odd number.  When I am finished
-// the table will have 4096-256 entries in it, i.e. it will be 94% full,
-// so access to it will take about 16 probes to discover that some
-// item is not present.
-//
-        for (;;)
-        {   int where = pair_where[hash];
-            if (where == 0) break;
-            if (pair_prev[where] == prev &&
-                pair_c[where] == c)
-            {   prev = where;       // squash 2 chars together
-                hash = -1;          // set a flag to indicate it was done
-                break;
-            }
-            hash = (hash + step) & 0xfff;
-        }
-        if (hash >= 0)
-        {
-//
-// There is a delicacy here - so that the uncompression process can
-// build its decoding tables on the fly I must delay entering items into
-// the compression tables by about one character of output.  This is
-// achieved by keeping details of what is to be inserted stored in the
-// variable "prev1", which is activated here.
-// When all 4096 codes have been allocated I just flush out the
-// table and start afresh. A scheme that started with 9-bit chunks and
-// grew up to use longer ones up to (say) 15 or 16 bits could give
-// significantly better compression, but at the cost of both more
-// workspace here and (what is more to the point) seriously extra
-// overhead picking bit-fields of variable length out of the stream of
-// bytes in files.
-//
-            if (next_code >= CODESIZE)
-            {   memset(pair_where, 0, sizeof(pair_where));
-                next_code = 256;
-            }
-            else
-            {   pair_where[prev1 >> 20] = (unsigned short int)next_code;
-                pair_prev[next_code] =
-                    (unsigned short int)(prev1 >> 8) & 0xfff;
-                pair_c[next_code] = (unsigned char)prev1;
-                next_code++;
-            }
-//
-// Now the mess of collecting 12 bit items and paching them into sequences
-// of 8 bit bytes.
-//
-            if (half < 0)
-            {   Iputc(prev >> 4);
-                half = prev & 0xf;
-            }
-            else
-            {   Iputc((half << 4) | ((prev >> 8) & 0xf));
-                Iputc(prev);
-                half = -1;
-            }
-//
-// record the information that the decoder will in due course see.
-//
-            prev1 = ((uint32_t)hash << 20) | ((uint32_t)prev << 8) | c;
-            prev = c;
-        }
-    }
-//
-// Now I have to flush out the final buffered character
-//
-    if (half < 0)
-    {   Iputc(prev >> 4);
-        Iputc(prev << 4);
-    }
-    else
-    {   Iputc((half << 4) | ((prev >> 8) & 0xf));
-        Iputc(prev);
+{   const unsigned char *p = (const unsigned char *)buff;
+    for (size_t i=0; i<size; i++)
+        if (Iputc(p[i])) return true;
+    return false;
+}
+
+#endif
+
+// I will use zlib to compress image files. The code here arranges to
+// buffer chunks of data for compressing or decompressing and adds
+// CRC checking so that corrupted data can be noticed.
+
+#define CHUNK ((size_t)16384)
+
+static z_stream strm;
+static unsigned char in[CHUNK];
+static unsigned char out[CHUNK];
+
+const char *Zreturncode(int rc)
+{   switch (rc)
+    {
+    default:
+        return "Unknown return code from zlib";
+    case Z_OK:
+        return "OK";
+    case Z_STREAM_END:
+        return "STREAM_END";
+    case Z_NEED_DICT:
+        return "NEED_DICT";
+    case Z_ERRNO:
+        return "ERRNO";
+    case Z_STREAM_ERROR:
+        return "STREAM_ERROR";
+    case Z_DATA_ERROR:
+        return "DATA_ERROR";
+    case Z_MEM_ERROR:
+        return "MEM_ERROR";
+    case Z_BUF_ERROR:
+        return "BUF_ERROR";
+    case Z_VERSION_ERROR:
+        return "VERSION_ERROR";
     }
 }
+
+bool def_init()
+{   strm.zalloc = Z_NULL;
+    strm.zfree = Z_NULL;
+    strm.opaque = Z_NULL;
+    int rc = deflateInit(&strm, Z_BEST_COMPRESSION);
+    strm.avail_in = 0;
+    return (rc != Z_OK);
+}
+
+// Zputc will return true if it FAILS.
+
+bool Zputc(int ch)
+{   in[strm.avail_in++] = ch;
+    if (strm.avail_in != CHUNK) return false; // Just buffer the data
+    strm.next_in = in;
+    do
+    {   strm.next_out = out;
+        strm.avail_out = CHUNK;
+// Here I know I have plenty of space in the output buffer, and furthermore
+// I should have CHUNK of data in the input buffer. So progress should be
+// possible and hence Z_BUF_ERROR should never be returned. Z_STREAM_END
+// can only arise if Z_FINISH had been passed as the flush input to deflate,
+// and Z_STREAM_ERROR is a genuine error...
+        int rc = deflate(&strm, Z_NO_FLUSH);
+        if (rc != Z_OK) return true;
+        unsigned int n = CHUNK - strm.avail_out;
+// Sometimes even though I have provided a whole chunk of input there
+// will not (yet) be any output available. I do not want to emit a block
+// of length zero both because that would be silly and because I use a
+// block-length of zero to signify end of stream.
+        if (n != 0)
+        {
+// Write the length of the block as 2 bytes.
+            if (Iputc(n >> 8)) return true;
+            if (Iputc(n)) return true;
+// Calculate and write a CRC for this block.
+            int crc_out = crc32(crc32(0, NULL, 0), out, n);
+            if (Iputc(crc_out>>24)) return true;
+            if (Iputc(crc_out>>16)) return true;
+            if (Iputc(crc_out>>8)) return true;
+            if (Iputc(crc_out)) return true;
+            if (Iwrite(out, n)) return true;
+        }
+// I will keep going until I have used up all this input block.
+    } while (strm.avail_in != 0);
+    return false;
+}
+
+bool def_finish()
+{   do
+    {   strm.next_in = in;
+        strm.avail_out = CHUNK;
+        strm.next_out = out;
+        int rc;
+        if ((rc = deflate(&strm, Z_FINISH)) != Z_OK &&
+             rc != Z_STREAM_END) return true;
+        size_t n = CHUNK - strm.avail_out;
+        if (n != 0)
+        {   if (Iputc(n >> 8)) return true;
+            if (Iputc(n)) return true;
+            int crc_out = crc32(crc32(0, NULL, 0), out, n);
+            if (Iputc(crc_out>>24)) return true;
+            if (Iputc(crc_out>>16)) return true;
+            if (Iputc(crc_out>>8)) return true;
+            if (Iputc(crc_out)) return true;
+            if (Iwrite(out, n)) return true;
+        }
+    } while (strm.avail_out == 0);
+    int rc = deflateEnd(&strm);
+    if (rc != Z_OK) return true;
+    if (Iputc(0)) return true;  // Termination bytes
+    if (Iputc(0)) return true;
+    return false;
+}
+
+bool Zwrite(const void *b, size_t n)
+{   const char *c = (const char *)b;
+    while (n-- != 0) if (Zputc(*c++)) return true;
+    return false;
+}
+
+static size_t n_out;
+static unsigned char *p_out;
+static int z_eof;
+
+bool inf_init()
+{   strm.zalloc = Z_NULL;
+    strm.zfree = Z_NULL;
+    strm.opaque = Z_NULL;
+    n_out = 0;
+    p_out = out;
+    z_eof = 0;
+    int rc = inflateInit(&strm);
+    strm.avail_in = 0;
+    strm.next_in = in;
+    return (rc != Z_OK);
+}
+
+// Although the value of EOF on *many* systems will be -1, the standards do
+// not guarantee that. So for Zgetc() I will arrange that I explictly return
+// (-1) for end-of-file and error conditions, so that I can rely on that.
+
+int Zgetc()
+{   for (;;)
+    {   if (n_out != 0)    // Use byte from the current decompressed chunk.
+        {   n_out--;
+            return *p_out++;
+        }
+        if (z_eof != 0) return (z_eof = -1);
+// Here the zlib output buffer is empty. If the input buffer contains anything
+// at all I will just call inflate() again. 
+// I do not believe that inflate can ever leave input untouched in its input
+// buffer while there is space in the output buffer.
+        if (strm.avail_in == 0)
+        {
+// The compressed material is arrabnged in blocks. Each block starts with
+// a 2-byte length field.
+            int ch, n = Igetc();
+// If I get an end of file (or error) report when trying to read part of the
+// length information then the stream is corrupted, and I just return and end
+// of file marker. When I do so I set z_eof so that further calls to Zgetc()
+// will also return (-1).
+            if (n == EOF) return (z_eof = -1);
+            ch = Igetc();
+            if (ch == EOF) return (z_eof = -1);
+            n = (n << 8) | ch;
+// If the block-length is 0 we have reached the end of the stream. Because
+// I am trying to read data here I must have already emitted all the bytes
+// that could be generated from everything that had been seen earlier, so
+// I can return an end-of-file marker.
+            if (n == 0) return (z_eof = -1);
+// Following the 2-byte length there is a 4-byte CRC. Again I watch carefully
+// so that an EOF while trying to read this will be reported back to the
+// caller (just as and end of file condition).
+            int crc_needed = Igetc();
+            if (crc_needed == EOF) return (z_eof = -1);
+            for (int i=0; i<3; i++)
+            {   int w = Igetc();
+                if (w == EOF) return (z_eof = -1);
+                crc_needed = (crc_needed << 8) | w;
+            }
+// Now I read the number of bytes I have been told to expect. If I am not
+// able to read thet many it is an error.
+            if (Iread(in, n)) return (z_eof = -1);
+// Compute a CRC on the block just read and complain if it is not as
+// expected.
+            int crc = crc32(crc32(0, NULL, 0), in, n);
+            if (crc != crc_needed) return (z_eof = -1);
+// Set the zlib input buffer information so that this new block can be
+// processed. There will be at least 1 new byte of data!
+            strm.next_in = in;
+            strm.avail_in = n;
+        }
+        strm.next_out = out;
+        strm.avail_out = CHUNK;
+// Inflate whatever data is in the input buffer. I require that this EITHER
+// removes at least one byte from the input buffer OR puts at least one
+// byte in the output buffer, or that it return Z_STREAM_END. If it grabs
+// input then it will eventually empty the input buffer so more will be read.
+// Whenever it generates output that is offered to the caller.
+        int rc = inflate(&strm, Z_SYNC_FLUSH);
+// I check the return code and exit if something has gone wrong.
+        if (rc != Z_OK &&
+            rc != Z_STREAM_END &&
+            rc != Z_BUF_ERROR) return (z_eof = -1);
+        if (rc == Z_STREAM_END) z_eof = (-1);
+        p_out = out;
+        n_out = CHUNK - strm.avail_out;
+    }
+}
+
+bool Zread(void *b, size_t n)
+{   char *c = (char *)b;
+    while (n-- != 0)
+    {   int n = Zgetc();
+        if (n == -1) return true;
+        *c++ = n;
+    }
+    return false;
+}
+
+bool inf_finish()
+{   return (inflateEnd(&strm) != Z_OK);
+}
+
+#ifdef ZLIB_DEMO
+
+// compress or decompress from src to dest
+
+int main(int argc, char **argv)
+{
+// Check argument number and format. I expect either
+//      zlibdemo src compressed-dest
+// OR   zlibdemo -d compressed-src dest
+//
+    if (argc < 3 ||
+        (argc == 3 && strcmp(argv[1] , "-d") == 0) ||
+        (argc == 4 && strcmp(argv[1], "-d") != 0) ||
+        argc > 4)
+    {   fputs("Usage: zlibdemo [-d] source dest\n", stderr);
+        return 1;
+    }
+
+    if (argc == 3)
+    {   src = strcmp(argv[1], "-") == 0 ? stdin : fopen(argv[1], "r");
+        assert(src != NULL);
+        dest = fopen(argv[2], "wb");
+        assert(dest != NULL);
+        def_init();
+        int ch;
+        while ((ch = getc(src)) != EOF) Zputc(ch);
+        def_finish();
+        fclose(src);
+        fclose(dest);
+        return 0;
+     }
+
+    else
+    {   src = fopen(argv[2], "rb");
+        assert(src != NULL);
+        dest = strcmp(argv[3], "-") == 0 ? stdout : fopen(argv[3], "w");
+        assert(dest != NULL);
+        inf_init();
+        int ch;
+        while ((ch = Zgetc()) != -1) putc(ch, dest);
+        inf_finish();
+        fclose(src);
+        fclose(dest);
+        return 0;
+    }
+}
+
+// end of zlibdemo.cpp
+
+
+#else // ZLIB_DEMO
 
 //
 // These routines pack multiple binary files into one big one.  The
@@ -341,8 +509,7 @@ const unsigned char *binary_read_filep;
 #else
 FILE *binary_read_file;
 #endif
-static FILE *binary_write_file;
-static uint32_t subfile_checksum;
+FILE *binary_write_file;
 static long int read_bytes_remaining, write_bytes_written;
 directory *fasl_files[MAX_FASL_PATHS];
 
@@ -355,7 +522,7 @@ static directory *make_empty_directory(const char *name)
     d = (directory *) malloc(sizeof(directory) - sizeof(directory_entry));
     if (d == NULL) return &empty_directory;
     d->h.C = 'C'; d->h.S = MIDDLE_INITIAL; d->h.L = 'L';
-    d->h.version = IMAGE_FORMAT_VERSION | (SIXTY_FOUR_BIT ? 0x80 : 0);
+    d->h.version = IMAGE_FORMAT_VERSION;
     d->h.dirsize = 0;
     d->h.dirused = 0;
     d->h.dirext = 0;
@@ -385,7 +552,7 @@ static directory *make_pending_directory(const char *name, int pds)
     d = (directory *)malloc(n);
     if (d == NULL) return &empty_directory;
     d->h.C = 'C'; d->h.S = MIDDLE_INITIAL; d->h.L = 'L';
-    d->h.version = IMAGE_FORMAT_VERSION | (SIXTY_FOUR_BIT ? 0x80 : 0);
+    d->h.version = IMAGE_FORMAT_VERSION;
     d->h.dirsize = DIRECTORY_SIZE & 0xff;
     d->h.dirused = 0;
     d->h.dirext = (DIRECTORY_SIZE >> 4) & 0xf0;
@@ -409,7 +576,7 @@ static directory *make_native_directory(const char *shortname, const char *fulln
     d = (directory *)malloc(sizeof(directory) - sizeof(directory_entry));
     if (d == NULL) return &empty_directory;
     d->h.C = 'C'; d->h.S = MIDDLE_INITIAL; d->h.L = 'L';
-    d->h.version = IMAGE_FORMAT_VERSION | (SIXTY_FOUR_BIT ? 0x80 : 0);
+    d->h.version = IMAGE_FORMAT_VERSION;
     d->h.dirsize = DIRECTORY_SIZE & 0xff;
     d->h.dirused = 0;
     d->h.dirext = (DIRECTORY_SIZE >> 4) & 0xf0;
@@ -438,21 +605,7 @@ static void clear_entry(directory_entry *d)
 
 static bool version_moan(int v)
 {
-//
-// This code used to check the top bit (ie 0x80) of v to see if the
-// image was a 32 or 64-bit one, and it moaned if you tried to load
-// a 64-bit image on a 32-bit system. I am now working towards making
-// the system cross-load all possible image formats and so I have
-// removed that filter! Note that until I have completed the rest of the
-// rework you should expect to see either a disaster or at best a
-// message about a corrupt image if you provide one made using a different
-// word width to the machine you are using now.
-// That ought only to influence the format of major heap image dumps -
-// general compiled FASL modules ought not to be word-length sensitive.
-//
-    if ((v & 0x7f) == IMAGE_FORMAT_VERSION) return false;
-// This printing of a newline here lookes really odd to me!
-    term_printf("\n");
+    if (v == IMAGE_FORMAT_VERSION) return false;
     return true;
 }
 
@@ -582,7 +735,7 @@ directory *open_pds(const char *name, int mode)
             malloc(sizeof(directory)+(n-1)*sizeof(directory_entry));
         if (d == NULL) return &empty_directory;
         d->h.C = 'C'; d->h.S = MIDDLE_INITIAL; d->h.L = 'L';
-        d->h.version = IMAGE_FORMAT_VERSION | (SIXTY_FOUR_BIT ? 0x80 : 0);
+        d->h.version = IMAGE_FORMAT_VERSION;
         d->h.dirsize = (unsigned char)(n & 0xff);
         d->h.dirused = 0;
         d->h.dirext = (unsigned char)((n >> 4) & 0xf0);
@@ -642,7 +795,7 @@ static int unpending(directory *d)
     n = DIRECTORY_SIZE;      // Size for a directory
 // (the next bits were done when the pending directory was first created
 //  d->h.C = 'C'; d->h.S = MIDDLE_INITIAL; d->h.L = 'L';
-//  d->h.version = IMAGE_FORMAT_VERSION | (SIXTY_FOUR_BIT ? 0x80 : 0);
+//  d->h.version = IMAGE_FORMAT_VERSION;
 //  d->h.dirsize = n & 0xff;
 //  d->h.dirused = 0;
 //  d->h.dirext = (n >> 4) & 0xf0;
@@ -658,7 +811,7 @@ static int unpending(directory *d)
 }
 
 void Iinit(void)
-{   int i;
+{   size_t i;
     Istatus = I_INACTIVE;
     current_input_directory = NULL;
     current_output_entry = NULL;
@@ -679,76 +832,7 @@ void Iinit(void)
                                      i == output_directory ? PDS_OUTPUT :
                                      PDS_INPUT);
     }
-    CSL_MD5_Update((unsigned char *)"Copyright 2016 Codemist    ", 24);
 }
-
-void Icontext(Ihandle *where)
-//
-// This and the next are used so that reading from binary files can be
-// nested, as may be needed while loading fasl files. An Ihandle should
-// be viewed as an abstract handle on the input stream.  Beware however that
-// if input is from a regular Lisp stream (indicated by read_bytes_remaining
-// being negative) that standard_input is NOT saved here. Therefore in
-// some cases it needs to be stacked elsewhere. The reason I do not save
-// it here is that it is a Lisp_Object and needs garbage collection
-// protection, which is not easily provided here.
-//
-{   switch (where->status = Istatus)
-    {   case I_INACTIVE:
-            break;
-        case I_READING:
-#ifdef BUILTIN_IMAGE
-            where->f = (FILE *)reduce_image;
-            if (read_bytes_remaining >= 0) where->o = binary_read_filep - reduce_image;
-#else
-            where->f = binary_read_file;
-            if (read_bytes_remaining >= 0) where->o = ftell(binary_read_file);
-#endif
-            where->n = read_bytes_remaining;
-            where->chk = subfile_checksum;
-            where->nativedir = nativedir;
-            break;
-        case I_WRITING:
-            where->f = binary_write_file;
-            where->o = ftell(binary_write_file);
-            where->n = write_bytes_written;
-            where->chk = subfile_checksum;
-            where->nativedir = nativedir;
-            break;
-    }
-    Istatus = I_INACTIVE;
-}
-
-void Irestore_context(Ihandle x)
-{   switch (Istatus = x.status)
-    {   case I_INACTIVE:
-            return;
-        case I_READING:
-#ifdef BUILTIN_IMAGE
-            binary_read_filep = (const unsigned char *)x.f;;
-            read_bytes_remaining = x.n;
-            if (read_bytes_remaining >= 0) binary_read_filep += x.o;
-#else
-            binary_read_file = x.f;
-            read_bytes_remaining = x.n;
-            if (read_bytes_remaining >= 0) fseek(binary_read_file, x.o, SEEK_SET);
-#endif
-            subfile_checksum = x.chk;
-            nativedir = x.nativedir;
-            return;
-        case I_WRITING:
-            binary_write_file = x.f;
-            fseek(binary_write_file, x.o, SEEK_SET);
-            write_bytes_written = x.n;
-            subfile_checksum = x.chk;
-            nativedir = x.nativedir;
-            return;
-    }
-}
-
-#define IMAGE_CODE  (-1000)
-#define HELP_CODE   (-1001)
-#define BANNER_CODE (-1002)
 
 //
 // The code here was originally written to support module names up to
@@ -781,32 +865,27 @@ void Irestore_context(Ihandle x)
 // directory is pointing at the first part of a long name.
 // As a further minor usefulness here if I find a match the non-zero value I
 // return is the number of entries involved.
-// I will store native-compiled object code as well as my own bytecoded
-// stuff. For a module names xxx and architecture yyy I will store the
-// data under the name xxx/yyy taking the view that "/" is a character that
-// ought not to appear in the name of a module. That can mean I have (eg)
-// directory entries here for "compiler" (the byte-coded file),
-// "compiler/i386", "compiler/x86_64" and "compiler/win32" which would contain
-// object-files (*.dll or *.so) for Intel Linux, 64-bit Linux and Windows.
 //
 
-static int samename(const char *n1, directory *d, int j, int len)
+static int samename(const char *n1, directory *d, int j, size_t len)
 //
 // Compare the given names, given that n1 is of length len and n2 is
 // blank-padded to exactly name_size characters. The special cases
 // with n1 NULL allow len to encode what I am looking for.
 //
 {   const char *n2 = &d->d[j].D_name;
-    int i, n, recs;
+    size_t i, n, recs;
     if (len == IMAGE_CODE)
         return (memcmp(n2, "InitialImage", 12) == 0);
     if (len == HELP_CODE)
         return (memcmp(n2, "HelpDataFile", 12) == 0);
     if (len == BANNER_CODE)
         return (memcmp(n2, "Start-Banner", 12) == 0);
-    if (len < 0)
+    if ((intptr_t)len < 0)   // Hard code has never been fully supported
+                             // and the use of "negative length codes" for
+                             // using it is dodgy!
     {   char hard[16];
-        sprintf(hard, "HardCode<%.2x>", (-len) & 0xff);
+        sprintf(hard, "HardCode<%.2x>", (int)((-len) & 0xff));
         return (memcmp(n2, hard, 12) == 0);
     }
     if ((n2[11] & 0xff) > 0x80) return 0;
@@ -830,8 +909,8 @@ static int samename(const char *n1, directory *d, int j, int len)
     else return recs;
 }
 
-static void fasl_file_name(char *nn, directory *d, const char *name, int len)
-{   int np;
+static void fasl_file_name(char *nn, directory *d, const char *name, size_t len)
+{   size_t np;
     strcpy(nn, d->full_filename);
     np = strlen(nn);
 #ifdef WIN32
@@ -843,7 +922,8 @@ static void fasl_file_name(char *nn, directory *d, const char *name, int len)
     {   if (len == IMAGE_CODE) strcpy(&nn[np], "InitialImage");
         else if (len == HELP_CODE) strcpy(&nn[np], "HelpDataFile");
         else if (len == BANNER_CODE) strcpy(&nn[np], "Start-Banner");
-        else if (len < 0) sprintf(&nn[np], "HardCode-%.2x", (-len) & 0xff);
+        else if ((intptr_t)len < 0) sprintf(&nn[np], "HardCode-%.2x",
+                                            (int)((-len) & 0xff));
     }
     else
     {   memcpy(&nn[np], name, len);
@@ -852,8 +932,8 @@ static void fasl_file_name(char *nn, directory *d, const char *name, int len)
 }
 
 
-static bool open_input(directory *d, const char *name, int len,
-                          int32_t offset, int checked)
+static bool open_input(directory *d, const char *name, size_t len,
+                          size_t offset)
 //
 // Set up binary_read_file to access the given module, returning true
 // if it was not found in the given directory. I used to pass the
@@ -861,12 +941,9 @@ static bool open_input(directory *d, const char *name, int len,
 // to allow for long module names I am changing things so that these special
 // cases are indicated by passing down a NULL string for the name and giving
 // an associated length of -1 or -2 (resp).
-// If the file will have a checksum at its end then "checked" will be true
-// here.
 //
 {   int i;
     if (Istatus != I_INACTIVE || d == NULL) return true;
-    subfile_checksum = 0;
     nativedir = false;
     if (d->full_filename != NULL) // native directory mode
     {   char nn[LONGEST_LEGAL_FILENAME];
@@ -880,7 +957,6 @@ static bool open_input(directory *d, const char *name, int len,
         fseek(binary_read_file, 0L, SEEK_END);
         read_bytes_remaining = ftell(binary_read_file);
 #endif
-        if (checked) read_bytes_remaining -= 4;
 #ifdef BUILTIN_IMAGE
         binary_read_filep = reduce_image + offset;
 #else
@@ -931,8 +1007,7 @@ static bool open_input(directory *d, const char *name, int len,
 }
 
 void IreInit(void)
-{   CSL_MD5_Update((unsigned char *)"Copyright 2016 Codemist    ", 24);
-    CSL_MD5_Update((unsigned char *)"memory.u", 8);
+{
 }
 
 static int for_qsort(void const *aa, void const *bb)
@@ -990,7 +1065,6 @@ static directory *enlarge_directory(int current_size)
         firstlen = bits24(&first->D_size);
         newfirst = eofpos = bits32(d1->h.eof);
         f = d1->f;
-        firstlen += 4;  // Allow for the checksum
         while (firstlen >= (int32_t)sizeof(buffer))
         {   fseek(f, firstpos, SEEK_SET);
             if (fread(buffer, sizeof(buffer), 1, f) != 1) return NULL;
@@ -1028,7 +1102,7 @@ static directory *enlarge_directory(int current_size)
     return d1;
 }
 
-bool open_output(const char *name, int len)
+bool open_output(const char *name, size_t len)
 //
 // Set up binary_write_file to access the given module, returning true
 // if anything went wrong. Remember name==NULL for initial image & help
@@ -1065,7 +1139,6 @@ bool open_output(const char *name, int len)
         if (name==NULL && len==BANNER_CODE) return true;
         if (unpending(d)) return true;
     }
-    subfile_checksum = 0;
     current_output_directory = d;
     if (d->full_filename != NULL) // native directory mode
     {   char nn[LONGEST_LEGAL_FILENAME];
@@ -1112,7 +1185,7 @@ bool open_output(const char *name, int len)
             if (i == 0) Istatus = I_WRITING;
             else current_output_directory = NULL;
             if (name == NULL && len == IMAGE_CODE)
-                d->h.version = IMAGE_FORMAT_VERSION | (SIXTY_FOUR_BIT ? 0x80 : 0);
+                d->h.version = IMAGE_FORMAT_VERSION;
             return i;
         }
     }
@@ -1124,12 +1197,12 @@ bool open_output(const char *name, int len)
     if (len == IMAGE_CODE)
     {   name = "InitialImage";
         n = 1;
-        d->h.version = IMAGE_FORMAT_VERSION | (SIXTY_FOUR_BIT ? 0x80 : 0);
+        d->h.version = IMAGE_FORMAT_VERSION;
     }
     else if (len == HELP_CODE) name = "HelpDataFile", len = IMAGE_CODE, n = 1;
     else if (len == BANNER_CODE) name = "Start-Banner", len = IMAGE_CODE, n = 1;
-    else if (len < 0)
-    {   sprintf(hard, "HardCode<%.2x>", (-len) & 0xff);
+    else if ((intptr_t)len < 0)
+    {   sprintf(hard, "HardCode<%.2x>", (int)((-len) & 0xff));
         name = hard, len = IMAGE_CODE, n = 1;
     }
     else if (len <= 11) n = 1;
@@ -1150,7 +1223,7 @@ bool open_output(const char *name, int len)
         memcpy(&d->d[i].D_position, d->h.eof, 4);
     }
     else
-    {   int np;
+    {   size_t np;
         const char *p;
 //
 // First I will clear all the relevant fields to blanks.
@@ -1275,8 +1348,7 @@ static void list_one_library(LispObject oo, bool out_only)
 }
 
 void Ilist(void)
-{   LispObject nil = C_nil;
-    LispObject il = qvalue(input_libraries), w;
+{   LispObject il = qvalue(input_libraries), w;
     LispObject ol = qvalue(output_library);
     while (consp(il))
     {   w = qcar(il); il = qcdr(il);
@@ -1291,10 +1363,9 @@ static LispObject mods;
 
 static void collect_modules(const char *name, int why, long int size)
 {   int k = 0;
-    LispObject nil = C_nil, v;
+    LispObject v;
     char *p = (char *)&celt(boffo, 0);
     if (why != SCAN_FILE) return;
-    if (exception_pending()) return;
     push(mods);
     while (*name != 0) name++;
     while (*name != '/' && *name != '\\') name--;
@@ -1306,20 +1377,17 @@ static void collect_modules(const char *name, int why, long int size)
     if (strcmp(name, ".fasl") != 0) return;
     v = iintern(boffo, k, lisp_package, 0);
     pop(mods);
-    errexitv();
     mods = cons(v, mods);
-    errexitv();
 }
 
-LispObject Llibrary_members(LispObject nil, LispObject oo)
+LispObject Llibrary_members(LispObject env, LispObject oo)
 {   int i, j, k;
     directory *d = fasl_files[library_number(oo)];
-    LispObject v, r = C_nil;
+    LispObject v, r = nil;
     char *p;
     if (d->full_filename != NULL)
-    {   mods = C_nil;
+    {   mods = nil;
         scan_directory(d->full_filename, collect_modules);
-        errexit();
         return onevalue(mods);
     }
     for (j=0; j<get_dirused(d->h); j++)
@@ -1358,21 +1426,18 @@ LispObject Llibrary_members(LispObject nil, LispObject oo)
         push(r);
         v = iintern(boffo, k, lisp_package, 0);
         pop(r);
-        errexit();
         r = cons(v, r);
-        errexit();
     }
     return onevalue(r);
 }
 
-LispObject Llibrary_members0(LispObject nil, int nargs, ...)
+LispObject Llibrary_members0(LispObject env)
 //
 // This returns a list of the modules in the first library on the current
 // search path.
 //
 {   LispObject il = qvalue(input_libraries), w;
     LispObject ol = qvalue(output_library);
-    argcheck(nargs, 0, "library-members");
     while (consp(il))
     {   w = qcar(il); il = qcdr(il);
         if (!is_library(w)) continue;
@@ -1382,7 +1447,7 @@ LispObject Llibrary_members0(LispObject nil, int nargs, ...)
     else return onevalue(nil);
 }
 
-bool Imodulep(const char *name, int len, char *datestamp, int32_t *size,
+bool Imodulep(const char *name, size_t len, char *datestamp, size_t *size,
                  char *expanded_name)
 //
 // Hands back information about whether the given module exists, and
@@ -1390,9 +1455,6 @@ bool Imodulep(const char *name, int len, char *datestamp, int32_t *size,
 // that in Iopen.
 //
 {   int i;
-#ifdef COMMON
-    LispObject nil = C_nil;   // used in the consp test.
-#endif
     LispObject il = qvalue(input_libraries);
     while (consp(il))
     {   int j;
@@ -1435,7 +1497,7 @@ bool Imodulep(const char *name, int len, char *datestamp, int32_t *size,
                 if (name == NULL) sprintf(expanded_name,
                                               "%s%sInitialImage%s", n, p1, p2);
                 else sprintf(expanded_name,
-                                 "%s%s%.*s%s", n, p1, len, name, p2);
+                                 "%s%s%.*s%s", n, p1, (int)len, name, p2);
                 return false;
             }
         }
@@ -1445,7 +1507,7 @@ bool Imodulep(const char *name, int len, char *datestamp, int32_t *size,
 
 directory *rootDirectory = NULL;
 
-bool IopenRoot(char *expanded_name, int hard, int sixtyfour)
+bool IopenRoot(char *expanded_name, size_t hard, int sixtyfour)
 //
 // Opens the "InitialImage" file so that it can be loaded. Note that
 // when I am about to do this I do not have a valid heap image loaded, and
@@ -1454,12 +1516,11 @@ bool IopenRoot(char *expanded_name, int hard, int sixtyfour)
 // command line (or by default).
 //
 {   const char *n;
-    int i;
+    size_t i;
     if (hard == 0) hard = IMAGE_CODE;
     for (i=0; i<number_of_fasl_paths; i++)
     {
-// Initial image files have a checksum at their end
-        bool bad = open_input(fasl_files[i], NULL, hard, 0, 1);
+        bool bad = open_input(fasl_files[i], NULL, hard, 0);
 //
 // The name that I return (for possible display in error messages) will be
 // either that of the file that was opened, or one relating to the last
@@ -1476,14 +1537,14 @@ bool IopenRoot(char *expanded_name, int hard, int sixtyfour)
             else if (hard == BANNER_CODE)
                 sprintf(expanded_name, "%s(InitialImage)", n);
             else sprintf(expanded_name, "%s(HardCode<%.2x>)",
-                             n, (-hard) & 0xff);
+                             n, (int)((-hard) & 0xff));
         }
         if (!bad) return false;
     }
     return true;
 }
 
-bool Iopen(const char *name, int len, int forinput, char *expanded_name)
+bool Iopen(const char *name, size_t len, int forinput, char *expanded_name)
 //
 // Make file with the given name available through this package of
 // routines.  (name) is a pointer to a string (len characters valid) that
@@ -1504,8 +1565,7 @@ bool Iopen(const char *name, int len, int forinput, char *expanded_name)
             LispObject oo = qcar(il); il = qcdr(il);
             if (!is_library(oo)) continue;
             i = library_number(oo);
-            bad = open_input(fasl_files[i], name, len,
-                             0, forinput==IOPEN_CHECKED);
+            bad = open_input(fasl_files[i], name, len, 0);
 //
 // The name that I return (for possible display in error messages) will be
 // either that of the file that was opened, or one relating to the last
@@ -1523,7 +1583,7 @@ bool Iopen(const char *name, int len, int forinput, char *expanded_name)
 #endif
                     p2 = "";
                 }
-                sprintf(expanded_name, "%s%s%.*s%s", n, p1, len, name, p2);
+                sprintf(expanded_name, "%s%s%.*s%s", n, p1, (int)len, name, p2);
             }
             if (!bad) return false;
         }
@@ -1552,7 +1612,7 @@ bool Iopen(const char *name, int len, int forinput, char *expanded_name)
         }
         if (len == IMAGE_CODE)
             sprintf(expanded_name, "%s%sInitialImage%s", p1, n, p2);
-        else sprintf(expanded_name, "%s%s%.*s%s", n, p1, len, name, p2);
+        else sprintf(expanded_name, "%s%s%.*s%s", n, p1, (int)len, name, p2);
     }
     return open_output(name, len);
 }
@@ -1582,30 +1642,6 @@ bool Iwriterootp(char *expanded_name)
     return false;
 }
 
-bool Iopen_help(int32_t offset)
-//
-// Get ready to handle the HELP subfile.  offset >= 0 will open an
-// existing help module for input and position at the given location.
-// A negative offset indicates that the help module should be opened
-// for writing.
-//
-{   if (offset >= 0)
-    {   LispObject il = qvalue(input_libraries);
-        while (consp(il))
-        {   bool bad;
-            LispObject oo = qcar(il); il = qcdr(il);
-            if (!is_library(oo)) continue;
-// No checksum on help files
-            bad = open_input(fasl_files[library_number(oo)],
-                             NULL, HELP_CODE, offset, 0);
-            if (!bad) return false;
-        }
-        return true;
-    }
-    if (!any_output_request) return true;
-    else return open_output(NULL, HELP_CODE);
-}
-
 bool Iopen_banner(int code)
 //
 // Get ready to handle the startup banner.
@@ -1620,9 +1656,8 @@ bool Iopen_banner(int code)
         {   bool bad;
             LispObject oo = qcar(il); il = qcdr(il);
             if (!is_library(oo)) continue;
-// No checksum on the banner
             bad = open_input(fasl_files[library_number(oo)],
-                             NULL, BANNER_CODE, 0, 0);
+                             NULL, BANNER_CODE, 0);
             if (!bad) return false;
         }
         return true;
@@ -1638,7 +1673,6 @@ bool Iopen_banner(int code)
 
 bool Iopen_from_stdin(void)
 {   if (Istatus != I_INACTIVE) return true;
-    subfile_checksum = 0;
 #ifdef BUILTIN_IMAGE
     binary_read_filep = NULL;
 #else
@@ -1651,12 +1685,11 @@ bool Iopen_from_stdin(void)
 
 bool Iopen_to_stdout(void)
 {   if (Istatus != I_INACTIVE) return true;
-    subfile_checksum = 0;
     Istatus = I_WRITING;
     return false;
 }
 
-bool Idelete(const char *name, int len)
+bool Idelete(const char *name, size_t len)
 {   int i, nrec;
     directory *d;
     LispObject oo = qvalue(output_library);
@@ -1698,86 +1731,7 @@ bool Idelete(const char *name, int len)
     return true;
 }
 
-// I note that these days I have a much more proper crc64 function to use
-// that will compute a proper CRC value.
-
-#define update_crc(chk, c)                      \
-    chk_temp = (chk << 7);                      \
-    chk = ((chk >> 25) ^                        \
-           (chk_temp >> 1) ^                    \
-           (chk_temp >> 4) ^                    \
-           (0xff & (uint32_t)c)) & 0x7fffffff;
-
-
-static int validate_checksum(FILE *f, uint32_t chk1)
-{   int c;
-    uint32_t chk2 = 0;
-#ifdef BUILTIN_IMAGE
-    if ((c = *binary_read_filep++) == EOF) goto failed;
-    chk2 = c & 0xff;
-    if ((c = *binary_read_filep++) == EOF) goto failed;
-    chk2 = (chk2 << 8) | (c & 0xff);
-    if ((c = *binary_read_filep++) == EOF) goto failed;
-    chk2 = (chk2 << 8) | (c & 0xff);
-    if ((c = *binary_read_filep++) == EOF) goto failed;
-    chk2 = (chk2 << 8) | (c & 0xff);
-    if (chk1 == chk2) return false;    // All went well
-#else
-    if (read_bytes_remaining < 0)
-    {   if ((c = Igetc()) == EOF) goto failed;
-        chk2 = c & 0xff;
-        if ((c = Igetc()) == EOF) goto failed;
-        chk2 = (chk2 << 8) | (c & 0xff);
-        if ((c = Igetc()) == EOF) goto failed;
-        chk2 = (chk2 << 8) | (c & 0xff);
-        if ((c = Igetc()) == EOF) goto failed;
-        chk2 = (chk2 << 8) | (c & 0xff);
-        if (chk1 == chk2) return false;    // All went well
-    }
-    else
-    {   if ((c = getc(f)) == EOF) goto failed;
-        chk2 = c & 0xff;
-        if ((c = getc(f)) == EOF) goto failed;
-        chk2 = (chk2 << 8) | (c & 0xff);
-        if ((c = getc(f)) == EOF) goto failed;
-        chk2 = (chk2 << 8) | (c & 0xff);
-        if ((c = getc(f)) == EOF) goto failed;
-        chk2 = (chk2 << 8) | (c & 0xff);
-        if (chk1 == chk2) return false;    // All went well
-    }
-#endif
-failed:
-    if (error_output != 0)
-        err_printf("\n+++ FASL module checksum failure (%.8x vs. %.8x)\n",
-                   chk2, chk1);
-    return true;
-}
-
-static int put_checksum(FILE *f, uint32_t chk)
-{   LispObject nil = C_nil;
-//
-// NB that while I am writing out the root section of a checkpoint image
-// I will have unadjusted all Lisp variables, and in particular this will
-// mean that anything that used to have the value NIL will then be
-// SPID_NIL instead. Part of what I should remember here is that
-// in consequence I can not send a main image to a Lisp stream. But I
-// think that is OK, since the only way I have of setting up fasl_stream
-// is via the FASLOUT mechanism.
-//
-    if (fasl_stream != nil && fasl_stream != SPID_NIL)
-    {   putc_stream((int)(chk>>24), fasl_stream);
-        putc_stream((int)(chk>>16), fasl_stream);
-        putc_stream((int)(chk>>8), fasl_stream);
-        putc_stream((int)chk, fasl_stream);
-        return false;
-    }
-    if (putc((int)(chk>>24), f) == EOF) return true;
-    if (putc((int)(chk>>16), f) == EOF) return true;
-    if (putc((int)(chk>>8), f)  == EOF) return true;
-    return (putc((int)chk, f) == EOF);
-}
-
-bool Icopy(const char *name, int len)
+bool Icopy(const char *name, size_t len)
 //
 // Find the named module in one of the input files, and if the place that
 // it is found is not already the output file copy it to the output. These days
@@ -1787,7 +1741,6 @@ bool Icopy(const char *name, int len)
 //
 {   int i, ii, j, n;
     long int k, l, save = read_bytes_remaining;
-    uint32_t chk1;
     char hard[16];
     directory *d, *id;
     LispObject il, oo = qvalue(output_library);
@@ -1803,7 +1756,7 @@ bool Icopy(const char *name, int len)
     {   if (unpending(d)) return true;
     }
 //
-// The next line refuses to copy INTO a native dirtectory...
+// The next line refuses to copy INTO a native directory...
 //
     if (d->full_filename != NULL) return true;
 //
@@ -1814,7 +1767,7 @@ bool Icopy(const char *name, int len)
         if (!is_library(oo)) continue;
         i = library_number(oo);
         id = fasl_files[i];
-// /* Not updated for native dirs yet
+// Not updated for native dirs yet
         if (id->full_filename != NULL) continue;
         for (ii=0; ii<get_dirused(id->h); ii++)
             if (samename(name, id, ii, len)) goto found;
@@ -1829,7 +1782,7 @@ found:
 // Now scan output directory to see where to put result
 //
     for (i=0; i<get_dirused(d->h); i++)
-// /* Not updated for native dirs yet
+// Not updated for native dirs yet
         if (samename(name, d, i, len))
         {   d->h.updated |= D_UPDATED | D_COMPACT;
             goto ofound;
@@ -1845,8 +1798,8 @@ found:
         name = "HelpDataFile", len = IMAGE_CODE, n = 1;
     else if (len == BANNER_CODE)
         name = "Start-Banner", len = IMAGE_CODE, n = 1;
-    else if (len < 0)
-    {   sprintf(hard, "HardCode<%.2x>", (-len) & 0xff);
+    else if ((intptr_t)len < 0)
+    {   sprintf(hard, "HardCode<%.2x>", (int)((-len) & 0xff));
         name = hard, len = IMAGE_CODE, n = 1;
     }
     else if (len <= 11) n = 1;
@@ -1867,7 +1820,7 @@ found:
         memcpy(&d->d[i].D_position, d->h.eof, 4);
     }
     else
-    {   int np;
+    {   size_t np;
         const char *p;
 //
 // First I will clear all the relevant fields to blanks.
@@ -1916,49 +1869,34 @@ ofound:
     if (fseek(d->f, bits32(&d->d[i].D_position), SEEK_SET) != 0 ||
         fseek(id->f, bits32(&id->d[ii].D_position), SEEK_SET) != 0) return true;
     l = bits24(&id->d[ii].D_size);
-    chk1 = 0;
     for (k=0; k<l; k++)
     {   int c = getc(id->f);
-        uint32_t chk_temp;
-        update_crc(chk1, c);
         if (c == EOF) return true;
         putc(c, d->f);
     }
     read_bytes_remaining = 0;
-    j = validate_checksum(id->f, chk1);  // HUH?
     read_bytes_remaining = save;
-    if (j) return true;
-    if (put_checksum(d->f, chk1)) return true;
     if (fflush(d->f) != 0) return true;
     setbits24(&d->d[i].D_size, (int32_t)l);
     setbits32(d->h.eof, (int32_t)ftell(d->f));
     return false;
 }
 
-bool IcloseInput(int check_checksum)
+bool IcloseInput()
 //
 // Terminate processing one whatever subfile has been being processed.
 // returns nonzero if there was trouble.
-// read and verify checksum if arg is TRUE.
 //
-{   bool r;
-    Istatus = I_INACTIVE;
-#ifdef BUILTIN_IMAGE
-    if (check_checksum)
-        r = validate_checksum(NULL, subfile_checksum);
-    else r = false;
-#else
-    if (check_checksum)
-        r = validate_checksum(binary_read_file, subfile_checksum);
-    else r = false;
+{   Istatus = I_INACTIVE;
+#ifndef BUILTIN_IMAGE
     if (nativedir)
-    {   if (fclose(binary_read_file) != 0) r = true;
+    {   if (fclose(binary_read_file) != 0) return true;
     }
 #endif
-    return r;
+    return false;
 }
 
-bool IcloseOutput(int plant_checksum)
+bool IcloseOutput()
 //
 // Terminate processing one whatever subfile has been being processed.
 // returns nonzero if there was trouble. Write a checksum to the file.
@@ -1970,18 +1908,9 @@ bool IcloseOutput(int plant_checksum)
 // was most recently opened.
 //
 {   int r;
-    LispObject nil = C_nil;
     directory *d = current_output_directory;
     Istatus = I_INACTIVE;
-    if (fasl_stream != nil && fasl_stream != SPID_NIL && plant_checksum)
-    {   put_checksum(NULL, subfile_checksum);
-        return false;
-    }
     current_output_directory = NULL;
-// Here I have to write a checksum to the current ouput dir
-    if (d == NULL || (d->h.updated & D_WRITE_OK) == 0) return false;
-//@@  if (plant_checksum) put_checksum(d->f, subfile_checksum);
-    if (plant_checksum) put_checksum(binary_write_file, subfile_checksum);
     if (d->full_filename != NULL)
     {   r = (fclose(binary_write_file) != 0);
         binary_write_file = NULL;
@@ -2030,8 +1959,7 @@ bool finished_with(int j)
             if (pos != hwm)
             {   char *b = 16 + (char *)stack;
                 char small_buffer[64];
-// I add 4 to the length specified here to allow for checksums
-                long int len = bits24(&d->d[i].D_size) + 4L;
+                long int len = bits24(&d->d[i].D_size);
                 long int newpos = hwm;
                 while (len != 0)
                 {   size_t n =
@@ -2098,7 +2026,7 @@ bool Ifinished(void)
 // Actually only output files are a real issue here. And then only
 // the ones that are flagged as needing compaction.
 //
-    int j;
+    size_t j;
     bool failed = false;
     for (j=0; j<number_of_fasl_paths; j++)
         if (finished_with(j)) failed = true;
@@ -2117,16 +2045,13 @@ int Igetc(void)
 //
 {   long int n_left = read_bytes_remaining;
     int c;
-    uint32_t chk_temp;
     if (n_left <= 0)
     {   if (n_left == 0) return EOF;
         else
-        {   LispObject nil = C_nil;
-            LispObject stream = qvalue(standard_input);
+        {   LispObject stream = qvalue(standard_input);
             if (!is_stream(stream)) return EOF;
-            c = getc_stream(stream);
-            nil = C_nil;
-            if (exception_pending()) return EOF;
+            if_error(c = getc_stream(stream),
+                     return EOF);
         }
     }
     else
@@ -2139,63 +2064,21 @@ int Igetc(void)
 #endif
     }
     if (c == EOF) return c;
-    update_crc(subfile_checksum, c);
     return (c & 0xff);
 }
 
-int32_t Iread(void *buff, int32_t size)
-//
-// Reads (size) bytes into the indicated buffer.  Returns number of
-// bytes read.
-//
+bool Iread(void *buff, size_t size)
+// Reads (size) bytes into the indicated buffer.  Returns true if
+// if fails to read the expected number of bytes.
 {
-#if 1
-//
-// This version is going to be slower but is an alternative to the
-// block-at-a-time reading code...
-// [June 2010: hmmm I presumably put this in because of a bug of some
-//  sort at some stage, but I can not remember when or exactly why. I
-// ought to revisit it at some stage...]
-//
     unsigned char *p = (unsigned char *)buff;
-    int nread = 0;
     while (size > 0)
     {   int c = Igetc();
-        if (c == EOF) break;
+        if (c == EOF) return true;
         *p++ = c;
-        nread++;
         size--;
     }
-    return nread;
-#else
-    unsigned char *p = (unsigned char *)buff;
-    uint32_t chk_temp;
-    int i;
-    size_t n_read;
-    long int n_left = read_bytes_remaining;
-    if (n_left < 0)
-    {   for (i=0; i<size; i++)
-        {   int c = Igetc();
-            if (c == EOF) return i;
-            p[i] = (char)c;
-        }
-        return i;
-    }
-    if (size > n_left) size = (int32_t)n_left; // Do not go beyond end of file
-    if (size == 0) return 0;
-    n_read = fread(p, 1, (size_t)size, binary_read_file);
-//
-// Updating the checksum here is probably a painful extra cost, but I count
-// the security it gives me as worthwhile. I compute the checksum byte at a
-// time so that it is not sensitive to the byte ordering of the machine used.
-//
-    for (i=0; i<(int)n_read; i++)
-    {   int c = p[i];
-        update_crc(subfile_checksum, c);
-    }
-    read_bytes_remaining -= n_read;
-    return n_read;
-#endif
+    return false;
 }
 
 long int Ioutsize(void)
@@ -2206,350 +2089,31 @@ bool Iputc(int ch)
 //
 // Puts one character into image system, returning true if there
 // was trouble.
+// If start-module is given a Lisp stream as an argument then it will
+// save that in fasl_stream and the code must write bytes to there. Otherwise
+// (ie in the normal situation!) I will have used Iopen to set up the
+// stream, and it will have set binary_write_file to the stream and positioned
+// it at the point I should start writing.
 //
-{   uint32_t chk_temp;
-    LispObject nil = C_nil;
-    write_bytes_written++;
-    update_crc(subfile_checksum, ch);
+{   write_bytes_written++;
     if (fasl_stream != nil && fasl_stream != SPID_NIL)
         putc_stream(ch, fasl_stream);
     else if (putc(ch, binary_write_file) == EOF) return true;
     return false;
 }
 
-#define FWRITE_CHUNK 0x4000
-
-bool Iwrite(const void *buff, int32_t size)
+bool Iwrite(const void *buff, size_t size)
 //
 // Writes (size) bytes from the given buffer, returning true if trouble.
 //
 {   const unsigned char *p = (const unsigned char *)buff;
-    int32_t i;
-    uint32_t chk_temp;
-    LispObject nil = C_nil;
-    if ((fasl_stream != nil && fasl_stream != SPID_NIL))
-    {
-//
-// Note that in this case the checksum is updated within Iputc() so I do
-// not have to do anything special about it here.
-//
-        for (i=0; i<size; i++)
-            if (Iputc(p[i])) return true;
-        return false;
-    }
-    for (i=0; i<size; i++)
-    {   // Beware - update_crc is a macro and the {} block here is essential
-        update_crc(subfile_checksum, p[i]);
-    }
-    write_bytes_written += size;
-    while (size >= FWRITE_CHUNK)
-    {   if (fwrite(p, 1, FWRITE_CHUNK, binary_write_file) != FWRITE_CHUNK)
-            return true;
-        p += FWRITE_CHUNK;
-        size -= FWRITE_CHUNK;
-    }
-    if (size == 0) return false;
-    else return
-            (fwrite(p, 1, (size_t)size, binary_write_file) != (size_t)size);
+    for (size_t i=0; i<size; i++)
+        if (Iputc(p[i])) return true;
+    return false;
 }
 
-#ifndef EXPERIMENT
-
-//
-// Now code that maps real pointers into references relative
-// to page numbers.  Here I will also go to the trouble of putting zero
-// bytes in unused bits of memory - that will make checkpoint files
-// compress better and will also make them independent of all actual
-// addresses used on the host machine.  Observe that the representation
-// created has to depend a bit on the current page size.
-//
-
-#define PACK_PAGE_OFFSET(pg, of) ((pg << PAGE_BITS) + of)
-
-
-static void unadjust(LispObject *cp)
-//
-// If p is a pointer to an object that has moved, unadjust it.
-//
-{   LispObject nil = C_nil, p = *cp;
-    if (p == nil)
-    {   *cp = SPID_NIL; // Marks NIL in preserve files
-        return;
-    }
-    else if (is_cons(p))
-    {   int32_t i;
-        for (i=0; i<heap_pages_count; i++)
-        {   void *page = heap_pages[i];
-            char *base = (char *)quadword_align_up((intptr_t)page);
-//
-// The next line is pretty dodgy - I want to decide which segment a
-// pointer references, but pointer comparisons are only valid within
-// single segments.  I cast to int and cross my fingers! Actually no
-// REASONABLE C system would fail on this - it is just that ANSI specifies
-// that you can only do any address arithmetic WITHIN the area returned
-// by a single malloc() (etc).
-//
-            if ((intptr_t)base <= (intptr_t)p &&
-                (intptr_t)p <= (intptr_t)(base+CSL_PAGE_SIZE))
-            {   unsigned int offset = (unsigned int)((char *)p - base);
-                *cp = PACK_PAGE_OFFSET(i, offset);
-                return;
-            }
-        }
-        term_printf("\n[%p] Cons address %p not found in heap\n",
-                    (void *)cp, (void *)p);
-        abort();
-    }
-    else if (!is_immed_or_cons(p))
-    {   int32_t i;        // vectors get relocated here
-        for (i=0; i<vheap_pages_count; i++)
-        {   void *page = vheap_pages[i];
-            char *base = (char *)doubleword_align_up((intptr_t)page);
-// see comments above re the next line
-            if ((intptr_t)base <= (intptr_t)p &&
-                (intptr_t)p <= (intptr_t)(base+CSL_PAGE_SIZE))
-            {   unsigned int offset = (unsigned int)((char *)p - base);
-                *cp = PACK_PAGE_OFFSET(i, offset);
-                return;
-            }
-        }
-        term_printf("\n[%p] Vector address %p not found in heap\n",
-                    (void *)cp, (void *)p);
-        abort();
-    }
-}
-
-static void unadjust_consheap(void)
-{   int32_t page_number;
-    for (page_number = 0; page_number < heap_pages_count; page_number++)
-    {   void *page = heap_pages[page_number];
-        char *low = (char *)quadword_align_up((intptr_t)page);
-        char *start = low + CSL_PAGE_SIZE;
-        char *fr = low + car32(low);
-// The next line sets unused space in the page to be zero
-        while ((fr -= sizeof(LispObject)) != low) qcar(fr) = 0;
-        fr = low + car32(low);
-        while (fr < start)
-        {   unadjust((LispObject *)fr);
-            fr += sizeof(LispObject);
-        }
-    }
-}
-
-static void unadjust_vecheap(void)
-{   int32_t page_number, i;
-    for (page_number = 0; page_number < vheap_pages_count; page_number++)
-    {   void *page = vheap_pages[page_number];
-        char *low = (char *)doubleword_align_up((intptr_t)page);
-        char *high = low + (CSL_PAGE_SIZE - 8);
-        char *fr = low + car32(low);
-        low += 8;
-        while (low < fr)
-        {   Header h = *(Header *)low;
-            if (is_symbol_header(h))
-            {   LispObject s = (LispObject)(low+TAG_SYMBOL);
-                ifn1(s) = code_up_fn1(qfn1(s));
-                ifn2(s) = code_up_fn2(qfn2(s));
-                ifnn(s) = code_up_fnn(qfnn(s));
-                unadjust(&qvalue(s));
-                unadjust(&qenv(s));
-                unadjust(&qpname(s));
-                unadjust(&qplist(s));
-                unadjust(&qfastgets(s));
-#if defined COMMON //|| defined EXPERIMENT
-                unadjust(&qpackage(s));
-#endif
-                low += symhdr_length;
-                continue;
-            }
-            else switch (type_of_header(h))
-                {   case TYPE_RATNUM:
-                    case TYPE_COMPLEX_NUM:
-                        unadjust((LispObject *)(low+CELL));
-                        unadjust((LispObject *)(low+2*CELL));
-                        break;
-                    case TYPE_HASH:
-                    case TYPE_SIMPLE_VEC:
-                    case TYPE_ARRAY:
-                    case TYPE_STRUCTURE:
-                        for (i=CELL;
-                             i<doubleword_align_up(length_of_header(h));
-                             i+=CELL)
-                            unadjust((LispObject *)(low+i));
-                        break;
-                    case TYPE_STREAM:
-                    {   LispObject ss = (LispObject)(low+TAG_VECTOR);
-//
-// It might make rather good sense to close any file or pipe streams
-// that I come across at this stage...
-//
-                        if (elt(ss, 4) == (intptr_t)char_to_file &&
-                            elt(ss, 3) != 0)
-                        {   fclose(stream_file(ss));
-                            set_stream_write_fn(ss, char_to_illegal);
-                            set_stream_write_other(ss, write_action_illegal);
-                            set_stream_file(ss, NULL);
-                        }
-#if defined HAVE_POPEN || defined HAVE_FWIN
-                        if (elt(ss, 4) == (intptr_t)char_to_pipeout &&
-                            elt(ss, 3) != 0)
-                        {   my_pclose(stream_file(ss));
-                            set_stream_write_fn(ss, char_to_illegal);
-                            set_stream_write_other(ss, write_action_illegal);
-                            set_stream_file(ss, NULL);
-                        }
-                        if (elt(ss, 4) == (intptr_t)char_from_pipe &&
-                            elt(ss, 3) != 0)
-                        {   my_pclose(stream_file(ss));
-                            set_stream_read_fn(ss, char_to_illegal);
-                            set_stream_read_other(ss, write_action_illegal);
-                            set_stream_file(ss, NULL);
-                        }
-#endif
-                        if (elt(ss, 8) == (intptr_t)char_from_file &&
-                            elt(ss, 3) != 0)
-                        {   fclose(stream_file(ss));
-                            set_stream_read_fn(ss, char_from_illegal);
-                            set_stream_read_other(ss, read_action_illegal);
-                            set_stream_file(ss, NULL);
-                        }
-                        elt(ss, 4) = code_up_io((void *)elt(ss, 4));
-                        elt(ss, 5) = code_up_io((void *)elt(ss, 5));
-                        elt(ss, 8) = code_up_io((void *)elt(ss, 8));
-                        elt(ss, 9) = code_up_io((void *)elt(ss, 9));
-                    }
-                    case TYPE_MIXED1:
-                    case TYPE_MIXED2:
-                    case TYPE_MIXED3:
-                        for (i=CELL; i<4*CELL; i+=CELL)
-                            unadjust((LispObject *)(low+i));
-                        break;
-                    case TYPE_DOUBLE_FLOAT:
-                        break;
-                    case TYPE_SINGLE_FLOAT:
-                        break;
-                    case TYPE_LONG_FLOAT:
-                        break;
-                    default:
-                        break;
-                }
-            low += doubleword_align_up(length_of_header(h));
-        }
-//
-// Now clean up the unused space in the page...
-//
-        while (low <= high)
-        {   qcar(low) = 0;
-            qcdr(low) = 0;
-            low += 2*sizeof(LispObject);
-        }
-    }
-}
-
-static void unadjust_bpsheap(void)
-{   int32_t page_number;
-    for (page_number = 0; page_number < bps_pages_count; page_number++)
-    {   void *page = bps_pages[page_number];
-        char *low = (char *)doubleword_align_up((intptr_t)page);
-        char *fr = low + car32(low);
-        // Clean up unused space
-        while ((fr -= sizeof(LispObject)) != low) qcar(fr) = 0;
-        fr = low + qcar(low);
-        while (fr < low + CSL_PAGE_SIZE)
-        {   Header h = *(Header *)fr;
-#ifdef ENVIRONMENT_VECTORS_IN_BPS_HEAP
-            switch (type_of_header(h))
-            {
-// This option is not actually used at present...
-                case TYPE_SIMPLE_VEC:
-                    for (i=CELL;
-                         i<doubleword_align_up(length_of_header(h));
-                         i+=CELL)
-                        unadjust((LispObject *)(fr+i));
-                    break;
-                default:
-                    break;
-            }
-#endif
-            fr += doubleword_align_up(length_of_header(h));
-        }
-    }
-}
-
-static void unadjust_all(void)
+void preserve(const char *banner, size_t len)
 {   int32_t i;
-    LispObject nil = C_nil;
-    set_up_entry_lookup();
-    qheader(nil)  = TAG_HDR_IMMED+TYPE_SYMBOL+SYM_SPECIAL_VAR;
-    qvalue(nil)   = 0;
-    qenv(nil)     = 0;
-    ifn1(nil)     = 0;
-    ifn2(nil)     = 0;
-    ifnn(nil)     = 0;
-    unadjust(&(qpname(nil)));       // not a gensym
-    unadjust(&(qplist(nil)));
-    unadjust(&(qfastgets(nil)));
-#if defined COMMON //|| defined EXPERIMENT
-    unadjust(&(qpackage(nil)));
-#endif
-
-    copy_into_nilseg(true);
-    eq_hash_table_list = eq_hash_tables;
-    equal_hash_table_list = equal_hash_tables;
-
-    for (i = first_nil_offset; i<last_nil_offset; i++)
-        unadjust(&BASE[i]);
-    copy_out_of_nilseg(true);
-
-    unadjust_consheap();
-    unadjust_vecheap();
-    unadjust_bpsheap();
-}
-
-#endif // EXPERIMENT
-
-void preserve_native_code(void)
-{
-//
-// I should maybe worry a little more here about IO errors...
-//
-    int i;
-    if (!native_pages_changed) return;
-    if (open_output(NULL, -native_code_tag))
-    {   term_printf("Failed to open module for native code storage\n");
-        return;
-    }
-    Iputc(native_pages_count & 0xff);
-    Iputc((native_pages_count>>8) & 0xff);
-//
-// The FINAL native page will in general not be full, so I put a count of
-// the number of bytes in it that are in use in its first word, and
-// zero out the parts of it beyond there. Then the file compression that
-// routinely use when writing into image files.
-//
-    if (native_pages_count != 0)
-    {   intptr_t p = (intptr_t)native_pages[native_pages_count-1];
-        p = doubleword_align_up(p);
-        car32(p) = native_fringe;
-        memset((char *)p+native_fringe, 0, CSL_PAGE_SIZE-native_fringe);
-    }
-    for (i=0; i<native_pages_count; i++)
-    {   intptr_t p = (intptr_t)native_pages[i];
-        p = doubleword_align_up(p);
-        Cfwrite((char *)p, CSL_PAGE_SIZE);
-    }
-    IcloseOutput(1);
-}
-
-void preserve(const char *banner, int len)
-{   int32_t i;
-    bool int_flag = false;
-    LispObject nil = C_nil;
-//
-// I dump out any altered chunk of native code before I mangle the heap
-// up.
-//
-    preserve_native_code();
     if (Iopen(NULL, 0, IOPEN_OUT, NULL))
     {   err_printf("+++ PRESERVE failed to open image file\n");
         return;
@@ -2562,137 +2126,50 @@ void preserve(const char *banner, int len)
     for (i=0; i<=50; i++) workbase[i] = nil;
     exit_tag = exit_value = catch_tags =
         codevec = litvec = B_reg = faslvec = faslgensyms = nil;
-
-//
-// Any new-style native code is now declared discarded and the previous
-// (and portable) bytecode version gets put back. But the list showing what
-// functions might possibly have native versions is kept around.
-//
-    {   LispObject w = native_defs;
-        while (consp(w))
-        {   LispObject name = qcar(w);
-            w = qcdr(w);
-            Lsymbol_restore_fns(nil, name);
-        }
-    }
-
     Lmapstore(nil, fixnum_of_int(4)); // Reset all counts to zero.
-#ifndef EXPERIMENT
-    reclaim(nil, "preserve", GC_PRESERVE, 0); // FULL garbage collection
-#endif
-    nil = C_nil;
-//
-// if the user generated a SIGINT this is where it gets noticed...
-//
-    if (exception_pending())
-    {   flip_exception();
-        int_flag = true;
-    }
     {   char msg[128];
         time_t t0 = time(0);
         for (i=0; i<128; i++) msg[i] = ' ';
         if (len > 60) len = 60; // truncate if necessary
         if (len == 0 || banner[0] == 0) msg[0] = 0;
-        else sprintf(msg, "%.*s", len, banner);
+        else sprintf(msg, "%.*s", (int)len, banner);
 // 26 bytes starting from byte 64 shows the time of the dump
         sprintf(msg+64, "%.25s\n", ctime(&t0));
 // 16 bytes starting at byte 90 are for a checksum of the u01.c etc checks
         get_user_files_checksum((unsigned char *)&msg[90]);
 // 106 to 109 free at present but available if checksum goes to 160 bits
         msg[110] = 0;
-#ifdef EXPERIMENT
         msg[111] = 0;
-#else
-// The final byte at 111 indicates whether compression is to be used
-        {   int32_t cc = compression_worth_while;
-            int fg = 0;
-            while (cc > 128) fg++, cc >>= 1;
-            msg[111] = (char)fg;
-        }
-#endif
-
-#ifdef EXPERIMENT
+// Write initial record uncompresssed...
         Iwrite(msg, 112); // Exactly 112 bytes in the header records
-#else
-        Cfwrite(msg, 112); // Exactly 112 bytes in the header records
-#endif
     }
-
-#ifdef EXPERIMENT
-    write_everything();
-#else
-    unadjust_all();    // Turn all pointers into base-offset form
-#endif
-
-    Cfwrite("\nNilseg:", 8);
-    copy_into_nilseg(true);
-#ifndef EXPERIMENT
-    {   LispObject saver[9];
-        for (i=0; i<9; i++)
-            saver[i] = BASE[i+13],
-                       BASE[i+13] = 0;
-        // codefringe
-        // codelimit
-        // stacklimit
-        // ... ditto
-        // ... ditto
-        // fringe
-        // heaplimit
-        // vheaplimit
-        // vfringe
-        Cfwrite((const char *)BASE, sizeof(LispObject)*last_nil_offset);
-        for (i=0; i<9; i++)
-            BASE[i+13] = saver[i];
-    }
-    Cfwrite((const char *)&heap_pages_count, sizeof(heap_pages_count));
-    Cfwrite((const char *)&vheap_pages_count, sizeof(vheap_pages_count));
-    Cfwrite((const char *)&bps_pages_count, sizeof(bps_pages_count));
-
-    Cfwrite("\nVecseg:", 8);
-    for (i=0; i<vheap_pages_count; i++)
-    {   intptr_t p = (intptr_t)vheap_pages[i];
-        Cfwrite((const char *)doubleword_align_up(p), CSL_PAGE_SIZE);
-    }
-
-    Cfwrite("\nConsseg", 8);
-    for (i=0; i<heap_pages_count; i++)
-    {   intptr_t p = (intptr_t)heap_pages[i];
-        Cfwrite((const char *)quadword_align_up(p), CSL_PAGE_SIZE);
-    }
-
-    Cfwrite("\nCodeseg", 8);
-    for (i=0; i<bps_pages_count; i++)
-    {   intptr_t p = (intptr_t)bps_pages[i];
-        Cfwrite((const char *)doubleword_align_up(p), CSL_PAGE_SIZE);
-    }
-#endif // EXPERIMENT
+    def_init();  // I should check the return code...
+    write_everything(); // needs a return code to report any failure?
 
 #ifndef COMMON
-    Cfwrite("\n\nEnd of CSL dump file\n\n", 24);
+    Zwrite("\n\nEnd of CSL dump file\n\n", 24);  // return code
 #else
-    Cfwrite("\n\nEnd of CCL dump file\n\n", 24);
+    Zwrite("\n\nEnd of CCL dump file\n\n", 24);  // return code
 #endif
+    def_finish();   // I should check the return code...
 //
 // Here I pad the image file to be a multiple of 4 bytes long.  Since it is a
 // binary file the '\n' characters I put in will always be just 1 byte each
 // (for text files that might have expanded).  See comments in fasl.c for
 // a diatribe about why I do this, or at least why rather a long while ago
 // this was necessary on at least one sort of computer.
-//
+// Note that this is writing directly to the file... not via the compression
+// layer.
     {   int k = (int)((-write_bytes_written) & 3);
         while (k != 0) k--, Iputc(NEWLINE_CHAR);
     }
 //
-//  flip_needed = false; Since I stop after (preserve) these lines are unnecessary?
-//  old_fp_rep = current_fp_rep;
-//
-
-//
 // I need to check for write errors here and moan if there were any...
 //
-    if (IcloseOutput(1)) error(0, err_write_err);
-    if (int_flag) term_printf("\nInterrupt during (preserve) was ignored\n");
+    if (IcloseOutput()) error(0, err_write_err);
     return;
 }
+
+#endif // ZLIB_DEMO
 
 // end of file preserve.cpp

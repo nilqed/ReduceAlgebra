@@ -1,8 +1,12 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2009 Andreas Dolzmann and Thomas Sturm
-% ----------------------------------------------------------------------
+module acfsf;
+% Algebraically closed field standard form. Main module. Algorithms on
+% first-order formulas over algebraically closed fields. The language contains
+% binary relations ['equal], ['neq].
+
+revision('acfsf, "$Id: acfsf.red 4049 2017-05-16 06:38:49Z thomas-sturm $");
+
+copyright('acfsf, "(c) 1995-2009 A. Dolzmann, T. Sturm, 2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -28,22 +32,10 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
 
-lisp <<
-   fluid '(acfsf_rcsid!* acfsf_copyright!*);
-   acfsf_rcsid!* := "$Id$";
-   acfsf_copyright!* := "Copyright (c) 1995-2009 A. Dolzmann and T. Sturm"
->>;
-
-module acfsf;
-% Algebraically closed field standard form. Main module. Algorithms on
-% first-order formulas over algebraically closed fields. The language
-% contains binary relations ['equal], ['neq].
-
-create!-package(
-   '(acfsf acfsfsiat acfsfsism acfsfbnf acfsfgs acfsfmisc acfsfqe),nil);
+create!-package('(acfsf acfsfsiat acfsfsism acfsfbnf acfsfgs acfsfmisc acfsfqe),
+   nil);
 
 load!-package 'redlog;
-loadtime load!-package 'rltools;
 loadtime load!-package 'cl;
 loadtime load!-package 'cgb;
 
@@ -58,8 +50,6 @@ exports acfsf_simpterm,acfsf_prepat,acfsf_resimpat,acfsf_lengthat,
    acfsf_subat,acfsf_subalchk,acfsf_eqnrhskernels,acfsf_getineq,acfsf_structat,
    acfsf_ifstructat,acfsf_termmlat,acfsf_decdeg,acfsf_decdeg1,acfsf_multsurep,
    acfsf_gqe,acfsf_qe,acfsf_thsimpl;
-
-imports rltools,cl,cgb;
 
 fluid '(!*rlsiatadv !*rlsiexpl !*rlsiexpla !*rlgssub !*rlsiso !*rlgsrad
    !*rlgsred !*rlgsprod !*rlgserf !*rlverbose !*rlsifac !*rlbnfsac !*rlgsvb
@@ -128,7 +118,7 @@ put('acfsf,'rl_services,'(
    (rl_ifacl!* . cl_ifacl)
    (rl_ifacml!* . cl_ifacml)
    (rl_matrix!* . cl_matrix)
-   (rl_apnf!* . cl_apnf)
+   (rl_miniscope!* . cl_miniscope)
    (rl_atml!* . cl_atml)
    (rl_tnf!* . cl_tnf)
    (rl_atl!* . cl_atl)

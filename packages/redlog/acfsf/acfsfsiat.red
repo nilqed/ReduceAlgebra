@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: acfsfsiat.red 67 2009-02-05 18:55:15Z thomas-sturm $
 % ----------------------------------------------------------------------
 % Copyright (c) 1995-2009 Andreas Dolzmann and Thomas Sturm
 % ----------------------------------------------------------------------
@@ -31,7 +31,7 @@
 lisp <<
    fluid '(acfsf_siat_rcsid!* acfsf_siat_copyright!*);
    acfsf_siat_rcsid!* :=
-      "$Id$";
+      "$Id: acfsfsiat.red 67 2009-02-05 18:55:15Z thomas-sturm $";
    acfsf_siat_copyright!* := "Copyright (c) 1995-2009 A. Dolzmann and T. Sturm"
 >>;
 

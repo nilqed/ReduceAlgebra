@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2011 T. Sturm
-% ----------------------------------------------------------------------
+module clmisc;  % Common logic miscellaneous algorithms.
+
+revision('clmisc, "$Id: clmisc.red 4081 2017-06-13 13:55:30Z thomas-sturm $");
+
+copyright('clmisc, "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -27,16 +28,6 @@
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
-
-lisp <<
-   fluid '(cl_misc_rcsid!* cl_misc_copyright!*);
-   cl_misc_rcsid!* :=
-      "$Id$";
-   cl_misc_copyright!* := "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2011 T. Sturm"
->>;
-
-module clmisc;
-% Common logic miscellaneous algorithms. Submodule of [cl].
 
 procedure cl_apply2ats(f,client);
    % Common logic apply to atomic formulas. [f] is formula; [client]
@@ -136,22 +127,18 @@ procedure cl_depth(f);
    % is the depth of [f], i.e., the deepest level of nesting of boolean
    % subformulas.
    begin scalar w;
-      if (w := rl_get(f,'cl_depth)) then
-	 return w;
       if rl_basbp rl_op f then
-      	 return rl_put(f,'cl_depth,
-	    1 + lto_max for each sf in rl_argn f collect cl_depth sf);
+      	 return 1 + lto_max for each sf in rl_argn f collect cl_depth sf;
       if rl_quap rl_op f or rl_bquap rl_op f then
-      	 return rl_put(f,'cl_depth,1 + cl_depth rl_mat f);
+   	 return 1 + cl_depth rl_mat f;
       if rl_op f eq 'not then
-      	 return rl_put(f,'cl_depth,1 + cl_depth rl_arg1 f);
+   	 return 1 + cl_depth rl_arg1 f;
       if rl_extbp rl_op f then
-      	 return rl_put(f,'cl_depth,
-	    1 + max(cl_depth rl_arg2l f,cl_depth rl_arg2r f));
+   	 return 1 + max(cl_depth rl_arg2l f,cl_depth rl_arg2r f);
       if rl_tvalp f or cl_atfp f then
-      	 return 0;
+   	 return 0;
       if (w := rl_external(rl_op f,'cl_depth)) then
-      	 return apply(w,{f});
+   	 return apply(w,{f});
       rederr {"cl_depth: unknown operator ",rl_op f}
    end;
 
@@ -194,6 +181,8 @@ procedure cl_f2ml(f,client);
       return apply(client,{f})
    end;
 
+rl_provideService rl_atml = cl_atml using rl_ordatp;
+
 procedure cl_atml(f);
    % Common logic atomic formula multiplicity list. [f] is a formula.
    % Returns a MULTYPLICITY LIST of the atomic formulas occurring in
@@ -208,6 +197,8 @@ procedure cl_atml1(f);
 
 procedure cl_atmlc(atf);
    {atf . 1};
+
+rl_provideService rl_atl = cl_atl using rl_ordatp;
 
 procedure cl_atl(f);
    % Common logic atomic formula list. Returns the set of atomic
@@ -226,6 +217,8 @@ procedure cl_identifyonoff(b);
    % of the switch [rlidentify]. Clears fluid [cl_identify!-atl!*].
    cl_identify!-atl!* := nil;
 
+rl_provideService rl_ifacml = cl_ifacml using rl_fctrat, rl_tordp;
+
 procedure cl_ifacml(f);
    % Common logic irreducible factors multiplicity list. [f] is a
    % formula. Returns the MULTIPLICITY LIST of all irreducible
@@ -239,6 +232,8 @@ procedure cl_ifacml1(f);
    % irreducible non-unit factors of the terms occurring in [f].
    cl_f2ml(f,'rl_fctrat);
 
+rl_provideService rl_ifacl = cl_ifacl using rl_fctrat, rl_tordp;
+
 procedure cl_ifacl(f);
    % Common logic irreducible factors list. [f] is a formula. Returns
    % the set of all irreducible non-unit factors of the terms
@@ -250,6 +245,33 @@ procedure cl_ifacl1(f);
    % formula. Returns the set of all irreducible non-unit factors of
    % the terms occurring in [f] as a list.
    for each x in cl_ifacml1 f collect car x;
+
+procedure cl_ifacdegl(f);
+   % Common logic irreducible factors degree list subroutine. [f] is a
+   % formula. Returns a pair of Alists. Each Alist contains pairs [(x
+   % . d)], where [x] is a variable and [d] is the maximal degree of
+   % [x] in the set of all irreducible non-unit factors of the terms
+   % occurring in [f]. The result is sorted wrt. [rl_tordp].
+   begin scalar fvarl, bvarl, facl, fal, bal;
+      integer d;
+      fvarl . bvarl := cl_varl1 f;
+      facl := cl_ifacl1 f;
+      for each v in fvarl do <<
+	 d := 0;
+	 for each p in facl do
+	    d := max(d, degreef(p, v));
+	 fal := (v . d) . fal
+      >>;
+      for each v in bvarl do <<
+	 d := 0;
+	 for each p in facl do
+	    d := max(d, degreef(p, v));
+	 bal := (v . d) . bal
+      >>;
+      fal := sort(fal, function(lambda(x, y); rl_tordp(car x, car y)));
+      bal := sort(bal, function(lambda(x, y); rl_tordp(car x, car y)));
+      return fal . bal
+   end;
 
 procedure cl_matrix(f);
    % Common logic formula matrix. [f] is a formula. Returns a formula.
@@ -266,7 +288,7 @@ procedure cl_closure(q,f,nl);
       freevarl := reversip car cl_varl f;
       % Remove the variables of the negative list.
       for each v in nl do
- 	 freevarl := delqip(v,freevarl);
+ 	 freevarl := lto_delqip(v,freevarl);
       % [q]-quantify with the remaining variables.
       result := f;
       for each x in freevarl do
@@ -356,6 +378,9 @@ asserted procedure cl_vsubfof1(v: Kernel, u: List, f: Formula): Formula;
       return rl_vsubat(v, u, f)
    end;
 
+rl_provideService rl_subfof = cl_subfof
+   using rl_varsubstat, rl_subalchk, rl_eqnrhskernels, rl_subat;
+
 procedure cl_subfof(al,f);
    % Common logic substitute into first-order formula. [al] is an
    % ALIST $(..., (v_i . p_i), ...)$, where $v_i$ are variables and
@@ -366,7 +391,7 @@ procedure cl_subfof(al,f);
    begin scalar asgal,w,allvl;
       rl_subalchk al;
       for each x in al do <<
-	 w := rl_eqnrhskernels(x);
+	 w := rl_eqnrhskernels x;
 	 asgal := lto_alunion {{car x . w},asgal};
 	 allvl := car x . append(w,allvl)
       >>;
@@ -473,6 +498,8 @@ procedure cl_subfvarl1(f,cbvl);
       return for each x in rl_varlat f join if not (x memq cbvl) then {x}
    end;
 
+rl_provideService rl_termml = cl_termml using rl_termmlat, rl_tordp;
+
 procedure cl_termml(f);
    % Common logic term multiplicity list. [f] is a formula. Returns
    % the MULTIPLICITY LIST of all non-zero terms occurring in
@@ -485,6 +512,8 @@ procedure cl_termml1(f);
    % [f].
    cl_f2ml(f,'rl_termmlat);
 
+rl_provideService rl_terml = cl_terml using rl_tordp;
+
 procedure cl_terml(f);
    % Common logic term list. [f] is a formula. Returns the set of all
    % non-zero terms occurring in [f] as a list. The result is sorted wrt.
@@ -496,7 +525,12 @@ procedure cl_terml1(f);
    % set of all non-zero terms occurring in [f] as a list.
    for each x in cl_termml1 f collect car x;
 
-procedure cl_struct(f,v);
+rl_provideService rl_struct = cl_struct using rl_structat, rl_ifstructat;
+
+asserted procedure cl_struct(f: Formula, fac: Boolean, v: Id): DottedPair;
+   if fac then cl_ifstruct(f, v) else cl_struct0(f, v);
+
+asserted procedure cl_struct0(f: Formula, v: Id): DottedPair;
    % Common logic structure of a formula. [f] is a formula; [v] is a
    % kernel. Returns a pair $(\phi . (..., (v_i . t_i), ...))$. The
    % $v_i$ are the kernels $[v] \circ i$ with $i = 1, 2, ...$; the
@@ -506,7 +540,7 @@ procedure cl_struct(f,v);
       w := cl_terml(f);
       w := for each s in w collect
 	 (s . mkid(v,j := j+1));
-      return cl_struct1(f,w) . w;
+      return cl_struct1(f,w) . for each pr in w collect cdr pr . car pr
    end;
 
 procedure cl_struct1(f,al);
@@ -525,18 +559,20 @@ procedure cl_ifstruct(f,v);
       w := cl_ifacl(f);
       w := for each s in w collect
 	 (s . mkid(v,j := j+1));
-      return cl_ifstruct1(f,w) . w;
+      return cl_ifstruct1(f,w) . for each pr in w collect cdr pr . car pr
    end;
 
 procedure cl_ifstruct1(f,al);
    cl_apply2ats1(f,'rl_ifstructat,{al});
+
+rl_provideService rl_surep = cl_surep using rl_multsurep;
 
 procedure cl_surep(at,atl);
    % Common logic sure predicate. [at] is an atomic formula; [atl] is
    % a THEORY. Returns bool. Heurictically check whether [at] follows
    % from [atl].
    if !*rlspgs then
-      rl_gsd(at,atl) eq 'true or rl_multsurep(at,atl)
+      rl_gsn(at, atl, 'dnf) eq 'true or rl_multsurep(at,atl)
    else
       rl_simpl(at,atl,-1) eq 'true or rl_multsurep(at,atl);
 
@@ -584,6 +620,8 @@ procedure ex2(vars,f);
       vars := if eqcar(vars,'list) then cdr vars else {vars};
       rl_mk!*fof cl_ex21(vars,rl_simp f)
    >>;
+
+rl_provideService rl_ex2 = cl_ex2 using rl_mkequation;
 
 procedure cl_ex2(f,pl);
    begin scalar fvl,bvl,vl;
@@ -684,20 +722,18 @@ procedure cl_eval!-gand(gand, argl, subal, evalat, gtrue);
       return res
    end;
 
-procedure ofsf_subconstat(at, v, q);
-   if ofsf_evalatp(ofsf_op at, numr ofsf_subf(ofsf_arg2l at, v, q)) then 'true else 'false;
-
+rl_provideService rl_dfgprint = cl_dfgPrint using rl_dfgPrintAt, rl_dfgPrintV;
 
 procedure cl_dfgPrint(f,fname);
    % Prefix print.
    <<
-      if fname then
+      if fname neq "" then
       	 out fname;
       prin2 "formula(";
       cl_dfgPrint1 f;
       prin2 ")";
       terpri();
-      if fname then
+      if fname neq "" then
       	 shut fname
    >>;
 
@@ -779,11 +815,13 @@ procedure cl_dfgPrintJ2(op,argl);
       prin2 ")"
    >>;
 
-procedure cl_smt2Print(f,fname,linel);
+rl_provideService rl_smt2Print = cl_smt2Print using rl_smt2PrintLogic, rl_smt2PrintAt;
+
+procedure cl_smt2Print(f, fname, linel);
    % Prefix print. [f] is an existential sentence, [fname] is a string, [linel] is a list of
    % strings.
    <<
-      if fname then
+      if fname neq "" then
       	 out fname;
       rl_smt2PrintLogic();
       if linel then
@@ -793,7 +831,7 @@ procedure cl_smt2Print(f,fname,linel);
       	 prin2t "(set-info :source | automatically generated by REDLOG |)";
       cl_smt2Print1 f;
       prin2t "(check-sat)";
-      if fname then
+      if fname  neq "" then
       	 shut fname
    >>;
 
@@ -843,79 +881,61 @@ procedure cl_smt2PrefixPrint(op, argl);
       prin2 ")"
    >>;
 
+rl_provideService rl_smt2Read = cl_smt2Read using rl_smt2ReadAt;
+
+fluid '(!*smtsplain);
+fluid '(smt_assertionl!*);
+
 procedure cl_smt2Read(file);
    % [file] is a string.
-   begin scalar filech,  oldch, w;
+   begin scalar filech, oldch, w, form, smt_assertionl!*, !*smtsplain, raise;
+      !*smtsplain := t;
+      raise := !*raise;
+      !*raise := !*lower := nil;
       filech := open(file, 'input);
       oldch := rds filech;
-      w := cl_smt2Read1();
-      rds oldch;
-      return w
-   end;
-
-procedure cl_smt2Read1();
-   begin scalar inp, w, phil;
-      while (inp := read()) neq '(check!-sat) do
-      	 if eqcar(inp, 'assert) then <<
-	    w := cl_smt2ReadForm cadr inp;
-	    phil := w . phil;
-      	 >>;
-      return cl_ex(rl_smkn('and, phil),nil)
-   end;
-
-
-procedure cl_smt2ReadForm(form);
-   % SMT lib 2 read. Form is the argument of an assert form in the smt2 format.
-   % Returns a quantifier-free formula.
-   cl_smt2ReadForm1 cl_xpandlet(form, nil);
-
-asserted procedure cl_xpandlet(u: List, letal: AList): List;
-   begin scalar bl, w;
-      if atom u then
-	 return if (w := atsoc(u, letal)) then cdr w else u;
-      if not pairp u then
-	 rederr {"cl_xpandlet: something wrong:", u};
-      if car u eq 'let then <<
-	 u := cdr u;
-      	 if not u then
-	    rederr "cl_xpandlet: syntax error in let";
-      	 bl := pop u;
-      	 for each b in bl do
-	    letal := (car b . cadr b) . letal;
-      	 if not u then
-	    rederr "cl_xpandlet: syntax error in let";
-      	 w := cl_xpandlet(pop u, letal);
-      	 if u then
-	    rederr "cl_xpandlet: syntax error in let";
-      	 for each b in bl do
-	    letal := cdr letal;
-      	 return w
+      form := smt_rread();
+      while not cl_smt2ReadLastFormP form do <<
+	 w := errorset({'smt_processForm, mkquote form}, t, t);
+       	 if errorp w then <<
+	    rds oldch;
+	    close filech;
+      	    !*raise := raise;
+ 	    rederr nil
+ 	 >>;
+      	 form := smt_rread()
       >>;
-      if car u eq '!:dn!: then
- 	 return u;
-      return car u . for each arg in cdr u collect cl_xpandlet(arg, letal)
+      rds oldch;
+      close filech;
+      !*raise := raise;
+      return rl_smkn('and, smt_assertionl!*)
    end;
 
-procedure cl_smt2ReadForm1(form);
-   % SMT lib 2 read. Form is the argument of an assert form in the smt2 format.
-   % Returns a quantifier-free formula.
-   begin scalar op;
-      if form memq '(true false) then
-	 return form;
-      op := car form;
-      if op eq '!=!> or op eq 'implies then
- 	 op := 'impl;
-      if op memq '(not impl) then
-	 return rl_mkn(op, for each arg in cdr form collect
- 	    cl_smt2ReadForm arg);
-      if op memq '(and or) then
-	 return rl_smkn(op, for each arg in cdr form collect
- 	    cl_smt2ReadForm arg);
-      return rl_smt2ReadAt form
+asserted procedure cl_smt2ReadLastFormP(form: Any): Boolean;
+   form eq !$eof!$ or eqcar(form, 'check!-sat) or eqcar(form, 'exit);
+
+%% procedure cl_smt2Read1();
+%%    begin scalar inp, w, phil;
+%%       while (inp := smt_rread()) neq '(check!-sat) do
+%%       	 if eqcar(inp, 'assert) then <<
+%% 	    w := cl_smt2ReadForm cadr inp;
+%% 	    phil := w . phil;
+%%       	 >>;
+%%       return cl_ex(rl_smkn('and, phil),nil)
+%%    end;
+
+asserted procedure cl_nra2qf(infile: String, outfile: String);
+   begin scalar w, fl, linel;
+      w := cl_qe(cl_smt2Read infile, nil);
+%%       fl := if rl_op w eq 'and then rl_argn w else {w};
+      linel := {lto_sconcat {"(set-info :source | obtained from ", infile, " by Redlog Qe |)"}};
+      cl_smt2Print(rl_ex(w, nil), outfile, linel)
    end;
 
-procedure cl_smt2ReadError(x);
-   error(99, x);
+rl_provideService rl_sign = cl_sign using rl_signat;
+
+procedure cl_sign(f);
+   cl_apply2ats(f, 'rl_signat);
 
 endmodule;  % [clmisc]
 

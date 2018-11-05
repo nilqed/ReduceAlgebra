@@ -1,5 +1,10 @@
 # Makefile for getting ready to make Windows installer package
 
+ifeq ($(REVISION),)
+SNAPSHOT=$(shell LANG=C date "+%Y-%m-%d")
+else
+SNAPSHOT=$(REVISION)
+endif
 BUILDTOPDIR=C
 REVISION=HEAD
 
@@ -51,7 +56,7 @@ csl.stamp:	$(BUILDTOPDIR).stamp
 psl.stamp:	$(BUILDTOPDIR).stamp
 	(cd $(BUILDTOPDIR) ; \
 		./configure --with-psl ; \
-		./configure --with-psl -with-m32 ; \
+		./configure --with-psl --with-m32 ; \
 		script -c "time make psl" ../psl.log )
 	touch psl.stamp
 
@@ -83,6 +88,17 @@ package-win:	$(BUILDTOPDIR).stamp csl.stamp psl.stamp docs.stamp reduce.iss
 		$(abspath .) '$$reduce/lib/psl'
 	if test -x "$(inno)/ISCC.exe"; then "$(inno)/ISCC" reduce.iss;\
 		else echo Please run Innosetup on winbuild/reduce.iss; fi
+	mv Output/Reduce-Setup.exe Output/Reduce-Setup_$(SNAPSHOT).exe
+# At present I do not know if the .cab files created here will be any
+# use, but I will at least create SOMETHING so that they can be tested and
+# negotiation as to just what is needed can begin.
+	cd cslbuild && gcab -c -z ../Output/wincsl_$(SNAPSHOT).cab \
+		reduce.exe reduce.fonts reduce.img reduce.resources winreduce.exe
+	d=`pwd` && cd $(BUILDTOPDIR)/pslbuild/i686* && \
+		gcab -c -z $$d/Output/winpsl32_$(SNAPSHOT).cab psl red
+	d=`pwd` && cd $(BUILDTOPDIR)/pslbuild/x86_64* && \
+		gcab -c -z $$d/Output/winpsl64_$(SNAPSHOT).cab psl red
+
 
 # It will be a really good idea to go "make clean" before any wholesale
 # "make" here - this removes all the working files that get created

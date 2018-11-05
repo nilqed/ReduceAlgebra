@@ -1,4 +1,4 @@
-// null.cpp                           Copyright (C) 2003-2015 Codemist    
+// null.cpp                                Copyright (C) 2003-2017 Codemist    
 
 
 /**************************************************************************
@@ -31,7 +31,7 @@
  *************************************************************************/
 
 
-// $Id$
+// $Id: null.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
 
 //
 // There are some places where the autoconf/automake system wants to create

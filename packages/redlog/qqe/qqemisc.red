@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: qqemisc.red 81 2009-02-06 18:22:31Z thomas-sturm $
 % ----------------------------------------------------------------------
 % Copyright (c) 2005-2009 Andreas Dolzmann and Thomas Sturm
 % ----------------------------------------------------------------------
@@ -31,7 +31,7 @@
 lisp <<
    fluid '(qqe_misc_rcsid!* qqe_misc_copyright!*);
    qqe_misc_rcsid!* :=
-      "$Id$";
+      "$Id: qqemisc.red 81 2009-02-06 18:22:31Z thomas-sturm $";
    qqe_misc_copyright!* :=
       "Copyright (c) 2005-2009 A. Dolzmann and T. Sturm"
 >>;

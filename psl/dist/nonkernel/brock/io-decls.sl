@@ -1,1 +1,0 @@
-../AMD64/io-decls.sl

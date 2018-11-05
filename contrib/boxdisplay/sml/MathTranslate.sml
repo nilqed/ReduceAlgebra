@@ -1,22 +1,28 @@
 signature MATH_TRANSLATE  =
 sig
-  val cleanBox:      BasicTypes.style -> bool -> MathTypes.mlist -> BoxTypes.box
-  val doGenFraction: BasicTypes.style -> bool -> MathTypes.genfraction ->
-  BoxTypes.box
-  val doLeftRight:   BasicTypes.style -> bool -> BasicTypes.delim ->
-  MathTypes.mlist -> BasicTypes.delim -> BoxTypes.box
-  val doNucleus:     BasicTypes.style -> bool -> bool  -> MathTypes.mlist ->
-  BoxTypes.node * BasicTypes.dist * bool
-  val doGenScripts:  BasicTypes.style -> bool -> bool  -> bool  ->
-  MathTypes.script -> BoxTypes.hlist
-  val doBigOp:       BasicTypes.style -> bool -> MathTypes.limits ->
-  MathTypes.script -> BoxTypes.hlist
-  val NoadToHList:   BasicTypes.style -> bool -> MathTypes.noad  ->
-  BoxTypes.hlist
-  val MListToIList:  BasicTypes.style -> bool -> MathTypes.mlist ->
-  IListTypes.ilist
-  val MListToHList:  BasicTypes.style -> bool -> bool  -> MathTypes.mlist ->
-  BoxTypes.hlist
+  val cleanBox: BasicTypes.style -> bool -> MathTypes.mlist -> BoxTypes.box
+  val doAccent: BasicTypes.style -> bool -> BasicTypes.family -> 
+                BasicTypes.charCode -> MathTypes.mlist -> BoxTypes.box
+  val doGenFraction: BasicTypes.style -> bool -> MathTypes.genfraction -> 
+                     BoxTypes.box
+  val doLeftRight: BasicTypes.style -> bool -> BasicTypes.delim ->
+                   MathTypes.mlist -> BasicTypes.delim -> BoxTypes.box
+  val doNucleus: BasicTypes.style -> bool -> bool -> MathTypes.mlist ->
+                 BoxTypes.node * BasicTypes.dist * bool
+  val doGenScripts: BasicTypes.style -> bool -> bool -> bool ->
+                    MathTypes.script -> BoxTypes.hlist
+  val doBigOp: BasicTypes.style -> bool -> MathTypes.limits -> 
+               MathTypes.script -> BoxTypes.hlist
+  val doPlainScripts: BasicTypes.style -> bool -> MathTypes.script -> 
+                      BoxTypes.hlist
+  val doAccentScripts: BasicTypes.style -> bool -> MathTypes.noad -> 
+                       MathTypes.mlist -> MathTypes.mlist option -> 
+                       MathTypes.mlist option -> BoxTypes.hlist
+  val NoadToHList: BasicTypes.style -> bool -> MathTypes.noad -> BoxTypes.hlist
+  val MListToIList: BasicTypes.style -> bool -> MathTypes.mlist -> 
+                    IListTypes.ilist
+  val MListToHList: BasicTypes.style -> bool -> bool -> MathTypes.mlist ->
+                    BoxTypes.hlist
 end  (* signature MATH_TRANSLATE *)
 (*----------*)
 
@@ -31,6 +37,12 @@ struct
 
   fun cleanBox st cr ml  =
       boxList (MListToHList st cr false (* no penalties! *) ml)
+
+  and doAccent st cr fam ch ml =
+  let val singleChar = case ml of 
+                         [MathChar (_,fam,ch)] => SOME (fam,ch)
+                       | _                     => NONE
+  in makeAccent singleChar st fam ch (cleanBox st true ml) end
 
   and doGenFraction st cr {left, right, thickness, num, den}  =
   let val  st'      =  fract st
@@ -60,16 +72,30 @@ struct
   let val limits  =  (st = D  andalso  lim = default)  orelse  lim = yes
   in  doGenScripts st cr limits true script  end
 
+  and doPlainScripts st cr (script as {nucleus, supOpt, subOpt}) = 
+  case #nucleus script of 
+    [acc as (Accent (_,_,ml))] => doAccentScripts st cr acc ml supOpt subOpt
+  | _                          => doGenScripts st cr false false script
+
+  and doAccentScripts st cr nucleus nucleusNoAccent supOpt subOpt = 
+  let
+    val scriptNoAccents  = {nucleus=nucleusNoAccent, supOpt=supOpt, subOpt=subOpt}
+    val scriptNoAccents' = doGenScripts st cr false false scriptNoAccents
+    val nucleus = NoadToHList st cr nucleus
+  in (hd nucleus) :: (tl scriptNoAccents') end 
+  (* hd nucleus is a box with the accented nucleus,
+     tl scriptNoAccents' is the vbox holding the sub and/or superscript *)
+
   and NoadToHList st cr  =
   fn MathChar(_, fam, ch)  =>  makeChar st fam ch
   |  Radical    (del, ml)  =>  HL (makeRadical st del    (cleanBox st true ml))
-  |  Accent (fam, ch, ml)  =>  HL (makeAccent  st fam ch (cleanBox st true ml))
+  |  Accent (fam, ch, ml)  =>  HL (doAccent st cr fam ch ml)
   |  VCenter    ml  =>  [axisCenter   st (cleanBox st cr ml)]
   |  Overline   ml  =>  HL (makeOver  st (cleanBox st true ml))
   |  Underline  ml  =>  HL (makeUnder st (cleanBox st cr ml))
   |  GenFraction genFract  =>  HL (doGenFraction st cr genFract)
   |  LeftRight (left, ml, right)  =>  HL (doLeftRight st cr left ml right)
-  |  Script script   =>  doGenScripts st cr false false script
+  |  Script script   =>  doPlainScripts st cr script
   |  BigOp (lim, script)  =>  doBigOp st cr lim script
   |  SubBox   b    =>  HL b
   |  MList    ml   =>  HL (cleanBox st cr ml)
@@ -91,4 +117,5 @@ struct
   let val il  =  MListToIList st cr  ml
       val hl  =  IListToHList st pen il
   in  hl  end
+  
 end  (* structure MathTranslate *)

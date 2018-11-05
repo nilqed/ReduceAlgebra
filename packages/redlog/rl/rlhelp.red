@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: rlhelp.red 3712 2016-06-14 06:37:49Z thomas-sturm $
 % ----------------------------------------------------------------------
 % Copyright (c) 2006-2009 Andreas Dolzmann and Thomas Sturm
 % ----------------------------------------------------------------------
@@ -31,7 +31,7 @@
 lisp <<
    fluid '(rl_help_rcsid!* rl_help_copyright!*);
    rl_help_rcsid!* :=
-      "$Id$";
+      "$Id: rlhelp.red 3712 2016-06-14 06:37:49Z thomas-sturm $";
    rl_help_copyright!* := "Copyright (c) 2006-2009 A. Dolzmann and T. Sturm"
 >>;
 
@@ -44,11 +44,11 @@ rl_helpdb!* := nil;
 rl_switchdb!* := nil;
 rl_helpindent!* := 3;
 
-put('?,'stat,'rlis);
-flag('(?),'go);
+%% put('?,'stat,'rlis);
+%% flag('(?),'go);
 
-procedure !?(l);
-   rl_help!$ l;
+%% procedure !?(l);
+%%    rl_help!$ l;
 
 procedure rl_help!$(l);
    if null l then

@@ -1,7 +1,7 @@
 package uk.co.codemist.jlisp.core;
 
 
-// $Id$
+// $Id: LispJavaFunction.java 3142 2015-06-21 22:27:59Z arthurcnorman $
 
 
 //NOT USED ...SEE JavaFn.java instead

@@ -91,25 +91,29 @@ symbolic procedure expand!-imrepartpow u;
    % At the moment, we expand to get the required result.
    begin scalar !*exp,cmpxsplitfn;
      !*exp := t;
-     cmpxsplitfn := null idp car u and
-                    get(car car u,'cmpxsplitfn);
+     cmpxsplitfn := pairp !_pvar!_ u and idp car !_pvar!_ u and
+                    get(car !_pvar!_ u,'cmpxsplitfn);
      return
        exptsq(if null cmpxsplitfn
-                 then if car u eq 'i then !*k2q 'i
-                       else addsq(mkrepart car u,
+                 then if !_pvar!_ u eq 'i then !*k2q 'i
+                       else addsq(mkrepart !_pvar!_ u,
                                   multsq(simp 'i,
-                                         mkimpart car u))
-               else apply1(cmpxsplitfn,car u),cdr u)
+                                         mkimpart !_pvar!_ u))
+               else apply1(cmpxsplitfn,!_pvar!_ u),pdeg u)
     end;
 
 symbolic procedure mkrepart u;
-   if realvaluedp u then !*k2q u
-    else if sfp u then repartsq(u ./ 1)
+   if sfp u
+     then if realvaluedp!-sf u then !*k2q u
+            else repartsq(u ./ 1)
+    else if realvaluedp u then !*k2q u
     else mksq(list('repart, u),1);
 
 symbolic procedure mkimpart u;
-   if realvaluedp u then nil ./ 1
-    else if sfp u then impartsq(u ./ 1)
+   if sfp u
+     then if realvaluedp!-sf u then nil ./ 1
+            else impartsq(u ./ 1)
+    else if realvaluedp u then nil ./ 1
     else mksq(list('impart, u),1);
 
 symbolic procedure take!-realpart u;
@@ -200,14 +204,14 @@ symbolic procedure realvaluedp u;
    % True if the true prefix kernel form u is explicitly or implicitly
    % real-valued.
    if atom u then numberp u or flagp(u, 'realvalued)
-   else begin scalar caru; % cnd
+   else begin scalar caru, cnd;
      return
       flagp((caru := car u), 'alwaysrealvalued)
          % real-valued for all possible argument values
       or (flagp(caru, 'realvalued) and realvaluedlist cdr u)
          % real-valued function if arguments are real-valued,
          % an important common special case of condrealvalued.
-%%      or ((cnd := get(caru, 'condrealvalued)) and apply(cnd, cdr u))
+      or ((cnd := get(caru, 'condrealvalued)) and apply(cnd, cdr u))
          % real-valued function if arguments satisfy conditions
          % that depend on the function
       or caru eq '!:rd!:;  % rounded number - least likely?
@@ -218,6 +222,11 @@ symbolic procedure realvaluedlist u;
    % is real-valued.
    realvaluedp car u and (null cdr u or realvaluedlist cdr u);
 
+symbolic procedure realvaluedp!-sf u;
+   if atom u then t      % either nil or a number
+   else if domainp u then flagp(car u,'realvalued)
+   else (realvaluedp!-sf lc u and (if sfp mvar u then realvaluedp!-sf mvar u else realvaluedp mvar u)) and realvaluedp!-sf red u;
+
 % Define the real valued properties
 % ---------------------------------
 
@@ -226,12 +235,16 @@ symbolic procedure realvaluedlist u;
 
 % A very small number of functions are real-valued for ALL arguments:
 
-flag('(repart impart abs ceiling floor fix round max min),
+flag('(repart impart abs sign ceiling floor fix round max min),
      'alwaysrealvalued);
 
 % Symbolic constants:
 
 flag('(pi e infinity),'realvalued);
+
+% Domain elements
+
+flag('(!:rn!: !:rd!: !:mod!:),'realvalued);
 
 % Some functions are real-valued if all their arguments are
 % real-valued, without further constraints:
@@ -246,6 +259,24 @@ flag('(exp cbrt hypot sin cos tan csc sec cot sind cosd tand cscd secd
        cotd sinh cosh tanh csch sech coth atan atand atan2 atan2d acot
        acotd asinh acsch factorial),
      'realvalued);
+
+symbolic procedure expt!-realvalued(base,expo);
+   % returns t if (expt base expo) is realvalued
+   % in general this is true iff impart(expo*log(base)) is an integer multiple of pi
+   % however, this is difficult to check
+   fixp expo and realvaluedp base;
+%      or realvaluedp expo and realvaluedp {'log,base};
+%      	 or ((denr r = 1 and fixp numr r)
+%	    where r := simp!* {'quotient,{'impart,{'times,expo,{'log,base}}},'pi});
+
+put('expt,'condrealvalued,'expt!-realvalued);
+
+symbolic procedure log!-realvalued arg;
+   % returns t it (log arg) is realvalued
+   % in general this is true iff arg is realvalued and positive
+   realvaluedp arg and sign!-of arg = 1;
+
+put('log,'condrealvalued,'log!-realvalued);
 
 % Additional such variables and functions can be declared by the user
 % with the REALVALUED command defined above.
@@ -546,15 +577,14 @@ put('asin, 'cmpxsplitfn, 'reimasin);
 put('acos, 'cmpxsplitfn, 'reimasin);
 
 symbolic procedure reimasin u;
-begin scalar rearg, imarg, x, y, sr, si, op;
+begin scalar rearg, imarg, x, y, sr, si, op, res;
   rearg := prepsq simprepart cdr u;
   imarg := prepsq simpimpart cdr u;
   op := car u;
-  (if rearg=0 then 
+  if rearg=0 then <<
+     res := simp {'times, 'i, {'asinh, imarg}};
      if op='asin then return res
-     else if op='acos then
-        return addsq(simp {'quotient, 'pi, 2}, negsq res))
-   where res= simp {'times, 'i, {'asinh, imarg}};
+     else return addsq(simp {'quotient, 'pi, 2}, negsq res)>>;
 
   y := invfn!-args(rearg, imarg);
 
@@ -576,10 +606,11 @@ begin scalar rearg, imarg, x, y, sr, si, op;
   % Multiply y by si if si neq 0 and by -sr if si=0
   y := multsq(y, addsq(si, 
                        multsq(sr, addsq(multsq(si, si), (-1) ./ 1))));
+		       
+  res := addsq(x, multsq(simp 'i, y));
+  if op='asin then return res
+  else return addsq(simp {'quotient, 'pi, 2}, negsq res);
 
-  (if op='asin then return res
-   else if op='acos then return addsq(simp {'quotient, 'pi, 2}, negsq res))  
-     where res = addsq(x, multsq(simp 'i, y));
 end;
 
 put('asinh, 'cmpxsplitfn, 'reimasinh);

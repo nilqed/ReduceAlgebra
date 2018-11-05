@@ -11,7 +11,7 @@
 // and www.tug.org/teTeX.
 //
 
-// $Id$
+// $Id: font-info.cpp 3897 2017-02-12 11:33:33Z arthurcnorman $
 
 
 typedef struct font_info

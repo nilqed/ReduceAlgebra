@@ -48,6 +48,7 @@ fluid '(!*break
         !*verboseload
         currentreadmacroindicator!*
         currentscantable!*
+        ifl!*
 %       current!-modulus
         errout!*
 	imagefilename!*
@@ -64,7 +65,6 @@ global '(!$eol!$
          crchar!*
          date!*
          esc!*
-         ifl!*
          ipl!*
          largest!-small!-modulus
          ofl!*
@@ -401,15 +401,21 @@ symbolic procedure initrlisp;
 
 symbolic procedure rlispmain;
   begin scalar l;
-    rlispscantable!* := mkvect 128;
+    rlispscantable!* := mkvect 256;
     l := '(17 11 11 11 11 11 11 11 11 17 17 11 17 17 11 11 11 11 11 11
            11 11 11 11 11 11 11 11 11 11 11 11 17 14 15 11 11 12 11 11
            11 11 13 11 11 11 20 11 00 01 02 03 04 05 06 07 08 09 13 11
            13 11 13 11 11 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10
-           10 10 10 10 10 10 10 10 10 10 10 11 16 11 11 10 11 10 10 10
+           10 10 10 10 10 10 10 10 10 10 10 11 16 11 11 22 11 10 10 10
            10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10
-           10 10 10 11 11 11 11 11 rlispdipthong);
-    for i:=0:128 do <<putv(rlispscantable!*,i,car l); l := cdr l>>;
+           10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11
+           11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11
+           11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11
+           11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11
+           11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11
+           11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11
+           11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 rlispdipthong);
+    for i:=0:256 do <<putv(rlispscantable!*,i,car l); l := cdr l>>;
     currentreadmacroindicator!* := 'rlispreadmacro;
     currentscantable!* := rlispscantable!*;
     errout!* := 1;  % Errors to standard output, not special stream;
@@ -674,16 +680,66 @@ symbolic procedure subst(a, b, c);
     else return sa . sd
   end;
 
+% Here are some CSLisms that I will find it convenient to have in the
+% PSL world too
 
-% A few more names to make it easier for anybody used to CSL namings.
+symbolic procedure mod(a, b);
+  begin
+    scalar r;
+    if b >= 0 then <<
+      if (r := remainder(a, b)) >= 0 then return r
+      else return r + b >>
+    else <<
+      if (r := remainder(a, -b)) <= 0 then return r
+      else return r + b >>
+  end;
 
-symbolic procedure plist x;
-  prop x;
+symbolic procedure gensymp u;
+  idp u and not internp u;
 
-symbolic procedure symbol!-name x;
-  id2string x;
+symbolic procedure ttab n;
+  tab n;
+
+load gsort; % Not loaded by default and not autoloaded on demand.
+
+symbolic procedure sort(ll, ff);
+  gsort(ll, ff);
+
+% CSL has special vectors that hold just 8-bit integers (it also has ones
+% for 16-bit integers) and use of those will decrease the amount of
+% memory consumed by the parser tables. However if PSL does not have these
+% it does not matter much since I can just use ordinary Lisp vectors...
+% I set initial contents as all 0 rather than all nil since these are
+% supposed to contain (small) integer values. I am putting this here in
+% a spirit of keeping as much as possible of the rest of the Reduce code
+% independent of CSL vs PSL issues.
+
+symbolic procedure mkvect8 n;
+  begin
+    scalar r;
+    r := mkvect n;
+    for i := 0:n do putv(r, i, 0);
+    return r
+  end;
+
+inline procedure putv8(v, n, x); putv(v, n, x);
+
+inline procedure getv8(v, n); getv(v, n);
+
+procedure mkvect16 n;
+  begin
+    scalar r;
+    r := mkvect n;
+    for i := 0:n do putv(r, i, 0);
+    return r
+  end;
+
+inline procedure putv16(v, n, x); putv(v, n, x);
+
+inline procedure getv16(v, n); getv(v, n);
 
 global '(!*psl !*csl);
+
 !*psl := t;
 !*csl := nil;
 

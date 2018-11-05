@@ -1,7 +1,7 @@
 package uk.co.codemist.jlisp.core;
 
 
-// $Id$
+// $Id: Cp_info.java 3142 2015-06-21 22:27:59Z arthurcnorman $
 
 
 // amended 02/02/02 so that it actually does something

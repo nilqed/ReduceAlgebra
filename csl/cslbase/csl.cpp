@@ -1,13 +1,13 @@
-// csl.cpp                            Copyright (C) 1989-2016 Codemist    
+// csl.cpp                                 Copyright (C) 1989-2018 Codemist
 
 //
 // This is Lisp system for use when delivering Lisp applications
 // (such as REDUCE) on pretty-well any computer that has an ANSI
-// C compiler.
+// C++ compiler.
 //
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2018, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -47,7 +47,7 @@
 // "LaTeX" for more information.
 //
 
-// $Id$
+// $Id: csl.cpp 4683 2018-07-01 08:32:38Z arthurcnorman $
 
 
 //
@@ -114,12 +114,6 @@
 #include "headers.h"
 #undef   INCLUDE_ERROR_STRING_TABLE
 
-#include "version.h"
-
-#ifdef SOCKETS
-#include "sockhdr.h"
-#endif
-
 #ifndef WIN32
 #include <sys/wait.h>
 #endif
@@ -136,27 +130,10 @@
 #include <sys/resource.h>
 #endif
 
-#ifndef HAVE_FWIN
-//
-// During startup on a windowed system if I needed to report an error
-// but the window was minimised I need to restore it...
-//
-#define fwin_restore()
-#endif
-
-#ifdef SOCKETS
-
-#if 0
-// Being removed
-static int port_number, remote_store, current_users, max_users;
-SOCKET socket_server;
-clock_t cpu_timeout;
-time_t elapsed_timeout;
-static int char_to_socket(int c);
-#endif
-
-int sockets_ready = 0;
-
+#ifdef WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
 #endif
 
 //
@@ -201,10 +178,10 @@ static intptr_t spbase = 0, spmin;
 
 static uintptr_t stack_depth[C_STACK_ALLOCATION];
 static int stack_line[C_STACK_ALLOCATION];
-static char *stack_file[C_STACK_ALLOCATION];
+static const char *stack_file[C_STACK_ALLOCATION];
 static uintptr_t c_stack_ptr = 0;
 
-int check_stack(char *file, int line)
+int check_stack(const char *file, int line)
 {   uintptr_t temp = (intptr_t)&temp;
     char *file1;
     int first = 1;
@@ -239,7 +216,7 @@ int check_stack(char *file, int line)
         term_printf("\n");
         spmin = temp;
         if (temp < spbase-C_STACK_ALLOCATION ||
-            temp < (uintptr_t)C_stack_limit) return 1;
+            temp < (uintptr_t)C_stacklimit) return 1;
     }
     return 0;
 }
@@ -259,6 +236,48 @@ void show_stack()
 
 #endif
 
+std::mutex debug_lock;
+const char *debug_file;
+int debug_line;
+
+void DebugTrace()
+{   const char *leaf = strrchr(debug_file, '/');
+    if (leaf != NULL) debug_file = leaf+1;
+    leaf = strrchr(debug_file, '\\');
+    if (leaf != NULL) debug_file = leaf+1;
+    fprintf(stderr, "Tr in file %s line %d\n", debug_file, debug_line);
+    fflush(stderr);
+}
+
+void DebugTrace(int i)
+{   const char *leaf = strrchr(debug_file, '/');
+    if (leaf != NULL) debug_file = leaf+1;
+    leaf = strrchr(debug_file, '\\');
+    if (leaf != NULL) debug_file = leaf+1;
+    fprintf(stderr, "Tr in file %s line %d: %d/%x\n", debug_file, debug_line, i, i);
+    fflush(stderr);
+}
+
+void DebugTrace(const char *msg)
+{   const char *leaf = strrchr(debug_file, '/');
+    if (leaf != NULL) debug_file = leaf+1;
+    leaf = strrchr(debug_file, '\\');
+    if (leaf != NULL) debug_file = leaf+1;
+    fprintf(stderr, "Tr in file %s line %d: %s\n", debug_file, debug_line, msg);
+    fflush(stderr);
+}
+
+void DebugTrace(const char *fmt, int i)
+{   const char *leaf = strrchr(debug_file, '/');
+    if (leaf != NULL) debug_file = leaf+1;
+    leaf = strrchr(debug_file, '\\');
+    if (leaf != NULL) debug_file = leaf+1;
+    fprintf(stderr, "Tr in file %s line %d: ", debug_file, debug_line);
+    fprintf(stderr, fmt, i);
+    fprintf(stderr, "\n");
+    fflush(stderr);
+}
+
 //
 // error_message_table was defined in cslerror.h since that way I can keep its
 // contents textually close to the definitions of the message codes that it
@@ -267,7 +286,9 @@ void show_stack()
 
 #define errcode(n) error_message_table[n]
 
-LispObject error(int nargs, int code, ...)
+#define ARG_CUT_OFF 10
+
+void error(int nargs, int code, ...)
 //
 // nargs indicates how many values have been provided AFTER the
 // code.  Thus nargs==0 will just display a simple message, nargs==1
@@ -277,7 +298,7 @@ LispObject error(int nargs, int code, ...)
 //
 {   va_list a;
     int i;
-    LispObject nil = C_nil, w1;
+    LispObject w1;
     LispObject *w = (LispObject *)&work_1;
     if (nargs > ARG_CUT_OFF) nargs = ARG_CUT_OFF;
     if (miscflags & HEADLINE_FLAG)
@@ -292,7 +313,7 @@ LispObject error(int nargs, int code, ...)
         va_end(a);
         for (i=0; i<nargs; i++) push(*--w);
         if (code != err_stack_overflow)  // Be cautious here!
-        {   stackcheck0(nargs);
+        {   stackcheck0();
         }
         for (i=0; i<nargs; i++)
         {   LispObject p;
@@ -303,29 +324,22 @@ LispObject error(int nargs, int code, ...)
     }
     if ((w1 = qvalue(break_function)) != nil &&
         symbolp(w1) &&
-        qfn1(w1) != undefined1)
-    {   (*qfn1(w1))(qenv(w1), nil);
-        ignore_exception();
+        qfn1(w1) != undefined_1)
+    {   ignore_exception((*qfn1(w1))(qenv(w1), nil));
     }
-//
-// After doing this is is necessary to be VERY careful, since nil is
-// used as a base register for lots of things...  Still this is the
-// cheapest way I can see to mark the need for unwinding.
-//
     exit_reason = (miscflags & ARGS_FLAG) ? UNWIND_ERROR :
                   (miscflags & FNAME_FLAG) ? UNWIND_FNAME :
                   UNWIND_UNWIND;
     exit_value = exit_tag = nil;
     exit_count = 0;
-    flip_exception();
-    return nil;
+    throw LispError();
 }
 
-LispObject cerror(int nargs, int code1, int code2, ...)
+void cerror(int nargs, int code1, int code2, ...)
 //
 // nargs indicated the number of EXTRA args after code1 & code2.
 //
-{   LispObject nil = C_nil, w1;
+{   LispObject w1;
     va_list a;
     int i;
     LispObject *w = (LispObject *)&work_1;
@@ -336,8 +350,7 @@ LispObject cerror(int nargs, int code1, int code2, ...)
         for (i=0; i<nargs; i++) *w++ = va_arg(a, LispObject);
         va_end(a);
         for (i=0; i<nargs; i++) push(*--w);
-        stackcheck0(nargs-2);
-        nil = C_nil;
+        stackcheck0();
         for (i=0; i<nargs; i++)
         {   LispObject p;
             pop(p);
@@ -347,41 +360,32 @@ LispObject cerror(int nargs, int code1, int code2, ...)
     }
     if ((w1 = qvalue(break_function)) != nil &&
         symbolp(w1) &&
-        qfn1(w1) != undefined1)
-    {   (*qfn1(w1))(qenv(w1), nil);
-        ignore_exception();
+        qfn1(w1) != undefined_1)
+    {   ignore_exception((*qfn1(w1))(qenv(w1), nil));
     }
-//
-// After doing this is is necessary to be VERY careful, since nil is
-// used as a base register for lots of things...  Still this is the
-// cheapest way I can see to mark the need for unwinding.
-//
     exit_reason = (miscflags & ARGS_FLAG) ? UNWIND_ERROR :
                   (miscflags & FNAME_FLAG) ? UNWIND_FNAME :
                   UNWIND_UNWIND;
     exit_value = exit_tag = nil;
     exit_count = 0;
-    flip_exception();
-    return nil;
+    throw LispError();
 }
 
 //
 // This can be used when a resource expires...
 //
-LispObject resource_exceeded()
-{   LispObject nil = C_nil;
-    exit_reason = UNWIND_RESOURCE;
+void resource_exceeded()
+{   exit_reason = UNWIND_RESOURCE;
     exit_value = exit_tag = nil;
     exit_count = 0;
-    flip_exception();
-    return nil;
+    throw LispResource();
 }
 
 LispObject interrupted(LispObject p)
 //
 // Could return onevalue(p) to proceed from the interrupt event...
 //
-{   LispObject nil = C_nil, w;
+{   LispObject w;
 //
 // If I have a windowed system I expect that the mechanism for
 // raising an exception will have had a menu that gave me a chance
@@ -389,13 +393,7 @@ LispObject interrupted(LispObject p)
 // is only needed if there is no window system active.  On some systems
 // this may be an active check.
 //
-#ifdef HAVE_FWIN
     if ((fwin_windowmode() & FWIN_IN_WINDOW) == 0)
-#else
-#if defined WINDOW_SYSTEM && !defined EMBEDDED
-    if (!use_wimp)
-#endif
-#endif
     {   if (clock_stack == &consolidated_time[0])
         {   clock_t t0 = read_clock();
 //
@@ -418,21 +416,11 @@ LispObject interrupted(LispObject p)
             base_time = t0;
             consolidated_time[0] += delta;
         }
-#ifndef NAG
-#ifdef HAVE_FWIN
         term_printf("\n");
-#else
-        term_printf(
-            "\n+++ [%.2f+%.2f] Type C to continue, A to abort, X to exit\n",
-            consolidated_time[0], gc_time);
-#endif
-        ensure_screen(); nil = C_nil;
-        if (exception_pending()) return nil;
+        ensure_screen();
         push(prompt_thing);
         prompt_thing = nil;  // switch off the regular prompts
-#ifdef HAVE_FWIN
         fwin_set_prompt("+++ Type C to continue, A to abort, X to exit: ");
-#endif
 
         other_read_action(READ_FLUSH, lisp_terminal_io);
         for (;;)
@@ -445,20 +433,14 @@ LispObject interrupted(LispObject p)
             switch (c)
             {   case 'c': case 'C':         // proceed as if no interrupt
                     pop(prompt_thing);
-#ifdef HAVE_FWIN
                     fwin_set_prompt(prompt_string);
-#endif
                     return onevalue(p);
                 case 'a': case 'A':         // raise an exception
                     break;
                 case 'x': case 'X':
                     my_exit(EXIT_FAILURE); // Rather abrupt
                 case '\n':
-#ifndef HAVE_FWIN
-                    term_printf("C to continue, A to abort, X to exit: ");
-#endif
-                    ensure_screen(); nil = C_nil;
-                    if (exception_pending()) return nil;
+                    ensure_screen();
                     continue;
                 default:                    // wait for A or C
                     continue;
@@ -466,10 +448,7 @@ LispObject interrupted(LispObject p)
             break;
         }
         pop(prompt_thing);
-#ifdef HAVE_FWIN
         fwin_set_prompt(prompt_string);
-#endif
-#endif
     }
 //
 // now for the common code to be used in all cases.
@@ -478,65 +457,53 @@ LispObject interrupted(LispObject p)
         err_printf("+++ Interrupted\n");
     if ((w = qvalue(break_function)) != nil &&
         symbolp(w) &&
-        qfn1(w) != undefined1)
-    {   (*qfn1(w))(qenv(w), nil);
-        ignore_exception();
+        qfn1(w) != undefined_1)
+    {   ignore_exception((*qfn1(w))(qenv(w), nil));
     }
     exit_reason = (miscflags & ARGS_FLAG) ? UNWIND_ERROR :
                   (miscflags & FNAME_FLAG) ? UNWIND_FNAME :
                   UNWIND_UNWIND;
     exit_value = exit_tag = nil;
     exit_count = 0;
-    flip_exception();
-    return nil;
+    throw LispError();
 }
 
-LispObject aerror(const char *s)
-{   LispObject nil = C_nil, w;
+void aerror(const char *s)
+{   LispObject w;
     if (miscflags & HEADLINE_FLAG)
         err_printf("+++ Error bad args for %s\n", s);
     if ((w = qvalue(break_function)) != nil &&
         symbolp(w) &&
-        qfn1(w) != undefined1)
-    {   (*qfn1(w))(qenv(w), nil);
-        ignore_exception();
+        qfn1(w) != undefined_1)
+    {   ignore_exception((*qfn1(w))(qenv(w), nil));
     }
     exit_reason = (miscflags & ARGS_FLAG) ? UNWIND_ERROR :
                   (miscflags & FNAME_FLAG) ? UNWIND_FNAME :
                   UNWIND_UNWIND;
     exit_value = exit_tag = nil;
     exit_count = 0;
-    flip_exception();
-    return nil;
+    throw LispError();
 }
 
-LispObject aerror0(const char *s)
-{   LispObject nil = C_nil, w;
+void aerror0(const char *s)
+{   LispObject w;
     if (miscflags & HEADLINE_FLAG)
         err_printf("+++ Error: %s\n", s);
     if ((w = qvalue(break_function)) != nil &&
         symbolp(w) &&
-        qfn1(w) != undefined1)
-    {   (*qfn1(w))(qenv(w), nil);
-        ignore_exception();
+        qfn1(w) != undefined_1)
+    {   ignore_exception((*qfn1(w))(qenv(w), nil));
     }
     exit_reason = (miscflags & ARGS_FLAG) ? UNWIND_ERROR :
                   (miscflags & FNAME_FLAG) ? UNWIND_FNAME :
                   UNWIND_UNWIND;
     exit_value = exit_tag = nil;
     exit_count = 0;
-    flip_exception();
-#ifdef COMMON
-//
-// This is to help me debug in the face of low level system crashes
-//
-    if (spool_file) fflush(spool_file);
-#endif
-    return nil;
+    throw LispError();
 }
 
-LispObject aerror1(const char *s, LispObject a)
-{   LispObject nil = C_nil, w;
+void aerror1(const char *s, LispObject a)
+{   LispObject w;
     if (miscflags & HEADLINE_FLAG)
     {   err_printf("+++ Error: %s ", s);
         loop_print_error(a);
@@ -544,27 +511,19 @@ LispObject aerror1(const char *s, LispObject a)
     }
     if ((w = qvalue(break_function)) != nil &&
         symbolp(w) &&
-        qfn1(w) != undefined1)
-    {   (*qfn1(w))(qenv(w), nil);
-        ignore_exception();
+        qfn1(w) != undefined_1)
+    {   ignore_exception((*qfn1(w))(qenv(w), nil));
     }
     exit_reason = (miscflags & ARGS_FLAG) ? UNWIND_ERROR :
                   (miscflags & FNAME_FLAG) ? UNWIND_FNAME :
                   UNWIND_UNWIND;
     exit_value = exit_tag = nil;
     exit_count = 0;
-    flip_exception();
-#ifdef COMMON
-//
-// This is to help me debug in the face of low level system crashes
-//
-    if (spool_file) fflush(spool_file);
-#endif
-    return nil;
+    throw LispError();
 }
 
-LispObject aerror2(const char *s, LispObject a, LispObject b)
-{   LispObject nil = C_nil, w;
+void aerror2(const char *s, LispObject a, LispObject b)
+{   LispObject w;
     if (miscflags & HEADLINE_FLAG)
     {   err_printf("+++ Error: %s ", s);
         loop_print_error(a);
@@ -574,84 +533,200 @@ LispObject aerror2(const char *s, LispObject a, LispObject b)
     }
     if ((w = qvalue(break_function)) != nil &&
         symbolp(w) &&
-        qfn1(w) != undefined1)
-    {   (*qfn1(w))(qenv(w), nil);
-        ignore_exception();
+        qfn1(w) != undefined_1)
+    {   ignore_exception((*qfn1(w))(qenv(w), nil));
     }
     exit_reason = (miscflags & ARGS_FLAG) ? UNWIND_ERROR :
                   (miscflags & FNAME_FLAG) ? UNWIND_FNAME :
                   UNWIND_UNWIND;
     exit_value = exit_tag = nil;
     exit_count = 0;
-    flip_exception();
-#ifdef COMMON
-//
-// This is to help me debug in the face of low level system crashes
-//
-    if (spool_file) fflush(spool_file);
-#endif
-    return nil;
+    throw LispError();
 }
 
-static LispObject wrong(int wanted, int given, LispObject env)
-{   char msg[64];
-    sprintf(msg, "Function called with %d args where %d wanted", given, wanted);
-    if (is_cons(env)) env = qcdr(env);
-    if ((miscflags & HEADLINE_FLAG) && is_vector(env))
-    {   LispObject fname = elt(env, 0);
-        err_printf("\nCalling ");
-        loop_print_error(fname);
+void aerror3(const char *s, LispObject a, LispObject b, LispObject c)
+{   LispObject w;
+    if (miscflags & HEADLINE_FLAG)
+    {   err_printf("+++ Error: %s ", s);
+        loop_print_error(a);
+        err_printf(" ");
+        loop_print_error(b);
+        err_printf("\n");
+        loop_print_error(c);
         err_printf("\n");
     }
-    return aerror(msg);
+    if ((w = qvalue(break_function)) != nil &&
+        symbolp(w) &&
+        qfn1(w) != undefined_1)
+    {   ignore_exception((*qfn1(w))(qenv(w), nil));
+    }
+    exit_reason = (miscflags & ARGS_FLAG) ? UNWIND_ERROR :
+                  (miscflags & FNAME_FLAG) ? UNWIND_FNAME :
+                  UNWIND_UNWIND;
+    exit_value = exit_tag = nil;
+    exit_count = 0;
+    throw LispError();
 }
 
-LispObject too_few_2(LispObject env, LispObject)
-{   return wrong(2, 1, env);
+NORETURN static void wrong(int given, int wanted, LispObject env)
+{   char msg[64];
+    if (wanted == 4)
+        sprintf(msg,
+            "Function called with %d args where more then three wanted",
+            given);
+    else if (given == 4)
+        sprintf(msg,
+            "Function called with more than three args where %d wanted",
+            wanted);
+    else sprintf(msg, "Function called with %d args where %d wanted",
+                      given, wanted);
+    if ((miscflags & HEADLINE_FLAG))
+    {   err_printf("\nCalling ");
+        loop_print_error(env);
+        err_printf("\n");
+    }
+    aerror(msg);
 }
 
-LispObject too_many_1(LispObject env, LispObject, LispObject)
-{   return wrong(1, 2, env);
+NORETURN static void wrong(int given, LispObject env)
+{   char msg[64];
+    if (given == 4)
+        sprintf(msg, "Function called incorrectly with more than 3 args");
+    else sprintf(msg, "Function called incorrectly with %d args", given);
+    if ((miscflags & HEADLINE_FLAG))
+    {   err_printf("\nCalling ");
+        loop_print_error(env);
+        err_printf("\n");
+    }
+    aerror(msg);
 }
 
-LispObject wrong_no_0a(LispObject env, LispObject)
-{   return wrong(0, 1, env);
+NORETURN void got_0_wanted_1(LispObject env)
+{   wrong(0, 1, env);
 }
 
-LispObject wrong_no_0b(LispObject env, LispObject, LispObject)
-{   return wrong(0, 2, env);
+NORETURN void got_0_wanted_2(LispObject env)
+{   wrong(0, 2, env);
 }
 
-LispObject wrong_no_3a(LispObject env, LispObject)
-{   return wrong(3, 1, env);
+NORETURN void got_0_wanted_3(LispObject env)
+{   wrong(0, 3, env);
 }
 
-LispObject wrong_no_3b(LispObject env, LispObject, LispObject)
-{   return wrong(3, 2, env);
+NORETURN void got_0_wanted_4up(LispObject env)
+{   wrong(0, 4, env);
 }
 
-LispObject wrong_no_na(LispObject env, LispObject)
-{   if (is_cons(env) && is_bps(qcar(env)))
-        return wrong(((unsigned char *)data_of_bps(qcar(env)))[0], 1, env);
-    else return aerror("function called with 1 arg when 0 or >= 3 wanted");
+NORETURN void got_0_wanted_other(LispObject env)
+{   wrong(0, env);
 }
 
-LispObject wrong_no_nb(LispObject env, LispObject, LispObject)
-{   if (is_cons(env) && is_bps(qcar(env)))
-        return wrong(((unsigned char *)data_of_bps(qcar(env)))[0], 2, env);
-    else return aerror("function called with 2 args when 0 or >= 3 wanted");
+
+NORETURN void got_1_wanted_0(LispObject env, LispObject a1)
+{   wrong(0, 1, env);
 }
 
-LispObject wrong_no_1(LispObject env, int nargs, ...)
-{   return wrong(1, nargs, env);
+NORETURN void got_1_wanted_2(LispObject env, LispObject a1)
+{   wrong(2, 1, env);
 }
 
-LispObject wrong_no_2(LispObject env, int nargs, ...)
-{   return wrong(2, nargs, env);
+NORETURN void got_1_wanted_3(LispObject env, LispObject a1)
+{   wrong(3, 1, env);
 }
 
-LispObject bad_specialn(LispObject, int, ...)
-{   return aerror("call to special form");
+NORETURN void got_1_wanted_4up(LispObject env, LispObject a1)
+{   wrong(4, 1, env);
+}
+
+NORETURN void got_1_wanted_other(LispObject env, LispObject a1)
+{   wrong(1, env);
+}
+
+
+NORETURN void got_2_wanted_0(LispObject env, LispObject a1,
+                             LispObject a2)
+{   wrong(0, 2, env);
+}
+
+NORETURN void got_2_wanted_1(LispObject env, LispObject a1,
+                             LispObject a2)
+{   wrong(1, 2, env);
+}
+
+NORETURN void got_2_wanted_3(LispObject env, LispObject a1,
+                             LispObject a2)
+{   wrong(3, 2, env);
+}
+
+NORETURN void got_2_wanted_4up(LispObject env, LispObject a1,
+                               LispObject a2)
+{   wrong(4, 2, env);
+}
+
+NORETURN void got_2_wanted_other(LispObject env, LispObject a1,
+                                 LispObject a2)
+{   wrong(2, env);
+}
+
+
+NORETURN void got_3_wanted_0(LispObject env, LispObject a1,
+                             LispObject a2, LispObject a3)
+{   wrong(0, 3, env);
+}
+
+NORETURN void got_3_wanted_1(LispObject env, LispObject a1,
+                             LispObject a2, LispObject a3)
+{   wrong(1, 3, env);
+}
+
+NORETURN void got_3_wanted_2(LispObject env, LispObject a1,
+                             LispObject a2, LispObject a3)
+{   wrong(2, 3, env);
+}
+
+NORETURN void got_3_wanted_4up(LispObject env, LispObject a1,
+                               LispObject a2, LispObject a3)
+{   wrong(4, 3, env);
+}
+
+NORETURN void got_3_wanted_other(LispObject env, LispObject a1,
+                                 LispObject a2, LispObject a3)
+{   wrong(3, env);
+}
+
+
+NORETURN void got_4up_wanted_0(LispObject env, LispObject a1,
+                               LispObject a2, LispObject a3,
+                               LispObject a4up)
+{   wrong(0, 4, env);
+}
+
+NORETURN void got_4up_wanted_1(LispObject env, LispObject a1,
+                               LispObject a2, LispObject a3,
+                               LispObject a4up)
+{   wrong(1, 4, env);
+}
+
+NORETURN void got_4up_wanted_2(LispObject env, LispObject a1,
+                               LispObject a2, LispObject a3,
+                               LispObject a4up)
+{   wrong(2, 4, env);
+}
+
+NORETURN void got_4up_wanted_3(LispObject env, LispObject a1,
+                               LispObject a2, LispObject a3,
+                               LispObject a4up)
+{   wrong(3, 4, env);
+}
+
+NORETURN void got_4up_wanted_other(LispObject env, LispObject a1,
+                                   LispObject a2, LispObject a3,
+                                   LispObject a4up)
+{   wrong(4, env);
+}
+
+void bad_specialn(LispObject, int, ...)
+{   aerror("call to special form");
 }
 
 void fatal_error(int code, ...)
@@ -762,6 +837,24 @@ static void report_dependencies()
         putc('\n', f);
     }
     putc('\n', f);
+// Now I put in empty rules for each file that was used... By having
+// rules rules with no prerequisites and no recipes I avoid trouble
+// when files get moved.
+    for (i=0; i<dependency_count; i++)
+    {   p = dependency_map[i];
+        if (p[0] != 0 &&
+            p[1] == ':' &&
+            (p[2] == '/' || p[2] == '\\'))
+        {   fprintf(f, "/cygdrive/%c", (char)tolower((unsigned char)p[0]));
+            p+=2;
+        }
+        while ((c = *p++) != 0)
+        {   if (c == ' ') putc('\\', f); // for spaces in file-name
+            putc(c == '\\' ? '/' : c, f);
+        }
+        fprintf(f, ":\n");
+    }
+    putc('\n', f);
     fclose(f);
     dependency_file = NULL;
 }
@@ -780,23 +873,11 @@ void my_exit(int n)
     MPI_Finalize();
 #endif
     ensure_screen();
-#ifdef SOCKETS
-    if (sockets_ready) WSACleanup();
-#endif
 #ifdef WINDOW_SYSTEM
     pause_for_user();
 #endif
-#ifdef HAVE_FWIN
-    throw n;
-#else
-#if defined(WIN32) && defined(NAG)
-    {   extern void sys_abort(int);
-        sys_abort(n);
-    }
-#else
-    exit(n);
-#endif
-#endif
+    throw n;   // I use thrown on a simple integer to causse exit with that
+               // value as my return code.
 }
 
 static int return_code = 0;
@@ -804,36 +885,11 @@ bool segvtrap = true;
 bool batch_flag = false;
 bool ignore_restart_fn = false;
 
-#ifdef USE_SIGALTSTACK
-
-static unsigned char signal_stack_block[SIGSTKSZ];
-
-stack_t signal_stack;
-
-#endif
-
 #ifdef HAVE_CRLIBM
 static unsigned long long crlibstatus = 0;
 
 static void tidy_up_crlibm()
 {   crlibm_exit(crlibstatus);
-}
-#endif
-
-#if defined __linux__ && defined DEBUG
-//
-// This is an experiment as to a possible return to generating a
-// tick-stream using a system timer rather than "software ticks".
-//
-volatile int blipflag = 0;
-int64_t blipcount = 0, startblip = 0;
-
-#include <stdio.h>
-#include <signal.h>
-#include <sys/time.h>
-
-void alarm_handler(int signum)
-{   blipflag = 1;
 }
 #endif
 
@@ -904,34 +960,22 @@ void debug_show_trail_raw(const char *msg, const char *file, int line)
 
 #endif
 
+// See comments in lispthrow.h for an explanation of this.
+//#undef global_jb
+//thread_local jmp_buf *global_jb;
+//jmp_buf **get_global_jb_addr()
+//{   return &global_jb;
+//}
+jmp_buf *global_jb;
+
+void global_longjmp()
+{   longjmp(*global_jb, 1);
+}
+
+bool stop_on_error = false;
+
 static void lisp_main(void)
 {
-    volatile LispObject nil;
-    volatile int i;
-#if defined __linux__ && defined DEBUG
-    struct itimerval tv;
-    blipflag = 0;
-    blipcount = 0;
-    signal(SIGALRM, alarm_handler);
-    tv.it_interval.tv_usec = 900000;
-    tv.it_interval.tv_sec = 0;
-    tv.it_value.tv_usec = 900000;
-    tv.it_value.tv_sec = 0;
-    setitimer(ITIMER_REAL, &tv, NULL);
-#endif
-#ifdef USE_SIGALTSTACK
-//
-// If I get a SIGSEGV that is caused by a stack overflow then I am in
-// a world of pain because the regular stack does not have space to run my
-// exception handler. So where I can I will arrange that the exception
-// handler runs in its own small stack. This may itself lead to pain,
-// but perhaps less?
-//
-    signal_stack.ss_sp = (void *)signal_stack_block;
-    signal_stack.ss_size = SIGSTKSZ;
-    signal_stack.ss_flags = 0;
-    sigaltstack(&signal_stack, (stack_t *)0);
-#endif
 #ifdef HAVE_CRLIBM
     crlibstatus = crlibm_init();
     atexit(tidy_up_crlibm);
@@ -944,38 +988,27 @@ static void lisp_main(void)
 // for a second try if I get a (cold-start) call.
 //
     {   LispObject * volatile save = stack;
-        nil = C_nil;
         errorset_msg = NULL;
         try
-        {   nil = C_nil;
+        {   START_SETJMP_BLOCK;
             terminal_pushed = NOT_CHAR;
             if (supervisor != nil && !ignore_restart_fn)
             {   miscflags |= BACKTRACE_MSG_BITS;
-//
 // Here I reconstruct the argument that I passed in (restart_csl f a).
-//
                 if (exit_charvec != NULL)
-                {   LispObject a = read_from_vector(exit_charvec);
-                    nil = C_nil;
-                    if (exception_pending())
-                    {   flip_exception();
-                        a = nil;
+                {   LispObject a;
+                    try
+                    {   START_TRY_BLOCK;
+                        a = read_from_vector(exit_charvec);
+                    }
+                    catch (LispException e) // all sorts of Lisp issues!
+                    {   a = nil;
                     }
                     free(exit_charvec);
                     exit_charvec = NULL;
-                    push(a);
-#ifndef NO_BYTECOUNT
-                    name_of_caller = "restart function";
-#endif
-                    apply(supervisor, 1, nil, supervisor, 0);
+                    apply(supervisor, ncons(a), nil, current_function = startup_symbol);
                 }
-                else
-                {
-#ifndef NO_BYTECOUNT
-                    name_of_caller = "restart function";
-#endif
-                    apply(supervisor, 0, nil, supervisor, 0);
-                }
+                else apply(supervisor, nil, nil, current_function = startup_symbol);
             }
 //
 // Here the default read-eval-print loop used if the user has not provided
@@ -983,39 +1016,16 @@ static void lisp_main(void)
 //
             else read_eval_print(lisp_true);
         }
-        catch (const char *)
-        {   nil = C_nil;
-            if (errorset_msg != NULL)
+        catch (LispSignal e)
+        {   if (errorset_msg != NULL)
             {   term_printf("\n%s detected\n", errorset_msg);
                 errorset_msg = NULL;
             }
             unwind_stack(save, false);
             exit_reason = UNWIND_ERROR;
-            flip_exception();
-#ifndef UNDER_CE
-            signal(SIGFPE, low_level_signal_handler);
-#ifdef USE_SIGALTSTACK
-// SIGSEGV will be handled on the alternative stack
-            {   struct sigaction sa;
-                sa.sa_handler = low_level_signal_handler;
-                sigemptyset(&sa.sa_mask);
-                sa.sa_flags = SA_ONSTACK | SA_RESETHAND;
-                if (segvtrap) sigaction(SIGSEGV, &sa, NULL);
-            }
-#else
-            if (segvtrap) signal(SIGSEGV, low_level_signal_handler);
-#endif
-#ifdef SIGBUS
-            if (segvtrap) signal(SIGBUS, low_level_signal_handler);
-#endif
-#ifdef SIGILL
-            if (segvtrap) signal(SIGILL, low_level_signal_handler);
-#endif
-#endif
         }
-        nil = C_nil;
-        if (exception_pending())
-        {   flip_exception();
+        catch (LispException e)
+        {
             if (exit_reason == UNWIND_RESTART)
             {   if (exit_tag == fixnum_of_int(0))      // "stop"
                     return_code = (int)int_of_fixnum(exit_value);
@@ -1023,18 +1033,14 @@ static void lisp_main(void)
                 {   const char *msg = "";
                     int len = 0;
                     return_code = EXIT_SUCCESS;
-                    compression_worth_while = 128;
                     if (is_vector(exit_value) &&
                         is_string(exit_value))
                     {   msg = &celt(exit_value, 0);
                         len = (int)(length_of_byteheader(vechdr(exit_value)) - CELL);
                     }
+                    push2(codevec, litvec);
                     preserve(msg, len);
-                    nil = C_nil;
-                    if (exception_pending())
-                    {   flip_exception();
-                        return_code = EXIT_FAILURE;
-                    }
+                    pop2(litvec, codevec);
                 }
                 else if (exit_tag == fixnum_of_int(3)) // "preserve & restart"
                 {   const char *msg = "";
@@ -1043,19 +1049,20 @@ static void lisp_main(void)
                     Lrds(nil, nil);
                     Lwrs(nil, nil);
                     return_code = EXIT_SUCCESS;
-                    compression_worth_while = 128;
                     if (is_vector(exit_value) &&
                         is_string(exit_value))
                     {   msg = &celt(exit_value, 0);
                         len = (int)(length_of_byteheader(vechdr(exit_value)) - CELL);
                     }
+                    push2(litvec, codevec);
                     preserve(msg, len);
-                    nil = C_nil;
-                    if (exception_pending())
-                    {   flip_exception();
-                        return_code = EXIT_FAILURE;
-                    }
-                    for (i=0; i<pages_count; i++)
+                    pop2(codevec, litvec);
+#ifdef CONSERVATIVE
+// I believe that this is all to abandon all existing in-use pages and
+// put things back as if all memory is totally empty.
+// NOT DONE in the conservative case yet. @@@@@
+#else
+                    for (size_t i=0; i<pages_count; i++)
                     {   char *w = (char *)pages[i];
                         if (!(w > big_chunk_start && w <= big_chunk_end))
                             continue;
@@ -1072,23 +1079,17 @@ static void lisp_main(void)
                         if (!(w > big_chunk_start && w <= big_chunk_end))
                             pages[pages_count++] = w;
                     }
-                    while (bps_pages_count != 0)
-                    {   char *w = (char *)bps_pages[--bps_pages_count];
-                        if (!(w > big_chunk_start && w <= big_chunk_end))
-                            pages[pages_count++] = w;
-                    }
                     {   char *w = big_chunk_start + NIL_SEGMENT_SIZE;
-                        char *w1 = w + CSL_PAGE_SIZE + 16;
+                        char *w1 = w + CSL_PAGE_SIZE;
                         while (w1 <= big_chunk_end)
                         {   if (w != (char *)stacksegment)
                                 pages[pages_count++] = w;
                             w = w1;
-                            w1 = w + CSL_PAGE_SIZE + 16;
+                            w1 = w + CSL_PAGE_SIZE;
                         }
                     }
-                    CSL_MD5_Init();
-                    CSL_MD5_Update((unsigned char *)"Initial State", 13);
                     IreInit();
+#endif // CONSERVATIVE
                     setup(1, 0.0); // warm start mode
                     exit_tag = exit_value = nil;
                     exit_reason = UNWIND_NULL;
@@ -1106,9 +1107,9 @@ static void lisp_main(void)
 // Of course a tick may very well have happened rather recently - so
 // I will flush it out now just to clear the air.
 //
-                    if (stack >= stacklimit)
-                    {   reclaim(nil, "stack", GC_STACK, 0);
-                        ignore_exception();
+                    if (++reclaim_trigger_count == reclaim_trigger_target ||
+                        stack >= stacklimit)
+                    {   ignore_error(reclaim(nil, "stack", GC_STACK, 0));
                     }
                     cold_start = (exit_value == nil);
                     Lrds(nil, nil);
@@ -1130,47 +1131,33 @@ static void lisp_main(void)
                             }
                             if (symbolp(modname) && modname != nil)
                             {   modname = get_pname(modname);
-                                if (exception_pending()) ignore_exception();
-                                else
-                                {   Header h = vechdr(modname);
-                                    int32_t len = length_of_byteheader(h) - CELL;
-                                    if (len > 63) len = 63;
-                                    memcpy(new_module,
-                                           (char *)modname + (CELL - TAG_VECTOR),
-                                           (size_t)len);
-                                    new_module[len] = 0;
-                                }
+                                Header h = vechdr(modname);
+                                int32_t len = length_of_byteheader(h) - CELL;
+                                if (len > 63) len = 63;
+                                memcpy(new_module,
+                                       (char *)modname + (CELL - TAG_VECTOR),
+                                       (size_t)len);
+                                new_module[len] = 0;
                             }
                             if (symbolp(exit_value) && exit_value != nil)
                             {   exit_value = get_pname(exit_value);
-                                if (exception_pending()) ignore_exception();
-                                else
-                                {   Header h = vechdr(exit_value);
-                                    int32_t len = length_of_byteheader(h) - CELL;
-                                    if (len > 63) len = 63;
-                                    memcpy(new_fn,
-                                           (char *)exit_value + (CELL - TAG_VECTOR),
-                                           (size_t)len);
-                                    new_fn[len] = 0;
-                                }
+                                Header h = vechdr(exit_value);
+                                int32_t len = length_of_byteheader(h) - CELL;
+                                if (len > 63) len = 63;
+                                memcpy(new_fn,
+                                       (char *)exit_value + (CELL - TAG_VECTOR),
+                                       (size_t)len);
+                                new_fn[len] = 0;
                             }
                         }
                     }
+#ifdef CONSERVATIVE
+// @@@@@
+#else // CONSERVATIVE
 //
-// This puts all recorded heap pages back in the main pool, but there is
-// as of March 2010 a concern in the case that an initial heap image came
-// from a 32-bit machine and I am now running on a 64-bit one. That concerns
-// both extra pages allocated at the first startup to give the effect of
-// temporarily double-sized pages (there is a space leak there that may
-// lose all those pages!) and the expectation there that pages in the map
-// are neatly contiguous in memory (and when returned to the pool here that
-// expectation usually fails). Oh dear!
-// As a rather grungy recovery what I will do is to recycle all of the
-// pages that are NOT in the contiguous chunk and then re-create a neat
-// map of contiguous space from the bits that are. So first I must remove
-// any contiguous pages from the list of ones marked as free...
+// This puts all recorded heap pages back in the main pool.
 //
-                    for (i=0; i<pages_count; i++)
+                    for (size_t i=0; i<pages_count; i++)
                     {   char *w = (char *)pages[i];
                         if (!(w > big_chunk_start && w <= big_chunk_end))
                             continue;
@@ -1194,31 +1181,25 @@ static void lisp_main(void)
                         if (!(w > big_chunk_start && w <= big_chunk_end))
                             pages[pages_count++] = w;
                     }
-                    while (bps_pages_count != 0)
-                    {   char *w = (char *)bps_pages[--bps_pages_count];
-                        if (!(w > big_chunk_start && w <= big_chunk_end))
-                            pages[pages_count++] = w;
-                    }
 //
 // Finally rebuild a contiguous block of pages from the wholesale block.
 //
                     {   char *w = big_chunk_start + NIL_SEGMENT_SIZE;
-                        char *w1 = w + CSL_PAGE_SIZE + 16;
+                        char *w1 = w + CSL_PAGE_SIZE;
                         while (w1 <= big_chunk_end)
                         {   if (w != (char *)stacksegment)
                                 pages[pages_count++] = w;
                             w = w1;
-                            w1 = w + CSL_PAGE_SIZE + 16;
+                            w1 = w + CSL_PAGE_SIZE;
                         }
                     }
+#endif // CONSERVATIVE
 //
 // When I call restart-csl I will leave the random number generator where it
 // was. Anybody who wants to reset if either to a freshly randomised
 // configuration or to a defined condition must do so for themselves. For
 // people who do not care too much what I do here is probably acceptable!
 //
-                    CSL_MD5_Init();
-                    CSL_MD5_Update((unsigned char *)"Initial State", 13);
                     IreInit();
                     setup(cold_start ? 0 : 1, 0.0);
                     exit_tag = exit_value = nil;
@@ -1231,12 +1212,8 @@ static void lisp_main(void)
                         if (new_module[0] != 0)
                         {   w = make_undefined_symbol(new_module);
                             Lload_module(nil, w);
-                            ignore_exception();
                         }
-                        w = make_undefined_symbol(new_fn);
-                        nil = C_nil;
-                        if (exception_pending()) ignore_exception();
-                        else supervisor = w;
+                        supervisor = make_undefined_symbol(new_fn);
                     }
                     continue;
                 }
@@ -1249,59 +1226,6 @@ static void lisp_main(void)
         break;
     }
 }
-
-#if !defined HAVE_FWIN || defined EMBEDDED
-#ifndef UNDER_CE
-
-bool sigint_must_throw = false;
-
-// Note that this version is only used if fwin is not in use (including the
-// case of the embedded medule) so there is no clash between this definition
-// of sigint_handler and one in fwin.cpp.
-
-void sigint_handler(int code)
-{
-//
-// Note that the only things that I am really allowed to do in a routine
-// like this involve setting variables of type sig_atomic_t, which can not
-// be viewed as much more than boolean.  The code actually used here is
-// somewhat more ambitious (== non-portable!) so must be viewed as delicate.
-// ANSI guarantee that throw-ing out of a non-nested signal handler
-// is valid.
-//
-// tick_pending etc allow a steady stream of clock events to
-// be handed to Lisp.
-//
-    interrupt_pending = 1;
-    signal(SIGINT, sigint_handler);
-    if (sigint_must_throw)
-    {   sigint_must_throw = false;
-        throw((int *)0);
-    }
-//
-// If there is not a separate regular stream of ticks I will simulate
-// the receipt of a tick here. Thus I need to be able to recognize "ticks"
-// even on systems where there are no "real" ones.
-//
-    if (!tick_pending)
-    {   if (already_in_gc) tick_on_gc_exit = true;
-        else
-        {   tick_pending = true;
-            saveheaplimit = heaplimit;
-            heaplimit = fringe;
-            savevheaplimit = vheaplimit;
-            vheaplimit = vfringe;
-            savecodelimit = codelimit;
-            codelimit = codefringe;
-            savestacklimit = stacklimit;
-            stacklimit = stackbase;
-        }
-    }
-    return;
-}
-
-#endif // UNDER_CE
-#endif // HAVE_FWIN
 
 //
 // OK, I need to write a short essay on "software ticks". A major issue
@@ -1352,8 +1276,6 @@ int deal_with_tick(void)
             heaplimit = fringe;
             savevheaplimit = vheaplimit;
             vheaplimit = vfringe;
-            savecodelimit = codelimit;
-            codelimit = codefringe;
             savestacklimit = stacklimit;
             stacklimit = stackbase;
         }
@@ -1363,21 +1285,21 @@ int deal_with_tick(void)
     return 1;
 }
 
-static long int initial_random_seed, seed2;
+static long int initial_random_seed;
 
 const char *files_to_read[MAX_INPUT_FILES],
            *symbols_to_define[MAX_SYMBOLS_TO_DEFINE],
            *fasl_paths[MAX_FASL_PATHS];
-int output_directory;
+size_t output_directory;
 character_reader *procedural_input;
 character_writer *procedural_output;
 
 bool undefine_this_one[MAX_SYMBOLS_TO_DEFINE];
 
-int number_of_input_files = 0,
+size_t number_of_input_files = 0,
     number_of_symbols_to_define = 0,
-    number_of_fasl_paths = 0,
-    init_flags = 0;
+    number_of_fasl_paths = 0;
+int init_flags = 0;
 
 #ifdef WINDOW_SYSTEM
 FILE *alternative_stdout = NULL;
@@ -1397,27 +1319,6 @@ const char *standard_directory;
 //
 static const char *module_enquiry = NULL;
 
-//
-// The next lines mean that (if you can get in before cslstart is
-// called) you can get memory allocation done in a custom way.
-//
-
-static void *CSL_malloc(size_t n)
-{   return malloc(n);
-}
-
-static void  CSL_free(void *p)
-{   free(p);
-}
-
-static void *CSL_realloc(void *p, size_t n)
-{   return realloc(p, n);
-}
-
-malloc_function  *malloc_hook = CSL_malloc;
-realloc_function *realloc_hook = CSL_realloc;
-free_function    *free_hook   = CSL_free;
-
 int errorset_min = 0, errorset_max = 3;
 
 int load_count = 0, load_limit = 0x7fffffff;
@@ -1427,15 +1328,15 @@ const char **csl_argv;
 
 bool restartp;
 
-char *C_stack_base = NULL, *C_stack_limit = NULL;
+uintptr_t C_stacklimit = 0;
 double max_store_size = 0.0;
 
 #ifndef HAVE_CILK
-#ifdef WIN32
-HANDLE kara_thread1, kara_thread2;
-#elif defined HAVE_LIBPTHREAD
-pthread_t kara_thread1, kara_thread2;
-#endif
+std::thread kara_thread[2];
+std::mutex kara_mutex;
+std::condition_variable cv_kara_ready, cv_kara_done;
+unsigned int kara_ready = 0;
+int kara_done = 0;
 #endif
 
 static int kparallel = -1;
@@ -1447,74 +1348,19 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 // I make "sp" volatile - it is a variable I declare here but then only use by
 // taking its address to get a pointer into the current stack-frame. When it
 // is volatile my compiler will not be entitles to moan about the lack of
-// assignment to it and will not be entitles to optimise it out of existance
-// or otherwise do things that run against my intent!
+// assignment to it and will not be entitled to optimise it out of existance
+// or otherwise do things that run against my intent! But then to put its
+// address iun C_stackbase I need to cast away the volatile qualifier.
 //
-    volatile LispObject sp;
-#ifdef CONSERVATIVE
-    C_stackbase = (LispObject *)&sp;
-#endif
-    C_stack_base = (char *)&sp;
-    C_stack_limit = NULL;
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
+    C_stacklimit = 0;
     max_store_size = 0.0;
-#if (defined HAVE_LIBPTHREAD || defined WIN32) && !HAVE_CILK
-    if (number_of_processors() >= 3)
-    {
-#ifdef MACINTOSH
-        sem_unlink("/sem1a");
-        if ((kara_sem1a = sem_open("/sem1a", O_CREAT, 0644, 0)) == SEM_FAILED)
-        {   perror("sem_open");
-            exit(EXIT_FAILURE);
-        }
-        sem_unlink("/sem1b");
-        if ((kara_sem1b = sem_open("/sem1b", O_CREAT, 0644, 0)) == SEM_FAILED)
-        {   perror("sem_open");
-            exit(EXIT_FAILURE);
-        }
-        sem_unlink("/sem1c");
-        if ((kara_sem1c = sem_open("/sem1c", O_CREAT, 0644, 0)) == SEM_FAILED)
-        {   perror("sem_open");
-            exit(EXIT_FAILURE);
-        }
-        sem_unlink("/sem2a");
-        if ((kara_sem2a = sem_open("/sem2a", O_CREAT, 0644, 0)) == SEM_FAILED)
-        {   perror("sem_open");
-            exit(EXIT_FAILURE);
-        }
-        sem_unlink("/sem2b");
-        if ((kara_sem2b = sem_open("/sem2b", O_CREAT, 0644, 0)) == SEM_FAILED)
-        {   perror("sem_open");
-            exit(EXIT_FAILURE);
-        }
-        sem_unlink("/sem2c");
-        if ((kara_sem2c = sem_open("/sem2c", O_CREAT, 0644, 0)) == SEM_FAILED)
-        {   perror("sem_open");
-            exit(EXIT_FAILURE);
-        }
-#else // MACINTOSH
-        sem_init(&kara_sem1a, 0, 0);
-        sem_init(&kara_sem1b, 0, 0);
-        sem_init(&kara_sem1c, 0, 0);
-        sem_init(&kara_sem2a, 0, 0);
-        sem_init(&kara_sem2b, 0, 0);
-        sem_init(&kara_sem2c, 0, 0);
-#endif // MACINTOSH
-#ifdef WIN32
-        kara_thread1 = CreateThread(NULL, 0, kara_worker1, NULL, 0, NULL);
-        kara_thread2 = CreateThread(NULL, 0, kara_worker2, NULL, 0, NULL);
-#else
-        pthread_create(&kara_thread1, NULL, kara_worker1, NULL);
-        pthread_create(&kara_thread2, NULL, kara_worker2, NULL);
-#endif
-    }
     karatsuba_parallel = 0x7fffffff;
-#elif defined HAVE_CILK
-    karatsuba_parallel = 0x7fffffff;
-#endif // thread support
 
 #ifdef EMBEDDED
 // This provides a fixed limit in the embedded build
-    C_stack_limit = C_stack_base - 2*1024*1024 + 0x10000;
+    C_stacklimit = (uintptr_t)C_stackbase - 2*1024*1024 + 0x10000;
 #else // EMBEDDED
 #ifdef WIN32
     {   HMODULE h = GetModuleHandle(NULL); // For current executable
@@ -1534,7 +1380,7 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 // I also assume that any figure over 20 Mbytes is a mess so ignore it
             if (stackLimit <= 20*1024*1024)
             {   // I try to give myself 64K spare...
-                C_stack_limit = C_stack_base - stackLimit + 0x10000;
+                C_stacklimit = (uintptr_t)C_stackbase - stackLimit + 0x10000;
 #ifdef DEBUG
                 fprintf(stderr, "[debug] stack %dK\n", (int)(stackLimit/1024));
 #endif
@@ -1572,7 +1418,7 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
                         stackLimit = 20*1024*1024;
 // I view values under 200K as silly and ignore them!
             if (stackLimit >= 200*1024)
-            {   C_stack_limit = C_stack_base - stackLimit + 0x10000;
+            {   C_stacklimit = (uintptr_t)C_stackbase - stackLimit + 0x10000;
 #ifdef DEBUG
                 fprintf(stderr, "[debug] stack %dK\n", (int)(stackLimit/1024));
 #endif
@@ -1582,8 +1428,8 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 #endif // HAVE_SYS_RESOURCE_H
 #endif // WIN32
 // If I can not read a value then I will set a limit at 4 Mbytes...
-    if (C_stack_limit == NULL)
-    {   C_stack_limit = C_stack_base - 4*1024*1024 + 0x10000;
+    if (C_stacklimit == 0)
+    {   C_stacklimit = (uintptr_t)C_stackbase - 4*1024*1024 + 0x10000;
 #ifdef DEBUG
         fprintf(stderr, "[debug] stack defaulting to 4Mb\n");
 #endif
@@ -1617,7 +1463,6 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 #if defined WINDOW_SYSTEM && !defined EMBEDDED
     use_wimp = true;
 #endif
-#ifdef HAVE_FWIN
 //
 // On fwin the "-w" flag should disable all attempts at use of the wimp.
 //
@@ -1633,13 +1478,6 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 #endif
     }
     fwin_pause_at_end = 1;
-#endif
-#ifdef SOCKETS
-#if 0
-    sockets_ready = 0;
-    socket_server = 0;
-#endif
-#endif
 //
 // Now that the window manager is active I can send output through
 // xx_printf() and get it on the screen neatly.
@@ -1651,12 +1489,12 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
     ignore_restart_fn = false;
     spool_file = NULL;
     spool_file_name[0] = 0;
-    output_directory = 0x80000000;
+    output_directory = 0x80000000u;
     number_of_input_files = 0;
     number_of_symbols_to_define = 0;
     number_of_fasl_paths = 0;
     fasl_output_file = false;
-    initial_random_seed = seed2 = 0;
+    initial_random_seed = 0;
     init_flags = INIT_EXPANDABLE;
     return_code = EXIT_SUCCESS;
     segvtrap = true;
@@ -1664,13 +1502,6 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
     load_count = 0;
     load_limit = 0x7fffffff;
 
-    CSL_MD5_Init();
-    CSL_MD5_Update((unsigned char *)"Initial State", 13);
-#ifdef MEMORY_TRACE
-    car_counter = 0x7fffffff;
-    car_low = 0;
-    car_high = 0xffffffff;
-#endif
 // I save the args so that setup can make a lisp variable out of them
     csl_argc = argc;
     csl_argv = argv;
@@ -1750,6 +1581,22 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
  */
                         else if (strcmp(w, "texmacs") == 0)
                         { }
+/*! options [--no-rcfile] \item [{\ttfamily --no-rcfile}] \index{{\ttfamily --no-rcfile}}
+ * Instruct the system not to read a user-specific configuation file, which
+ * make have such a names as ``{\ttfamily .reducerc}'', at startup time. This
+ * can be useful during system building where utterly self-contained and
+ * predictable behaviour is important.
+ */
+                        else if (strcmp(w, "no-rcfile") == 0)
+                        {   if (number_of_symbols_to_define < MAX_SYMBOLS_TO_DEFINE)
+                                symbols_to_define[number_of_symbols_to_define] =
+                                    "no_init_file",
+                                undefine_this_one[number_of_symbols_to_define++] = false;
+                            else
+                            {   fwin_restore();
+                                term_printf("Too many requests: \"--no-rcfile\" ignored\n");
+                            }
+                        }
 /*! options [--gui] \item [{\ttfamily --gui}] \index{{\ttfamily --gui}}
  * Encourage the system to run in its own window. Similar behaviour
  * to {\ttfamily -w+}.
@@ -1769,6 +1616,50 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
  */
                         else if (strcmp(w, "guimin") == 0)
                         { }
+/*! options [--gc-trigger] \item [{\ttfamily --gc-trigger}] \index{{\ttfamily --gc-trigger}}
+ * --gc-trigger=NNNN causes a garbage collection to be forced on the NNNNth
+ * occasion when that could possibly happen. This may sometimes be relevant
+ * when trying to track down garbage collection related bugs. If the option
+ * is set every garbage collection displays the count that it corresponds to,
+ * and the intent is that these counts should be fairly deterministic.
+ */
+                        else if (strncmp(w, "gc-trigger=", 11) == 0)
+                        {   sscanf(w+11, "%" SCNd64, &reclaim_trigger_target);
+                            term_printf("GC trigger set to %" PRId64 "\n",
+                                        reclaim_trigger_target);
+                        }
+/*! options [--stop-on-error] \item [{\ttfamily --stop-on-error}] \index{{\ttfamily --stop-on-error}}
+ * This utterly defeats errorset and arranges that if there is any error that
+ * after whatever backtrace might have been generated any inner errorset
+ * just propagates the error out, and at the top level the system exits.
+ */
+                        else if (strcmp(w, "stop-on-error") == 0)
+                            stop_on_error=true;
+/*! options [--force-verbos] \item [{\ttfamily --force-verbos}] \index{{\ttfamily --force-verbos}}
+ * Forces generation of messages from the garbage collector regardless of any
+ * attempt from with the system to change that. Intended for use during system
+ * debugging where it may be important to see when a garbage collection occurs
+ * but undesirable to change the input script at all.
+ */
+                        else if (strcmp(w, "force-verbos") == 0)
+                            force_verbos = true;
+/*! options [--force-echo] \item [{\ttfamily --force-echo}] \index{{\ttfamily --force-echo}}
+ * Forces echoing of input regardless of any
+ * attempt from with the system to change that. Intended for use during system
+ * debugging where it may be important to observe progress through an
+ * input file but undesirable to change the input script at all.
+ */
+                        else if (strcmp(w, "force-echo") == 0)
+                            force_echo = true;
+/*! options [--force-backtrace] \item [{\ttfamily --force-backtrace}] \index{{\ttfamily --force-backtrace}}
+ * Forces any error to generate a backtrace regardless of any
+ * attempt from with the system to change that (eg via use of errorset).
+ * Intended for use during system  debugging where it may be important to
+ * observe behaviour otherwise hiddenn by (errorset X nil nil) but when it
+ * undesirable to change the input script at all.
+ */
+                        else if (strcmp(w, "force-backtrace") == 0)
+                            force_backtrace = true;
 /*! options [--help] \item [{\ttfamily --help}] \index{{\ttfamily --help}}
  * It is probably obvious what this option does! Note that on Windows the
  * application was linked as a windows binary so it carefully creates a
@@ -1882,9 +1773,18 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
                             term_printf(
                                 "     than a native Windows version, regardless of other circumstances.\n");
                             term_printf(
-                                "--texmacs run in texmacs mode. You must use the plugin from the\n");
-                            term_printf(
+                                "--texmacs run in texmacs mode. You must use the plugin from the\n"
                                 "     cslbase/texmacs-plugin directory.\n");
+                            term_printf(
+                                "--force-backtrace, --force-echo, --force-verbos. Make system much nosier\n");
+                            term_printf(
+                                "     in ways that may help debugging when hunting low-level bugs in Reduce.\n");
+                            term_printf(
+                                "--gc-trigger=NNNN causes a garbage collection to be forced on the NNNNth\n"
+                                "     occasion when that could possibly happen. This may sometimes be relevant\n"
+                                "     when trying to track down garbage collection related bugs. If the option\n"
+                                "     is set every garbage collection displays the count that it corresponds to,\n"
+                                "     and the intent is that these counts should be fairly deterministic.\n");
                             term_printf(
                                 "--<other> reserved for additional extended options.\n");
                             term_printf(
@@ -1930,11 +1830,11 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
                         else if (strcmp(w, "version") == 0)
                         {   term_printf(
 #ifndef COMMON
-                        "Codemist Standard Lisp %s revision %d for %s: %s\n",
+                        "Codemist Standard Lisp revision %u for %s: %s\n",
 #else
-                        "Codemist Common Lisp %s revision %d for %s: %s\n",
+                        "Codemist Common Lisp revision %u for %s: %s\n",
 #endif
-                                VERSION, REVISION, IMPNAME, __DATE__);
+                                REVISION, IMPNAME, __DATE__);
                             my_exit(0);
                         }
                         else if (strcmp(w, "maxmem") == 0)
@@ -1981,7 +1881,7 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 //
 // I do not really want this options heavily documented, since it is intended
 // for use by those maintaining CSL not for the general public. By default
-// log multiplication can use a threaded implementation (to exploit multi-core
+// long multiplication can use a threaded implementation (to exploit multi-core
 // machines). This happens when numbers get bigger than about
 // 2^(31*KARATSUBA_PARALLEL_CUTOFF). This option allows one to override the
 // default threshold so that performance effects can be measured and the
@@ -2042,11 +1942,7 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
                         if (f == NULL)
                         {   fprintf(stderr, "Unable to write to \"%s\"\n",
                                     filename);
-#ifdef HAVE_FWIN
                             throw EXIT_FAILURE;
-#else
-                            exit(EXIT_FAILURE);
-#endif
                         }
 #endif
                     }
@@ -2107,7 +2003,7 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 
                 case 'c':
                     fwin_restore();
-                    term_printf("\nCSL was coded by Codemist    , 1988-2012\n");
+                    term_printf("\nCSL was coded by A C Norman, Codemist, 1988-2018\n");
                     term_printf("Distributed under the Modified BSD License\n");
                     term_printf("See also --help\n");
                     continue;
@@ -2126,7 +2022,7 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
                     else break; // Illegal at end of command-line
                     if (number_of_symbols_to_define < MAX_SYMBOLS_TO_DEFINE)
                         symbols_to_define[number_of_symbols_to_define] = w,
-                                undefine_this_one[number_of_symbols_to_define++] = false;
+                        undefine_this_one[number_of_symbols_to_define++] = false;
                     else
                     {   fwin_restore();
                         term_printf("Too many \"-D\" requests: ignored\n");
@@ -2146,8 +2042,6 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
                         load_limit = 0x7fffffff;
                     continue;
 
-#if 0
-
 /*! options [-f] \item [{\ttfamily -f}] \index{{\ttfamily -f}}
  * At one stage CSL could run as a socket server, and {\ttfamily -f portnumber}
  * activated that mode. {\ttfamily -f-} used a default port, 1206 (a number
@@ -2158,186 +2052,16 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 
 
 
-#ifdef SOCKETS
                 case 'f':
 //
 //                     -F
-// This is used with syntax -Fnnn or -F nnn (with nnn a number above
-// 1000 but less than 65536) to cause the system to run not as a normal
-// interactive application but as a server listening on the indicated port.
-// The case -F- (which could of course be "-F -") indicates use of the
-// default port for CSL, which I hereby declare to be 1206. This number may
-// need to be changed later if I find it conflicts with some other common
-// package or usage, but was selected in memory of the project number
-// at one time allocated to the Archimedeans Computing Group.
-// On some systems if I want to set up a server that can serve multiple
-// clients I may need to re-invoke CSL afresh for each new client, and in
-// such cases the internally generated tasks can be passed information
-// from their parent task using -F followed by non-numeric information.
-// Any user who attempts such usage will get "what they deserve".
-//
-                    if (c2 != 0) w = &opt[2];
-                    else if (i != argc) w = argv[++i];
-                    else break; // Illegal at end of command-line
-                    port_number = default_csl_server_port;
-                    remote_store = REMOTE_STORE;
-                    max_users = MAX_USERS;
-                    if (strcmp(w, "-") == 0)
-                        port_number = default_csl_server_port;
-                    else if (sscanf(w, "%d:%d:%d",
-                                    &port_number, &max_users, &remote_store) < 1 ||
-                             port_number <= 1000 ||
-                             port_number >= 65536 ||
-                             max_users < 2 || max_users > 50 ||
-                             remote_store < 4000 || remote_store > 20000)
-                    {   fwin_restore();
-                        term_printf("\"%s\" is valid (want port:users:store\n", w);
-                        continue;
-                    }
-                    store_size = (double)remote_store;
-                    init_flags &= ~INIT_EXPANDABLE;
-                    current_users = 0;
-//
-// The code here is probably a bit painfully system-specific, and so one
-// could argue that it should go in a separate file. However a LOT of the
-// socket interface is the same regardless of the host, or a few simple
-// macros can have made it so. So if SOCKETS has been defined I will
-// suppose I can continue here on that basis. I do quite want to put the
-// basic socket code in csl.c since it is concerned with system startup and
-// the selection of sources and sinks for IO.
-//
-                    if (ensure_sockets_ready() == 0)
-                    {   SOCKET sock1, sock2;
-                        struct sockaddr_in server_address, client_address;
-#ifdef HAVE_SOCKLEN_T
-                        socklen_t sin_size;
-#else
-                        int sin_size;
-#endif
-                        sock1 = socket(AF_INET, SOCK_STREAM, 0);
-                        if (sock1 == SOCKET_ERROR)
-                        {   fwin_restore();
-                            term_printf("Unable to create a socket\n");
-                            continue;
-                        }
-                        server_address.sin_family = AF_INET;
-                        server_address.sin_port = htons(port_number);
-                        server_address.sin_addr.s_addr = INADDR_ANY;
-                        memset((char *)&(server_address.sin_zero), 0, 8);
-                        if (bind(sock1, (struct sockaddr *)&server_address,
-                                 sizeof(struct sockaddr)) == SOCKET_ERROR)
-                        {   fwin_restore();
-                            term_printf("Unable to bind socket to port %d\n",
-                                        port_number);
-                            closesocket(sock1);
-                            continue;
-                        }
-                        if (listen(sock1, PERMITTED_BACKLOG) == SOCKET_ERROR)
-                        {   fwin_restore();
-                            term_printf("Failure in listen() on port %d\n",
-                                        port_number);
-                            closesocket(sock1);
-                            continue;
-                        }
-                        for (;;)
-                        {   struct hostent *h;
-                            time_t t0;
-                            sin_size = sizeof(struct sockaddr_in);
-                            sock2 = accept(sock1,
-                                           (struct sockaddr *)&client_address,
-                                           &sin_size);
-                            if (sock2 == SOCKET_ERROR)
-                            {   fwin_restore();
-                                term_printf("Trouble with accept()\n");
-                                continue;  // NB local continue here
-                            }
-                            t0 = time(NULL);
-                            term_printf("%.24s from %s",
-                                        ctime(&t0),
-                                        inet_ntoa(client_address.sin_addr));
-                            h = gethostbyaddr((char *)&client_address.sin_addr,
-                                              sizeof(client_address.sin_addr), AF_INET);
-                            if (h != NULL)
-                                term_printf(" = %s", h->h_name);
-                            else term_printf(" [unknown host]");
-//
-// Here I have a bit of a mess. Under Unix I can do a fork() so that the
-// requests that are coming in are handled by a separate process. The
-// code is pretty easy. However with Windows I can only create a fresh process
-// by re-launching CSL from the file it was originally fetched from. I
-// will try to do that in a while, but for now I will leave the
-// Windows version of this code only able to handle a single client
-// session.
-//
-#ifdef WIN32
-                            closesocket(sock1);
-                            socket_server = sock2;
-                            cpu_timeout = clock() + CLOCKS_PER_SEC*MAX_CPU_TIME;
-                            elapsed_timeout = time(NULL) + 60*MAX_ELAPSED_TIME;
-                            procedural_output = char_to_socket;
-                            term_printf("Welcome to the Codemist server\n");
-                            ensure_screen();
-                            break;
-#else // WIN32
-                            while (waitpid(-1, NULL, WNOHANG) > 0) current_users--;
-                            if (current_users >= max_users)
-                            {   term_printf(" refused\n");
-                                socket_server = sock2;
-                                ensure_screen();
-                                procedural_output = char_to_socket;
-                                term_printf(
-                                    "\nSorry, there are already %d people using this service\n",
-                                    current_users);
-                                term_printf("Please try again later.\n");
-                                ensure_screen();
-                                procedural_output = NULL;
-                                closesocket(socket_server);
-                                socket_server = 0;
-                                continue;
-                            }
-                            else term_printf(" %d of %d\n",
-                                                 ++current_users, max_users);
-                            ensure_screen();
-                            if (!fork())
-                            {   // Child process here
-                                closesocket(sock1);
-                                fcntl(sock2, F_SETFL, O_NONBLOCK);
-                                socket_server = sock2;
-                                cpu_timeout = clock() + CLOCKS_PER_SEC*MAX_CPU_TIME;
-                                elapsed_timeout = time(NULL) + 60*MAX_ELAPSED_TIME;
-                                ensure_screen();
-                                procedural_output = char_to_socket;
-                                term_printf("Welcome, you are user %d of %d\n",
-                                            current_users, max_users);
-                                term_printf(
-                                    "You have been allocated %d seconds CPU time"
-                                    " and %d minutes elapsed time\n",
-                                    MAX_CPU_TIME, MAX_ELAPSED_TIME);
-                                break;
-                            }
-                            else
-                            {   closesocket(sock2);
-                                if (current_users < 0) current_users = 0;
-                                continue;
-//
-// This loops serving as many clients as happen to come along. Having said
-// "csl -fnnn" it will be necessary (in due course) to kill the daemon
-// by interrupting it with a ^C or some such. When the master process is
-// terminated in that way any clients that remain active may continue to
-// hang around until they have finished in the usual way.
-//
-                            }
-#endif // WIN32
-                        }
-                    }
-//
-// The "continue" here gets executed when I have been contacted by some
-// client and have an active socket open. It parses the rest of the
-// command line and then completes the process of getting CSL running.
-//
+// No longer used, so SPARE!
+// I *ONCE* had a scheme where Reduce could run as a remote server accessed
+// via the network. That has not been used for a long while now and if
+// something similar becomes needed in the future it should be re-implemented
+// from the ground up. Here I will not even issue a complaint if somebody
+// specifies "-f".
                     continue;
-#endif // SOCKETS
-#endif // 0
 
 /*! options [-g] \item [{\ttfamily -g}] \index{{\ttfamily -g}}
  * In line with the implication of this option for C compilers, this enables
@@ -2350,13 +2074,22 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
                     if (number_of_symbols_to_define < MAX_SYMBOLS_TO_DEFINE)
                         symbols_to_define[number_of_symbols_to_define] =
                             "*backtrace",
-                            undefine_this_one[number_of_symbols_to_define++] = false;
+                        undefine_this_one[number_of_symbols_to_define++] = false;
                     else
                     {   fwin_restore();
                         term_printf("Too many requests: \"-G\" ignored\n");
                     }
                     errorset_min = 3;
                     errorset_max = 3;
+// -gw switches on debugging and also causes a 5-second pause before the code
+// really gets going. The intent of this pause is so that a debgger can start
+// and perhaps have time to attach to the task.
+                    if (opt[2] == 'w')
+#ifdef WIN32
+                        Sleep(5000);
+#else
+                        sleep(5);
+#endif
                     continue;
 
 /*! options [-h] \item [{\ttfamily -h}] \index{{\ttfamily -h}}
@@ -2552,35 +2285,12 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
                     }
                     continue;
 
-#ifdef MEMORY_TRACE
-//
-// If MEMORY_TRACE is set up then I can cause an exception by providing
-// an option -M n:l:h
-// This interrupts after n memory records when a reference in the (inclusive)
-// range l..h is next made.
-//
 /*! options [-m] \item [{\ttfamily -m}] \index{{\ttfamily -m}}
- * Memory trace mode. An option that represents an experiment from the past,
- * and no longer reliably in use. It make it possible to force an
- * exception at stages whene reference to a specified part of memory was made
- * and that could be useful for some low level debugging. It is not supported
- * at present.
+ * Not used at present.
  */
 
-                case 'm':
-                    if (c2 != 0) w = &opt[2];
-                    else if (i != argc) w = argv[++i];
-                    else break; // Illegal at end of command-line
-                    switch(sscanf(w, "%ld:%lu:%lu",
-                                  &car_counter, &car_low, &car_high))
-                    {   case 0: car_counter = 0x7fffffff;
-                        case 1: car_low = 0;
-                        case 2: car_high = 0xffffffff;
-                        default:break;
-                    }
+                case 'm':  // "-m" not used at present.
                     continue;
-#endif
-
 
 /*! options [-n] \item [{\ttfamily -n}] \index{{\ttfamily -n}}
  * Normally when the system is started it will run a ``restart function'' as
@@ -2653,7 +2363,7 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 
 /*! options [-r] \item [{\ttfamily -r}] \index{{\ttfamily -r}}
  * The random-number generator in CSL is normally initialised to a value
- * based on the time of day and is hence not reproducible from run to run.
+ * that is intended not to be reproducible from run to run.
  * In many cases that behavious is desirable, but for debugging it can be useful
  * to force a seed. The directive {\ttfamily -r nnn,mmm} sets the seed to
  * up to 64 bits taken from the values nnn and mmm. The second value if optional,
@@ -2667,10 +2377,8 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
                     if (c2 != 0) w = &opt[2];
                     else if (i != argc) w = argv[++i];
                     else break; // Illegal at end of command-line
-                    if (sscanf(w, "%ld,%ld", &initial_random_seed, &seed2) != 2)
-                    {   initial_random_seed = seed2 = 0;
-                        sscanf(w, "%ld", &initial_random_seed);
-                    }
+                    initial_random_seed = 0;
+                    sscanf(w, "%ld", &initial_random_seed);
                     continue;
 
 /*! options [-s] \item [{\ttfamily -s}] \index{{\ttfamily -s}}
@@ -2798,12 +2506,6 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
  */
 
                 case 'y':
-                    if (number_of_symbols_to_define < MAX_SYMBOLS_TO_DEFINE)
-                        symbols_to_define[number_of_symbols_to_define] =
-                            "*hankaku",
-                            undefine_this_one[number_of_symbols_to_define++] = false;
-                    else
-                        term_printf("Too many requests: \"-Y\" ignored\n");
                     continue;
 
 /*! options [-z] \item [{\ttfamily -z}] \index{{\ttfamily -z}}
@@ -2892,7 +2594,7 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
                *--p != '/' &&
                *p != '\\') /* nothing */;
         if (strncmp(standard_directory, cur, p-standard_directory) != 0)
-            p1 = (char *)(*malloc_hook)(strlen(p));
+            p1 = (char *)malloc(strlen(p));
         else p1 = NULL;
         if (p == standard_directory || p1 == NULL)
         {   fasl_paths[0] = standard_directory;
@@ -2903,7 +2605,7 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 //
             output_directory = 0x40000000 + 0;
             number_of_fasl_paths = 1;
-            if (p1 != NULL) (*free_hook)(p1);
+            if (p1 != NULL) free(p1);
         }
         else
         {   strcpy(p1, p+1);
@@ -2917,9 +2619,8 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 
     if (module_enquiry != NULL)
     {   char datestamp[32], fullname[LONGEST_LEGAL_FILENAME];
-        int32_t size;
+        size_t size;
         int i;
-        LispObject nil;
         memset(fullname, 0, sizeof(fullname));
 //
 // Imodulep expects input_libraries to be set up. So I will fudge the
@@ -2928,20 +2629,18 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 // nil-segment and cons().
 //
 
-        nilsegment = (LispObject *)my_malloc(NIL_SEGMENT_SIZE);
+        nilsegment = (LispObject *)malloc(NIL_SEGMENT_SIZE);
+        if (nilsegment == NULL) abort();
 #ifdef COMMON
-        nil = doubleword_align_up(nilsegment) + TAG_CONS + 8;
+        nil = (LispObject)nilsegment + TAG_CONS + 8;
 #else
-        nil = doubleword_align_up(nilsegment) + TAG_SYMBOL;
+        nil = (LispObject)nilsegment + TAG_SYMBOL;
 #endif
-        C_nil = nil;
-        pages_count = heap_pages_count = vheap_pages_count =
-                                             bps_pages_count = native_pages_count = 0;
-        stacksegment = (LispObject *)my_malloc(CSL_PAGE_SIZE);
-//
-// I am lazy about protection against malloc failure here.
-//
-        heaplimit = doubleword_align_up(stacksegment);
+        pages_count = heap_pages_count = vheap_pages_count = 0;
+        stacksegment = (LispObject *)malloc(CSL_PAGE_SIZE);
+        if (stacksegment == NULL) abort();
+        heaplimit = (LispObject)stacksegment;
+        heaplimit = (LispObject)stacksegment;
         fringe = heaplimit + CSL_PAGE_SIZE - 16;
         input_libraries = heaplimit + 16 + TAG_SYMBOL;
         heaplimit += 64;
@@ -2961,12 +2660,10 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
             size = 0;
             strcpy(fullname, module_enquiry);
         }
-        term_printf("%.24s   size=%ld file=%s\n",
-                    datestamp, (long)size, fullname);
+        term_printf("%.24s   size=%" PRIuPTR " file=%s\n",
+                    datestamp, (uintptr_t)size, fullname);
         init_flags &= ~INIT_VERBOSE;
-#ifdef HAVE_FWIN
         fwin_pause_at_end = 0;
-#endif
     }
     else
     {   base_time = read_clock();
@@ -2987,89 +2684,20 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 #endif
 
 #ifndef COMMON
-            term_printf("Codemist Standard Lisp %s revision %d for %s: %s\n",
+            term_printf("Codemist Standard Lisp revision %d for %s: %s\n",
 #else
-            term_printf("Codemist Common Lisp %s revision %d for %s: %s\n",
+            term_printf("Codemist Common Lisp revision %d for %s: %s\n",
 #endif
-                        VERSION, REVISION, IMPNAME, __DATE__);
+                        REVISION, IMPNAME, __DATE__);
         }
-#ifdef MEMORY_TRACE
-        if (car_counter != 0x7fffffff)
-            term_printf("Stop after %ld %lu..%lu\n",
-                        car_counter, car_low, car_high);
-#endif
 #ifdef WINDOW_SYSTEM
         ensure_screen();
 // If the user hits the close button here I may be in trouble
 #endif
 
-#if defined HAVE_LIBPTHREAD || defined WIN32 || defined HAVE_CILK
         if (number_of_processors() >= 3)
         {   karatsuba_parallel = KARATSUBA_PARALLEL_CUTOFF;
             if (kparallel > 0) karatsuba_parallel = kparallel;
-        }
-#endif
-
-//
-// Now dynamic code detects the floating point representation that is in use.
-// I thought/hoped that doing it this way would be safer than relying on having
-// pre-defined symbols that tracked the machine architecture.
-//
-        {   union fpch
-            {   double d;
-                unsigned char c[8];
-            } d;
-//
-// The following looks at the floating point representation of the
-// number 1/7 (in double precision) and picks out two bytes from
-// the middle of the first word - where I hope that rounding issues
-// will be remote.  Investigation shows that these two bytes can be
-// used to discriminate among at least a worthwhile range of
-// representations, and I will exploit this to help me re-load
-// heap-images in a way that allows images to be portable across
-// different architectures.
-//
-            int w;
-            d.d = 1.0/7.0;
-// The coding here was adjusted to survive a Debian ARM Linux port.
-            w = ((d.c[1] & 0xff) << 8) | (d.c[2] & 0xff);
-            switch (w)
-            {
-//
-// At one stage I detected (on of the) VAX representations and the one used
-// by the IBM s60/s370. These days I am only going to recognise cases that
-// use IEEE layout. Even with that the example machines noted here reveal
-// that even though IEEE explains what bits should be in the floating point
-// value different manufacturers pack the words and bytes in a variety of
-// ways! Well the mere shuffling of bytes is something I can deal with. If I
-// really needed to make image files portable to old-style IBM mainframes
-// or on a xArch machine set up to use hexadecimal floating point mode then
-// what I have here would moan. But if I just override the moan I will
-// be able to build images and reload them on that particular machine.
-//
-// It seems that REALLY OLD version of ARM software - possibly before
-// hardware floating point was generally installed there, used little endian
-// representations except that the two 32-bit units of a 64-bit float were
-// stored with the more significant one first. A test in 2016 on a Raspberry
-// Pi indicates that things are now such that the ARM seems to match the Intel
-// layout. That means that the only two orders I am now aware of arising are
-// fully little endian and fully big endian. In the notation used here this
-// is either nothing or is both byte and words swapped.
-                case 0x2449:    current_fp_rep = 0;
-                    break;           // Intel, MIPS, modern ARM
-                case 0x49c2:    current_fp_rep = FP_WORD_ORDER;
-                    break;           // ancient ARM!!!
-                case 0x4924:    current_fp_rep = FP_BYTE_ORDER;
-                    break;           // may never happen?
-                case 0xc249:    current_fp_rep = FP_WORD_ORDER|FP_BYTE_ORDER;
-                    break;           // SPARC
-//
-// The next line is probably not very good under a window manager, but
-// it is a case that ought never to arise, so I will not bother.
-//
-                default:        term_printf("Unknown floating point format %.4x\n", w);
-                    my_exit(EXIT_FAILURE);
-            }
         }
 
 //
@@ -3087,9 +2715,7 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
             if (errorset_min == 3) miscflags |= GC_MESSAGES | FASL_MESSAGES;
         }
 
-#ifdef HAVE_FWIN
         fwin_menus(loadable_packages, switches, review_switch_settings);
-#endif
 
 //
 // Now that setup is complete (and I have done any authorisation I want to)
@@ -3097,7 +2723,7 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 // default will be to put it in an unpredictable (well hard to predict!)
 // state
 //
-        Csrand((uint32_t)initial_random_seed, (uint32_t)seed2);
+        Csrand((uint32_t)initial_random_seed);
 
         gc_time += pop_clock();
 
@@ -3105,144 +2731,25 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
         interrupt_pending = already_in_gc = false;
         tick_pending = tick_on_gc_exit  = false;
 
-#ifndef HAVE_FWIN
+// "^C" trapping and handling happens within fwin.
 //
-// "^C" trapping and handling happens within fwin if that is available.
-//
-#ifndef UNDER_CE
-        sigint_must_throw = false;
-        signal(SIGINT, sigint_handler);
-#endif
-#endif
         ensure_screen();
         procedural_output = NULL;
-#ifdef HAVE_FWIN
 //
 // OK, if I get this far I will suppose that any messages that report utter
 // disasters will have reached the user, so I can allow FWIN to terminate
 // rather more promptly.
 //
         fwin_pause_at_end = 0;
-#endif
     }
-#ifdef HAVE_FWIN
 #ifdef HAVE_LIBFOX
 //
 // Activate the BREAK and BACKTRACE menu items. Note not needed unless
-// FOX is used and so there is a prospect of theer actually being menus!
-//
-//
-// The next line causes a MOAN using Sun's compiler, ending up with
-// an undefined reference to fwin_callback_to_interrupt!
+// FOX is used and so there is a prospect of there actually being menus!
 //
     fwin_callback_to_interrupt(async_interrupt);
-#endif // HAVE_LIBFOX
-#endif // HAVE_FWIN
-}
-
-#if 0
-#ifdef SOCKETS
-
-#define SOCKET_BUFFER_SIZE 1024
-//
-// The following two "character codes" are used when CSL is run as
-// a socket server and wrap around prompt text. This could be in
-// conflict with any code that tries to use these codes for other
-// purposes or that handles prompts itself...
-//
-#define CH_PROMPT          0x9a
-#define CH_ENDPROMPT       0x9c
-
-static char socket_in[SOCKET_BUFFER_SIZE], socket_out[SOCKET_BUFFER_SIZE];
-static int socket_in_p = 0, socket_in_n = 0,
-           socket_out_p = 0, socket_prev = '\n';
-
-static int char_from_socket(void)
-{   int c;
-    clock_t c0;
-    time_t t0;
-    if (socket_server == 0)
-    {   socket_prev = ' ';
-        return EOF;
-    }
-//
-// I generate a prompt whenever I am about to read the character that
-// follows a newline. The prompt is issued surrounded by control
-// characters 0x9a and 0x9c. That curious arrangement is inherited from
-// internal behaviour in my Windows interface code and could be altered
-// if something truly better could be invented.
-//
-    if (socket_prev == '\n')
-    {   term_printf("%c%s%c", CH_PROMPT, prompt_string, CH_ENDPROMPT);
-        ensure_screen();
-    }
-    if (socket_in_n == 0)
-    {   for (;;)
-        {   socket_in_n = recv(socket_server, socket_in, SOCKET_BUFFER_SIZE, 0);
-            c0 = clock();
-            t0 = time(NULL);
-            if (c0 > cpu_timeout || t0 > elapsed_timeout)
-            {   cpu_timeout = c0 + 20;
-                elapsed_timeout = t0 + 20;
-                term_printf(
-                    "\nSorry: timeout on this session. Closing down.\n");
-                socket_prev = ' ';
-                return EOF;
-            }
-            if (socket_in_n <= 0)
-#ifndef EWOULDBLOCK
-#  define EWOULDBLOCK WSAEWOULDBLOCK
 #endif
-            {   if (errno == EWOULDBLOCK)
-                {
-#ifdef WIN32
-                    Sleep(1000);  // Arg in milliseconds here
-#else
-                    sleep(1);  // Delay 1 second before re-polling
-#endif
-                    continue;
-                }
-                closesocket(socket_server);
-                socket_server = 0;
-                socket_prev = ' ';
-                return EOF;
-            }
-            else break;
-        }
-        socket_in_p = 0;
-    }
-    c = socket_in[socket_in_p++];
-    if (c == 0x0a || c == 0x0d) c = '\n';
-    socket_in_n--;
-    socket_prev = c;
-    return c & 0xff;
 }
-
-static int char_to_socket(int c)
-{   if (socket_server == 0) return 1;
-    socket_out[socket_out_p++] = (char)c;
-    if (c == '\n' || socket_out_p == SOCKET_BUFFER_SIZE)
-    {   if (send(socket_server, socket_out, socket_out_p, 0) < 0)
-        {   closesocket(socket_server);
-            socket_server = 0;
-            return 1;
-        }
-        socket_out_p = 0;
-    }
-    return 0;
-}
-
-void flush_socket(void)
-{   if (socket_server == 0) return;
-    if (send(socket_server, socket_out, socket_out_p, 0) < 0)
-    {   closesocket(socket_server);
-        socket_server = 0;
-    }
-    socket_out_p = 0;
-}
-
-#endif
-#endif
 
 static void cslaction(void)
 //
@@ -3252,30 +2759,19 @@ static void cslaction(void)
 // to provide a network service on some socket.
 //
 {
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
     errorset_msg = NULL;
     try
-    {
-#ifndef UNDER_CE
-        signal(SIGFPE, low_level_signal_handler);
-        if (segvtrap) signal(SIGSEGV, low_level_signal_handler);
-#ifdef SIGBUS
-        if (segvtrap) signal(SIGBUS, low_level_signal_handler);
-#endif
-#ifdef SIGILL
-        if (segvtrap) signal(SIGILL, low_level_signal_handler);
-#endif
-#endif
+    {   START_SETJMP_BLOCK;
+        set_up_signal_handlers();
         non_terminal_input = NULL;
 #ifdef WINDOW_SYSTEM
         terminal_eof_seen = 0;
 #endif
         if (number_of_input_files == 0) lisp_main();
         else
-        {   int i;
+        {   size_t i;
             for (i=0; i<number_of_input_files; i++)
             {   if (strcmp(files_to_read[i], "-") == 0)
                 {   non_terminal_input = NULL;
@@ -3306,21 +2802,22 @@ static void cslaction(void)
             }
         }
     }
-    catch (const char *)
+    catch (LispSignal e)
     {   if (errorset_msg != NULL)
         {   term_printf("\n%s detected\n", errorset_msg);
             errorset_msg = NULL;
         }
         return;
     }
+    catch (LispException e)
+    {   return;
+    }
 }
 
 int cslfinish(character_writer *w)
 {
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
     procedural_output = w;
     if (Ifinished())
         term_printf("\n+++ Errors on checkpoint-image file\n");
@@ -3339,13 +2836,21 @@ int cslfinish(character_writer *w)
                                          (double)(read_clock() - base_time)/
                                          (double)CLOCKS_PER_SEC));
         long int gct = (long int)(100.0 * gc_time);
+#ifdef HASH_STATISTICS
+        term_printf("oblist: found: %" PRIu64 " probes: %" PRIu64 " (%.2f)\n"
+                    "        added: %" PRIu64 " probes: %" PRIu64 " (%.2f)\n",
+            Noget, Nogetp, Nogetp/(double)Noget,
+            Noput, Noputp, Noputp/(double)Noput);
+        term_printf("hash lookup: %" PRIu64 " probes: %" PRIu64 " (%.2f)\n"
+                    "   inserted: %" PRIu64 " probes: %" PRIu64 " (%.2f)\n"
+                    "    updated: %" PRIu64 " probes: %" PRIu64 " (%.2f)\n",
+            Nhget, Nhgetp, Nhgetp/(double)Nhget,
+            Nhput1, Nhputp1, Nhputp1/(double)Nhput1,
+            Nhput2, Nhputp2, Nhputp2/(double)Nhput2);
+#endif
         term_printf("\n\nEnd of Lisp run after %ld.%.2ld+%ld.%.2ld seconds\n",
                     t/100, t%100, gct/100, gct%100);
     }
-#ifdef DEBUG_SOFTWARE_TICKS
-    term_printf("%d ticks processed (%d)\n",
-                number_of_ticks, SOFTWARE_TICKS);
-#endif
     drop_heap_segments();
     if (spool_file != NULL)
     {
@@ -3367,29 +2872,21 @@ int cslfinish(character_writer *w)
 int execute_lisp_function(const char *fname,
                           character_reader *r,
                           character_writer *w)
-{   LispObject nil;
-    LispObject ff;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
-    ff = make_undefined_symbol(fname);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 1;  // Failed to make the symbol
-    }
+{   LispObject ff;
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
+    if_error(ff = make_undefined_symbol(fname),
+             return 1);  // Failed to make the symbol
     procedural_input = r;
     procedural_output = w;
-    Lapply0(nil, ff);
-    ensure_screen();
+    if_error(Lapply0(nil, ff);
+             ensure_screen(),
+             // Error handler
+             procedural_input = NULL;
+             procedural_output = NULL;
+             return 2);
     procedural_input = NULL;
     procedural_output = NULL;
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 2;  // Failure during evaluation
-    }
     return 0;
 }
 
@@ -3442,15 +2939,45 @@ static void iput(int c)
 }
 
 #endif
+static void quit_kara_threads()
+{   {   std::lock_guard<std::mutex> lk(kara_mutex);
+        kara_ready = KARA_0 | KARA_1 | KARA_QUIT;
+        kara_done = 0;
+    }
+    cv_kara_ready.notify_all();
+}
+
+static void start_threads()
+{   kara_ready = kara_done = 0;
+    for (int i=0; i<2; i++)
+    {   kara_thread[i] = std::thread(kara_worker, i);
+// By making detaching the threads I will not need to join them when the
+// program exits. Well it seems that just what happens when threads are left
+// running at program exit (and in fact waiting on a condition variable!)
+// may be "undefined", but my EXPECTATION is that they will be killed for me.
+        kara_thread[i].detach();
+    }
+    atexit(quit_kara_threads);
+}
 
 static int submain(int argc, const char *argv[])
 {   cslstart(argc, argv, NULL);
 #ifdef SAMPLE_OF_PROCEDURAL_INTERFACE
     strcpy(ibuff, "(print '(a b c d))");
+    start_threads();
     execute_lisp_function("oem-supervisor", iget, iput);
     printf("Buffered output is <%s>\n", obuff);
 #else
-    if (module_enquiry == NULL) cslaction();
+    if (module_enquiry == NULL)
+    {
+#ifndef HAVE_CILK
+// I will now always create threads even if on a uniprocessor. If my CPU
+// has fewer than 3 cores (or virtual cores) I will not make any use of
+// the two worker threads, but it is simpler if I always create them.
+        start_threads();
+#endif
+        cslaction();
+    }
 #endif
     my_exit(cslfinish(NULL));
 //
@@ -3460,7 +2987,10 @@ static int submain(int argc, const char *argv[])
     return 0;
 }
 
-#if defined HAVE_FWIN && !defined EMBEDDED
+#ifdef EMBEDDED
+#define ENTRYPOINT main
+#else
+
 #define ENTRYPOINT fwin_main
 
 extern int ENTRYPOINT(int argc, const char *argv[]);
@@ -3470,8 +3000,6 @@ int main(int argc, const char *argv[])
     return fwin_startup(argc, argv, ENTRYPOINT);
 }
 
-#else
-#define ENTRYPOINT main
 #endif
 
 
@@ -3490,12 +3018,11 @@ int ENTRYPOINT(int argc, const char *argv[])
     printf("I am mpi instance %d of %d.\n", mpi_rank+1, mpi_size);
 #endif
 
-#ifdef HAVE_FWIN
     strcpy(about_box_title, "About CSL");
     strcpy(about_box_description, "Codemist Standard Lisp");
-#endif
     try
-    {   res = submain(argc, argv);
+    {   START_SETJMP_BLOCK;
+        res = submain(argc, argv);
     }
     catch(int r)
     {   res = r;
@@ -3531,68 +3058,35 @@ int PROC_set_callbacks(character_reader *r,
 }
 
 int PROC_load_package(const char *name)
-{   LispObject nil = C_nil;
-    LispObject w = nil, w1 = nil;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
-    w1 = make_undefined_symbol("load-package");
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 1;  // Failed to make the load-package
-    }
-    push(w1);
-    w = make_undefined_symbol(name);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 2;  // Failed to make name
-    }
-    pop(w1);
-    Lapply1(nil, w1, w);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 3;  // Failed to load the package
-    }
+{   LispObject w = nil, w1 = nil;
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
+    if_error(w1 = make_undefined_symbol("load-package");
+             push(w1);
+             w = make_undefined_symbol(name);
+             pop(w1);
+             Lapply1(nil, w1, w),
+             // Error handler
+             return 1);  // Failed one way or another
     return 0;
 }
 
 int PROC_set_switch(const char *name, int val)
-{   LispObject nil = C_nil;
-    LispObject w = nil, w1 = nil;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
-    w1 = make_undefined_symbol("onoff");
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 1;  // Failed to make the onoff
-    }
-    push(w1);
-    w = make_undefined_symbol(name);
-    pop(w1);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 2;  // Failed to make name
-    }
-    Lapply2(nil, 3, w1, w, val == 0 ? nil : lisp_true);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 3;  // Failed to set the switch
-    }
+{   LispObject w = nil, w1 = nil;
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
+    if_error(w1 = make_undefined_symbol("onoff");
+             push(w1);
+             w = make_undefined_symbol(name);
+             pop(w1);
+             Lapply2(nil, w1, w, val == 0 ? nil : lisp_true),
+             // Error handler
+             return 1);  // Failed to set the switch
     return 0;
 }
 
 int PROC_gc_messages(int n)
-{   LispObject nil = C_nil;
-    Lverbos(nil, fixnum_of_int(n)); // can not fail
+{   Lverbos(nil, fixnum_of_int(n)); // can not fail
     return 0;
 }
 
@@ -3603,8 +3097,7 @@ int PROC_gc_messages(int n)
 //
 
 int PROC_clear_stack()
-{   LispObject nil = C_nil;
-    procstack = nil;
+{   procstack = nil;
     return 0;       // can never fail!
 }
 
@@ -3614,24 +3107,12 @@ int PROC_clear_stack()
 //
 
 int PROC_push_symbol(const char *name)
-{   LispObject nil = C_nil;
-    LispObject w = nil;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
-    w = make_undefined_symbol(name);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 1;  // Failed to make the symbol
-    }
-    w = cons(w, procstack);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 2;  // Failed to push onto stack
-    }
+{   LispObject w = nil;
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
+    if_error(w = make_undefined_symbol(name);
+             w = cons(w, procstack),
+        return 1);
     procstack = w;
     return 0;
 }
@@ -3642,24 +3123,12 @@ int PROC_push_symbol(const char *name)
 //
 
 int PROC_push_string(const char *data)
-{   LispObject nil = C_nil;
-    LispObject w = nil;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
-    w = make_string(data);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 1;  // Failed to make the string
-    }
-    w = cons(w, procstack);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 2;  // Failed to push onto stack
-    }
+{   LispObject w = nil;
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
+    if_error(w = make_string(data);
+             w = cons(w, procstack),
+        return 2);  // Failed to push onto stack
     procstack = w;
     return 0;
 }
@@ -3676,83 +3145,43 @@ int PROC_push_string(const char *data)
 //
 
 int PROC_push_small_integer(int32_t n)
-{   LispObject nil = C_nil;
-    LispObject w = nil;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
-    w = make_lisp_integer32(n);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 1;  // Failed to create number
-    }
-    w = cons(w, procstack);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 2;  // Failed to push onto stack
-    }
+{   LispObject w = nil;
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
+    if_error(w = make_lisp_integer32(n);
+             w = cons(w, procstack),
+        return 1);
     procstack = w;
     return 0;
 }
 
 int PROC_push_big_integer(const char *n)
-{   LispObject nil = C_nil;
-    LispObject w = nil;
+{   LispObject w = nil;
     int len = 0;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
 // Here I need to parse a C string to obtain a Lisp number.
     boffop = 0;
-    while (*n != 0)
-    {   packbyte(*n++);
-        len++;
-        nil = C_nil;
-        if (exception_pending())
-        {   flip_exception();
-            return 1;  // boffo trouble
+    if_error(
+        while (*n != 0)
+        {   packbyte(*n++);
+            len++;
         }
-    }
-    w = intern(len, 0);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 2;  // conversion to number
-    }
-    w = cons(w, procstack);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 3;  // Failed to push onto stack
-    }
+        w = intern(len, 0);
+        w = cons(w, procstack),
+        return 1);
     procstack = w;
     return 0;
 }
 
 int PROC_push_floating(double n)
-{   LispObject nil = C_nil;
-    LispObject w = nil;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
+{   LispObject w = nil;
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
 // Here I have to construct a Lisp (boxed) float
-    w = make_boxfloat(n, TYPE_DOUBLE_FLOAT);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 1;  // Failed to create the float
-    }
-    w = cons(w, procstack);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 2;  // Failed to push onto stack
-    }
+    if_error(w = make_boxfloat(n, TYPE_DOUBLE_FLOAT);
+             w = cons(w, procstack),
+        return 1);
     procstack = w;
     return 0;
 }
@@ -3768,43 +3197,22 @@ int PROC_push_floating(double n)
 //
 
 int PROC_make_function_call(const char *name, int n)
-{   LispObject nil = C_nil;
-    LispObject w = nil, w1 = nil;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
-    while (n > 0)
-    {   if (procstack == nil) return 1; // Not enough args available
-        w = cons(qcar(procstack), w);
-        nil = C_nil;
-        if (exception_pending())
-        {   flip_exception();
-            return 2;  // Failed to push onto stack
+{   LispObject w = nil, w1 = nil;
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
+    if_error(
+        while (n > 0)
+        {   if (procstack == nil) return 1; // Not enough args available
+            w = cons(qcar(procstack), w);
+            procstack = qcdr(procstack);
+            n--;
         }
-        procstack = qcdr(procstack);
-        n--;
-    }
-    push(w);
-    w1 = make_undefined_symbol(name);
-    pop(w);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 3;  // Failed to create function name
-    }
-    w = cons(w1, w);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 4;  // Failed to cons on function name
-    }
-    w = cons(w, procstack);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 5;  // Failed to push onto stack
-    }
+        push(w);
+        w1 = make_undefined_symbol(name);
+        pop(w);
+        w = cons(w1, w);
+        w = cons(w, procstack),
+        return 1);
     procstack = w;
     return 0;
 }
@@ -3814,8 +3222,7 @@ int PROC_make_function_call(const char *name, int n)
 //
 
 int PROC_save(int n)
-{   LispObject nil = C_nil;
-    if (n < 0 || n > 99) return 1; // index out of range
+{   if (n < 0 || n > 99) return 1; // index out of range
     if (procstack == nil) return 2; // Nothing available to save
     elt(procmem, n) = qcar(procstack);
     procstack = qcdr(procstack);
@@ -3827,20 +3234,13 @@ int PROC_save(int n)
 //
 
 int PROC_load(int n)
-{   LispObject nil = C_nil;
-    LispObject w = nil;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
+{   LispObject w = nil;
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
     if (n < 0 || n > 99) return 1; // index out of range
     w = elt(procmem, n);
-    w = cons(w, procstack);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 2;  // Failed to push onto stack
-    }
+    if_error(w = cons(w, procstack),
+        return 2);  // Failed to push onto stack
     procstack = w;
     return 0;
 }
@@ -3850,27 +3250,19 @@ int PROC_load(int n)
 //
 
 int PROC_dup()
-{   LispObject nil = C_nil;
-    LispObject w = nil;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
+{   LispObject w = nil;
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
     if (procstack == nil) return 1; // no item to duplicate
     w = qcar(procstack);
-    w = cons(w, procstack);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 2;  // Failed to push onto stack
-    }
+    if_error(w = cons(w, procstack),
+        return 2)  // Failed to push onto stack
     procstack = w;
     return 0;
 }
 
 int PROC_pop()
-{   LispObject nil = C_nil;
-    if (procstack == nil) return 1; // stack is empty
+{   if (procstack == nil) return 1; // stack is empty
     procstack = qcdr(procstack);
     return 0;
 }
@@ -3883,57 +3275,35 @@ int PROC_pop()
 //
 
 int PROC_simplify()
-{   LispObject nil = C_nil;
-    LispObject w = nil, w1 = nil;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
+{   LispObject w = nil, w1 = nil;
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
     if (procstack == nil) return 1; // stack is empty
-    w = make_undefined_symbol("simp");
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 2;  // Failed find "simp"
-    }
-    w = Lapply1(nil, w, qcar(procstack));
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 3;  // Call to simp failed
-    }
-    push(w);
-    w1 = make_undefined_symbol("mk*sq");
-    pop(w);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 4;  // Failed to find "mk!*sq"
-    }
-    w = Lapply1(nil, w1, w);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 5;  // Call to mk!*sq failed
-    }
-    qcar(procstack) = w;
+    if_error(
+        w = make_undefined_symbol("simp");
+        w = Lapply1(nil, w, qcar(procstack));
+        push(w);
+        w1 = make_undefined_symbol("mk*sq");
+        pop(w);
+        w = Lapply1(nil, w1, w);
+        qcar(procstack) = w,
+        // error exit case
+        return 1);
     return 0;
 }
 
 //
 // Replace the top item on the stack with whatever is obtained by using
-// the Lisp EVAL operatio on it. Note that this is not intended for
+// the Lisp EVAL operation on it. Note that this is not intended for
 // casual use - if there is any functionality that you need PLEASE ask
 // me to put in a cleaner abstraction to support it.
 //
 
 static void PROC_standardise_gensyms(LispObject w)
-{   LispObject nil = C_nil;
-    if (consp(w))
+{   if (consp(w))
     {   push(qcdr(w));
         PROC_standardise_gensyms(qcar(w));
         pop(w);
-        errexitv();
         PROC_standardise_gensyms(w);
         return;
     }
@@ -3944,43 +3314,29 @@ static void PROC_standardise_gensyms(LispObject w)
 }
 
 int PROC_lisp_eval()
-{   LispObject nil = C_nil;
+{   save_current_function saver(eval_symbol);
     LispObject w = nil;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
     if (procstack == nil) return 1; // stack is empty
-Lprint(nil, qcar(procstack)); // @@@  
-    w = Ceval(qcar(procstack), nil);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 2;  // Evaluation failed
-    }
-    push(w);
-    PROC_standardise_gensyms(w);
-    pop(w);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 3;  // gensym patchup failed
-    }
+    if_error(
+        w = eval(qcar(procstack), nil);
+        push(w);
+        PROC_standardise_gensyms(w);
+        pop(w),
+        return 1);
     qcar(procstack) = w;
     return 0;
 }
 
 static LispObject PROC_standardise_printed_form(LispObject w)
-{   LispObject nil = C_nil, w1;
-    if (consp(w))
+{   if (consp(w))
     {   push(qcdr(w));
-        w1 = PROC_standardise_printed_form(qcar(w));
+        LispObject w1 = PROC_standardise_printed_form(qcar(w));
         pop(w);
-        errexit();
         push(w1);
         w =  PROC_standardise_printed_form(w);
         pop(w1);
-        errexit();
         return cons(w1, w);
     }
 //
@@ -3991,14 +3347,11 @@ static LispObject PROC_standardise_printed_form(LispObject w)
     {   push(w);
         get_pname(w); // allocates gensym name if needed. Otherwise cheap!
         pop(w);
-        errexit();
         return w;
     }
     else if (is_numbers(w) && is_bignum(w))
     {   w = Lexplode(nil, w);        // Bignum to list of digits
-        errexit();
         w = Llist_to_string(nil, w); // list to string
-        errexit();
         return w;
     }
     else return w;
@@ -4011,60 +3364,33 @@ static LispObject PROC_standardise_printed_form(LispObject w)
 //
 
 int PROC_make_printable()
-{   LispObject nil = C_nil;
-    LispObject w = nil, w1 = nil;
-#ifdef CONSERVATIVE
-    volatile LispObject sp;
-    C_stackbase = (LispObject *)&sp;
-#endif
+{   LispObject w = nil, w1 = nil;
+    volatile uintptr_t sp;
+    C_stackbase = (uintptr_t *)&sp;
     if (procstack == nil) return 1; // stack is empty
 //
 // I want to use "simp" again so that I can then use prepsq!
 //
-    w = make_undefined_symbol("simp");
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 2;  // Failed find "simp"
-    }
-    w = Lapply1(nil, w, qcar(procstack));
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 3;  // Call to simp failed
-    }
-    push(w);
-    w1 = make_undefined_symbol("prepsq");
-    pop(w);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 4;  // Failed to find "prepsq"
-    }
-    w = Lapply1(nil, w1, w);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 5;  // Call to prepsq failed
-    }
+    if_error(
+        w = make_undefined_symbol("simp");
+        w = Lapply1(nil, w, qcar(procstack));
+        push(w);
+        w1 = make_undefined_symbol("prepsq");
+        pop(w);
+        w = Lapply1(nil, w1, w);
 //
 // There are going to be two things I do next. One is to ensure that
 // all gensyms have print-names, the other is to convert bignums into
 // strings. Both of these could be viewed as mildly obscure!
 //
-    w = PROC_standardise_printed_form(w);
-    nil = C_nil;
-    if (exception_pending())
-    {   flip_exception();
-        return 6;  // standardise_printed_form failed
-    }
+        w = PROC_standardise_printed_form(w),
+        return 1);
     qcar(procstack) = w;
     return 0;
 }
 
 PROC_handle PROC_get_value()
-{   LispObject nil = C_nil;
-    LispObject w;
+{   LispObject w;
     if (procstack == nil) w = fixnum_of_int(0);
     else
     {   w = qcar(procstack);
@@ -4074,9 +3400,8 @@ PROC_handle PROC_get_value()
 }
 
 PROC_handle PROC_get_raw_value()
-{   LispObject nil = C_nil;
-    LispObject w;
-    if (procstack == C_nil) w = nil;
+{   LispObject w;
+    if (procstack == nil) w = nil;
     else
     {   w = qcar(procstack);
         procstack = qcdr(procstack);
@@ -4097,7 +3422,7 @@ int PROC_atom(PROC_handle p)
 //
 
 int PROC_null(PROC_handle p)
-{   return ((LispObject)p) == C_nil;
+{   return ((LispObject)p) == nil;
 }
 
 //

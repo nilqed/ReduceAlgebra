@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: assertproc.red 2121 2013-07-11 08:23:40Z mkosta $
 % ----------------------------------------------------------------------
 % Copyright (c) 2012 Thomas Sturm
 % ----------------------------------------------------------------------
@@ -30,7 +30,7 @@
 
 lisp <<
    fluid '(assertproc_rcsid!* assertproc_copyright!*);
-   assertproc_rcsid!* := "$Id$";
+   assertproc_rcsid!* := "$Id: assertproc.red 2121 2013-07-11 08:23:40Z mkosta $";
    assertproc_copyright!* := "(c) 2012 T. Sturm"
 >>;
 

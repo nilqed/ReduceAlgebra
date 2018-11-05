@@ -35,7 +35,7 @@ package uk.co.codemist.jlisp.core;
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: LispFloat.java 3158 2015-07-09 17:59:06Z arthurcnorman $
 
 import java.io.*;
 import java.util.*;

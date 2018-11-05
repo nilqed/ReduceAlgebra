@@ -2,14 +2,12 @@
 //
 // This was derived from a file of this name on the FOX/FXEX repository,
 // and its (lack of) explicit copyright claims etc has been preserved.
-// As the most recent hacker of this version, I (A C Norman, Codemist Ltd)
+// As the most recent hacker of this version, I (A C Norman, Codemist)
 // contribute all my adjustments back under an MIT/BSD-style bunch of
 // permissions.
 //
 // see associated file FXDCNativePrinter.cpp for commentary etc. and a
 // more careful explanation of the licensing situation.
-
-/* Signature: 3c7a0fa4 17-May-2008 */
 
 
 #ifndef FXDCNATIVEPRINTER_H

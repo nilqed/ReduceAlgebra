@@ -1,10 +1,10 @@
-// headers.h                               Copyright (C) 2005-2016 Codemist
+// headers.h                               Copyright (C) 2005-2017 Codemist
 
 #ifndef header_headers_h
 #define header_headers_h 1
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -32,7 +32,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: headers.h 4683 2018-07-01 08:32:38Z arthurcnorman $
 
 //
 // #include the majority of the header files needed by CSL code.
@@ -42,90 +42,16 @@
 #include "config.h"
 #endif
 
-//
-// If the header "complex.h" is available, the type "complex double" is
-// accepted and the function "csqrt" is present I will assume I can use the
-// standard C99 complex number support facilities. Aha SOME C++ systems
-// support this, but others use a template class, and I will adapt my code
-// to use that some time.
-//
-
-#if defined HAVE_COMPLEX_H && \
-    defined HAVE_COMPLEX_DOUBLE && \
-    defined HAVE_CSQRT
-#define HAVE_COMPLEX 1
+#if defined EXPERIMENT && !defined CONSERVATIVE
+#define CONSERVATIVE 1
 #endif
-
-//
-// I will check a number of things before I try to use sigaltstack()
-//
-#if defined HAVE_SIGNAL_H && defined HAVE_SETJMP_H
-#if defined HAVE_SIGSETJMP && defined HAVE_SIGLONGJMP
-#if defined HAVE_SIGACTION && defined HAVE_SIGALTSTACK
-#define USE_SIGALTSTACK 1
-#endif
-#endif
-#endif
-
-// At some stage I might wish to move to "#include <cstdio>" etc however
-// that would put things in the std: namespace, and the killer for me is
-// that with g++ I can then not find putc_unlocked and getc_unlocked.
-
-// The following need to be defined so that the useful C macros in
-// stdint.h get defined. They reflect an ugly gulf between C and C++.
-
-#ifndef __STDC_CONSTANT_MACROS
-#define __STDC_CONSTANT_MACROS 1
-#endif
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS 1
-#endif
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <math.h>
-#include <float.h>
-#include <string.h>
-#include <ctype.h>
-#include <wctype.h>
-#include <time.h>
-#include <stdarg.h>
-
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
-
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>
-#else
-// I am also going to rely on correctness including on the 64-bit mingw
-// compilers where at one stage I had to do special things here to work
-// around a temporary issue that related to their use of the Microsoft
-// C libraries rather than the GNU ones.
-#error inttypes.h is now required for building CSL
-#endif
-
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-
-#ifndef UNDER_CE
-//
-// The test for UNDER_CE is a little odd here, but when I once compiled a
-// version of this to run under Windows CE on an Ipaq I could not have
-// signal handling there hence this. One mighht have expected me to say
-// #ifdef HAVE_SIGNAL_H but maybe the file existed in the world where I
-// cross-built for CE and that led to pain? I now forget.
-//
-#include <signal.h>
-#endif
-
 
 #include "machine.h"
+#include "int128_t.h"
 #include "tags.h"
 #include "cslerror.h"
 #include "externs.h"
+#include "allocate.h"
 #include "syscsl.h"
 #include "arith.h"
 #include "entries.h"
@@ -133,21 +59,19 @@
 #include "stream.h"
 #include "cslread.h"
 #include "inthash.h"
+#include "lispthrow.h"
+#include "version.h"
 
-#ifdef HAVE_FWIN
 #if HAVE_LIBWX
 #include "wxfwin.h"
 #else
 #include "fwin.h"
 #endif
-#endif
 
 #ifdef HAVE_CRLIBM
-//
 // crlibm aims to produce correctly rounded results in all cases.
 // The functions from it selected here are the ones that round to
-// nearest.
-//
+// nearest. I think I will now ALWAYS use it.
 
 #include "crlibm.h"
 
@@ -183,6 +107,11 @@
 
 #endif // HAVE_CRLIBM
 
-#endif // this header included already
+namespace FX {
+}
+
+using namespace FX;
+
+#endif // header_headers_h
 
 // end of headers.h

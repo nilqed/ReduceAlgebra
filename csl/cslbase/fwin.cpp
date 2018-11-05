@@ -1,4 +1,4 @@
-// fwin.cpp                                 Copyright A C Norman 2003-2015
+// fwin.cpp                                 Copyright A C Norman 2003-2017
 //
 //
 // Window interface for old-fashioned C/C++ applications. Intended to
@@ -7,7 +7,7 @@
 //
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -48,14 +48,14 @@
 // ones do.
 //
 
-// $Id$
+// $Id: fwin.cpp 4617 2018-05-20 17:30:55Z arthurcnorman $
 
 // The "#ifdef" mess here has been getting out of control. The major
 // choice are:
 //   Sometimes this file will live within my copy of the FOX library as
 //   an extension. If however I am building a system without a GUI at all
 //   I can use this file to link on to my own terminal handling code. This
-//   is controlled ny HAVE_CONFIG_H and through that PART_OF_FOX.
+//   is controlled by HAVE_CONFIG_H and through that PART_OF_FOX.
 //
 //   Then there are variations as between Windows, OX X and Linux. At
 //   present systems other then Windows and OS X will use the Linux
@@ -107,7 +107,7 @@ extern int fwin_main(int argc, const char *argv[]);
 #include <unistd.h>
 #else // HAVE_UNISTD_H
 // The declaration here is an expression of optimism!
-extern char *getcwd(const char *s, size_t n);
+extern "C" char *getcwd(const char *s, size_t n);
 #endif // HAVE_UNISTD_H
 
 #include <sys/stat.h>
@@ -283,6 +283,65 @@ int fwin_use_xft = 0;
 
 int fwin_pause_at_end = 0;
 
+#ifdef __APPLE__
+
+void mac_deal_with_application_bundle(int argc, const char *argv[])
+{
+//
+// If I will be wanting to use a GUI and if I have just loaded an
+// executable that is not within an application bundle then I will
+// use "open" to launch the corresponding application bundle. Doing this
+// makes resources (eg fonts) that are within the bundle available and
+// it also seems to cause things to terminate more neatly.
+//
+    if (!macApp)
+    {   char xname[LONGEST_LEGAL_FILENAME];
+//
+// Here the binary I launched was NOT being from an application bundle.
+// I will try to re-launch it so it is.
+//
+        struct stat buf;
+        memset(xname, 0, sizeof(xname));
+        sprintf(xname, "%s.app", fullProgramName);
+        if (stat(xname, &buf) == 0 &&
+            (buf.st_mode & S_IFDIR) != 0)
+        {
+// Well foo.app exists and is a directory, so I will try to use it
+            const char **nargs = (const char **)malloc(sizeof(char *)*(argc+3));
+            int i;
+#ifdef DEBUG
+//
+// Since I am about to restart the program I do not want the new version to
+// find that the log file is open and hence not accessible.
+//
+            if (fwin_logfile != NULL)
+            {   fclose(fwin_logfile);
+                fwin_logfile = NULL;
+            }
+#endif // DEBUG
+            nargs[0] = "/usr/bin/open";
+            nargs[1] = xname;
+            nargs[2] = "--args";
+            for (i=1; i<argc; i++)
+                nargs[i+2] = argv[i];
+            nargs[argc+2] = NULL;
+// /usr/bin/open foo.app --args [any original arguments]
+            execv("/usr/bin/open", const_cast<char * const *>(nargs));
+//
+// execv should NEVER return, but if it does I might like to at least
+// attempt to display a report including the error code.
+//
+            fprintf(stderr,
+                    "Returned from execv with error code %d\n", errno);
+            exit(1);
+        }
+    }
+}
+
+#endif // __APPLE__
+
+#ifdef PART_OF_FOX
+
 #ifdef WIN32
 
 //
@@ -330,7 +389,7 @@ void consoleWait()
 
 static int ssh_client = 0;
 
-int windows_checks(int windowed)
+int windows_checks(int is_windowed)
 {
 // I have tried various messy Windows API calls here to get this right.
 // But so far I find that the cases that apply to me are
@@ -370,7 +429,7 @@ int windows_checks(int windowed)
 // code, and the file "gui-or-not.txt" in the source tree discusses just
 // what I do.
 //
-    if (programNameDotCom && windowed == 2)
+    if (programNameDotCom && is_windowed == 2)
     {
 // The program was named "xxx.com". I will assume that that means it was
 // a console-mode application and it is being launched directly from a
@@ -413,20 +472,20 @@ int windows_checks(int windowed)
         if (ssh != NULL && *ssh != 0)
         {   FWIN_LOG("SSH_CLIENT set on Windows, so treat as console app\n");
             ssh_client = 1;
-            windowed = 0;
+            is_windowed = 0;
         }
         else
         {   h = GetStdHandle(STD_INPUT_HANDLE);
-            if (GetFileType(h) != FILE_TYPE_CHAR) windowed = 0;
-            else if (!GetConsoleMode(h, &w)) windowed = 0;
+            if (GetFileType(h) != FILE_TYPE_CHAR) is_windowed = 0;
+            else if (!GetConsoleMode(h, &w)) is_windowed = 0;
             else
             {   h = GetStdHandle(STD_OUTPUT_HANDLE);
-                if (GetFileType(h) != FILE_TYPE_CHAR) windowed = 0;
-                else if (!GetConsoleScreenBufferInfo(h, &csb)) windowed = 0;
+                if (GetFileType(h) != FILE_TYPE_CHAR) is_windowed = 0;
+                else if (!GetConsoleScreenBufferInfo(h, &csb)) is_windowed = 0;
             }
         }
     }
-    else if (windowed == 2)
+    else if (is_windowed == 2)
     {
 // The program was named "xxx.exe". I am going to suppose that this has NOT
 // been launched from a normal Windows command prompt (since xxx.com would
@@ -455,21 +514,21 @@ int windows_checks(int windowed)
         if (ssh != NULL && *ssh != 0)
         {   FWIN_LOG("SSH_CLIENT set\n");
             ssh_client = 1;
-            windowed = 0;
+            is_windowed = 0;
         }
-        else if (GetFileType(h) == FILE_TYPE_DISK) windowed = 0;
+        else if (GetFileType(h) == FILE_TYPE_DISK) is_windowed = 0;
     }
-    return windowed;
+    return is_windowed;
 }
 
-void sort_out_windows_console(int windowed)
+void sort_out_windows_console(int is_windowed)
 {
 //
 // If I am running under Windows and I have set command line options
 // that tell me to run in a console then I will create one if one does
 // not already exist.
 //
-    if (windowed == 0)
+    if (is_windowed == 0)
     {   int consoleCreated = AllocConsole();
         if (consoleCreated)
         {   if (ssh_client)
@@ -590,62 +649,9 @@ static int unix_and_osx_checks(int xwindowed)
     return xwindowed;
 }
 
-void mac_deal_with_application_bundle(int argc, const char *argv[])
-{
-//
-// If I will be wanting to use a GUI and if I have just loaded an
-// executable that is not within an application bundle then I will
-// use "open" to launch the corresponding application bundle. Doing this
-// makes resources (eg fonts) that are within the bundle available and
-// it also seems to cause things to terminate more neatly.
-//
-    if (!macApp)
-    {   char xname[LONGEST_LEGAL_FILENAME];
-//
-// Here the binary I launched was NOT being from an application bundle.
-// I will try to re-launch it so it is.
-//
-        struct stat buf;
-        memset(xname, 0, sizeof(xname));
-        sprintf(xname, "%s.app", fullProgramName);
-        if (stat(xname, &buf) == 0 &&
-            (buf.st_mode & S_IFDIR) != 0)
-        {
-// Well foo.app exists and is a directory, so I will try to use it
-            const char **nargs = (const char **)malloc(sizeof(char *)*(argc+3));
-            int i;
-#ifdef DEBUG
-//
-// Since I am about to restart the program I do not want the new version to
-// find that the log file is open and hence not accessible.
-//
-            if (fwin_logfile != NULL)
-            {   fclose(fwin_logfile);
-                fwin_logfile = NULL;
-            }
-#endif // DEBUG
-            nargs[0] = "/usr/bin/open";
-            nargs[1] = xname;
-            nargs[2] = "--args";
-            for (i=1; i<argc; i++)
-                nargs[i+2] = argv[i];
-            nargs[argc+2] = NULL;
-// /usr/bin/open foo.app --args [any original arguments]
-            execv("/usr/bin/open", const_cast<char * const *>(nargs));
-//
-// execv should NEVER return, but if it does I might like to at least
-// attempt to display a report including the error code.
-//
-            fprintf(stderr,
-                    "Returned from execv with error code %d\n", errno);
-            exit(1);
-        }
-    }
-}
-
 #else // __APPLE__
 
-static int unix_and_osx_checks(int windowed)
+static int unix_and_osx_checks(int is_windowed)
 {
     const char *disp;
 //
@@ -654,8 +660,8 @@ static int unix_and_osx_checks(int windowed)
 // what the status of stdin/stdout are when launched not from a command line
 // but by clicking on an icon...
 //
-    if (windowed != 0)
-    {   if (!isatty(fileno(stdin)) || !isatty(fileno(stdout))) windowed = 0;
+    if (is_windowed != 0)
+    {   if (!isatty(fileno(stdin)) || !isatty(fileno(stdout))) is_windowed = 0;
 //
 // On Unix-like systems I will check the DISPLAY variable, and if it is not
 // set I will suppose that I can not create a window. That case will normally
@@ -667,14 +673,14 @@ static int unix_and_osx_checks(int windowed)
 // native display I would merely omit this test.
 //
         disp = my_getenv("DISPLAY");
-        if (disp == NULL || strchr(disp, ':')==NULL) windowed = 0;
+        if (disp == NULL || strchr(disp, ':')==NULL) is_windowed = 0;
     }
 // If stdin or stdout is not from a "tty" I will run in non-windowed mode.
 // This may help when the system is used in scripts. I worry a bit about
 // what the status of stdin/stdout are when launched not from a command line
 // but by clicking on an icon...
 //
-    if ((!isatty(fileno(stdin)) || !isatty(fileno(stdout)))) windowed = 0;
+    if ((!isatty(fileno(stdin)) || !isatty(fileno(stdout)))) is_windowed = 0;
 // On Unix-like systems I will check the DISPLAY variable, and if it is not
 // set I will suppose that I can not create a window. That case will normally
 // arise when you have gained remote access to the system eg via telnet or
@@ -683,13 +689,13 @@ static int unix_and_osx_checks(int windowed)
 // string.
 //
     disp = my_getenv("DISPLAY");
-    if (disp == NULL || strchr(disp, ':')==NULL) windowed = 0;
-    return windowed;
+    if (disp == NULL || strchr(disp, ':')==NULL) is_windowed = 0;
+    return is_windowed;
 }
 
 #endif // __APPLE__
 #endif // WIN32
-
+#endif // PART_OF_FOX
 
 #ifndef EMBEDDED
 
@@ -838,9 +844,9 @@ int main(int argc, const char *argv[])
                  windowed != 0) windowed = -1;
     }
     if (texmacs_mode) windowed = 0;
-#ifdef WIN32
+#if defined PART_OF_FOX && defined WIN32
     sort_out_windows_console(windowed);
-#endif // WIN32
+#endif // PART_OF_FOX && WIN32
 
 // Windowed or not, if there is an argument "-b" or "-bxxxx" then the
 // string xxx will do something about screen colours. An empty string
@@ -856,37 +862,30 @@ int main(int argc, const char *argv[])
         }
     }
 
-#ifdef PART_OF_FOX
-    if (windowed==0) return plain_worker(argc, argv, fwin_main);
-
 #ifdef __APPLE__
-    mac_deal_with_application_bundle(argc, argv);
+    if (windowed != 0) mac_deal_with_application_bundle(argc, argv);
 #endif // __APPLE__
-    return windowed_worker(argc, argv, fwin_main);
-#else
+
+#ifdef PART_OF_FOX
+    if (windowed == 0) return plain_worker(argc, argv, fwin_main);
+    else return windowed_worker(argc, argv, fwin_main);
+#else // PART_OF_FOX
     return plain_worker(argc, argv, fwin_main);
 #endif // PART_OF_FOX
 }
 
-void sigint_handler(int code)
-{   FWIN_LOG("sigint_handler called %d %#x\n", code, code);
-    signal(SIGINT, sigint_handler);
+#ifdef HAVE_SIGACTION
+void sigint_handler(int signo, siginfo_t *t, void *v)
+#else // !HAVE_SIGACTION
+void sigint_handler(int signo)
+#endif // !HAVE_SIGACTION
+{
+// interrupt_callback ought to be atomic and volatile, and any function
+// that it identified should be very cautious!
     if (interrupt_callback != NULL) (*interrupt_callback)(QUIET_INTERRUPT);
-    return;
 }
 
 #endif // EMBEDDED
-
-
-#ifdef SIGBREAK
-
-void sigbreak_handler(int code)
-{   FWIN_LOG("sigbreak_handler called %d %#x\n", code, code);
-    signal(SIGBREAK, sigbreak_handler);
-    if (interrupt_callback != NULL) (*interrupt_callback)(NOISY_INTERRUPT);
-    return;
-}
-#endif // SIGBREAK
 
 //
 // I will only try to use my own local editing and history package
@@ -927,14 +926,24 @@ static int direct_to_terminal(int argc, const char *argv[])
 
 int plain_worker(int argc, const char *argv[], fwin_entrypoint *fwin_main)
 {   int r;
+#ifdef HAVE_SIGACTION
+    struct sigaction sa;
+    sa.sa_sigaction = sigint_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART | SA_SIGINFO | SA_ONSTACK | SA_NODEFER;
+// (a) restart system calls after signal (if possible),
+// (b) use handler that gets more information,
+// (c) use alternative stack for the handler,
+// (d) leave the SIGINT unmasked while the handler is active. This
+//     will be vital if then handler "exits" using longjmp, because as
+//     far as the exception system is concerned that leaves us within the
+//     handler. But after the  exit is caught by setjmp I want the
+//     exception to remain trapped.
+    if (sigaction(SIGINT, &sa, NULL) == -1)
+        /* I can not thing of anything useful to do if I fail here! */;
+#else // !HAVE_SIGACTION
     signal(SIGINT, sigint_handler);
-#ifdef SIGBREAK
-    signal(SIGBREAK, sigbreak_handler);
-#endif // SIGBREAK
-#ifdef TEST_SIGNAL_CATCHER
-    fprintf(stderr, "handlers for sigint and sigbreak set up\n");
-    fflush(stderr);
-#endif // TEST_SIGNAL_CATCHER
+#endif // !HAVE_SIGACTION
     if (!texmacs_mode && direct_to_terminal(argc, argv))
     {   input_history_init();
         term_setup(1, colour_spec);
@@ -1083,7 +1092,7 @@ void fwin_set_prompt(const char *s)
     fwin_prompt_string[sizeof(fwin_prompt_string)-1] = 0;
 }
 
-extern void fwin_menus(char **modules, char **switches,
+void fwin_menus(char **modules, char **switches,
                        review_switch_settings_function *f)
 {
 }
@@ -1311,7 +1320,7 @@ int find_program_directory(const char *argv0)
 //
     else if (argv0[0] == '/') fullProgramName = argv0;
     else
-    {   for (w=argv0; *w!=0 && *w!='/'; w++);   // seek a "/"
+    {   for (w=argv0; *w!=0 && *w!='/'; w++) {}   // seek a "/"
         if (*w == '/')      // treat as if relative to current dir
         {   // If the thing is actually written as "./abc/..." then
             // strip of the initial "./" here just to be tidy.
@@ -1513,8 +1522,8 @@ int find_program_directory(const char *argv0)
 #endif // __S_IXUSR
 #endif // S_IXUSR
 
-extern "C" int get_home_directory(char *b, size_t len);
-extern "C" int get_users_home_directory(char *b, size_t len);
+extern int get_home_directory(char *b, size_t len);
+extern int get_users_home_directory(char *b, size_t len);
 
 static lookup_function *look_in_variable = NULL;
 
@@ -1812,12 +1821,6 @@ unsigned long int pack_date(int year, int mon, int day,
     r = r*60 + min;
     return r*60 + sec;
 }
-
-typedef struct date_and_type_
-{   unsigned long int date;
-    unsigned long int type;
-} date_and_type;
-
 
 #ifdef WIN32
 
@@ -2485,24 +2488,24 @@ void list_directory_members(char *filename, const char *old,
 #endif // NAG_VERSION
 
 
-int file_exists(char *filename, const char *old, size_t n, char *tt)
+bool file_exists(char *filename, const char *old, size_t n, char *tt)
 //
 // This returns YES if the file exists, and as a side-effect copies a
 // textual form of the last-changed-time of the file into the buffer tt.
 //
 {   struct stat statbuff;
     process_file_name(filename, old, n);
-    if (*filename == 0) return 0;
-    if (stat(filename, &statbuff) != 0) return 0;
+    if (*filename == 0) return false;
+    if (stat(filename, &statbuff) != 0) return false;
     strcpy(tt, ctime(&(statbuff.st_mtime)));
-    return 1;
+    return true;
 }
 
-int directoryp(char *filename, const char *old, size_t n)
+bool directoryp(char *filename, const char *old, size_t n)
 {   struct stat buf;
     process_file_name(filename, old, n);
-    if (*filename == 0) return 0;
-    if (stat(filename,&buf) == -1) return 0;
+    if (*filename == 0) return false;
+    if (stat(filename,&buf) == -1) return false;
     return ((buf.st_mode & S_IFMT) == S_IFDIR);
 }
 
@@ -2615,42 +2618,42 @@ char *get_truename(char *filename, const char *old, size_t n)
 // I do here will hold the fort for now.
 //
 
-int file_readable(char *filename, const char *old, size_t n)
+bool file_readable(char *filename, const char *old, size_t n)
 {   struct stat buf;
     process_file_name(filename, old, n);
-    if (*filename == 0) return 0;
+    if (*filename == 0) return false;
     if (stat(filename,&buf) == -1)
-        return 0; // File probably does not exist
+        return false; // File probably does not exist
 #ifndef S_IRUSR
-    return 1;
+    return true;
 #else // S_IRUSR
     return (buf.st_mode & S_IRUSR);
 #endif // S_IRUSR
 }
 
 
-int file_writeable(char *filename, const char *old, size_t n)
+bool file_writeable(char *filename, const char *old, size_t n)
 {   struct stat buf;
     process_file_name(filename, old, n);
-    if (*filename == 0) return 0;
+    if (*filename == 0) return false;
     if (stat(filename,&buf) == -1)
-        return 0; // Should we check to see if the directory is writeable?
+        return false; // Should we check to see if the directory is writeable?
 #ifndef S_IWUSR
-    return 1;
+    return true;
 #else // S_IWUSR
     return (buf.st_mode & S_IWUSR);
 #endif // S_IWUSR
 }
 
 
-int file_executable(char *filename, const char *old, size_t n)
+bool file_executable(char *filename, const char *old, size_t n)
 {   struct stat buf;
     process_file_name(filename, old, n);
-    if (*filename == 0) return 0;
+    if (*filename == 0) return false;
     if (stat(filename,&buf) == -1)
-        return 0; // Should we check to see if the directory is writeable?
+        return false; // Should we check to see if the directory is writeable?
 #ifndef S_IXUSR
-    return 1;
+    return true;
 #else // S_IXUSR
     return (buf.st_mode & S_IXUSR);
 #endif // S_IXUSR

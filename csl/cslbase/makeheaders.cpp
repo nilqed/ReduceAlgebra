@@ -1,8 +1,8 @@
-// makeheaders.cpp                     Copyright (C) 2005-2015 Codemist    
+// makeheaders.cpp                         Copyright (C) 2005-2017 Codemist    
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -30,7 +30,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: makeheaders.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
 
 
 //
@@ -88,6 +88,21 @@ static FILE *myfopen(const char *name, const char *mode)
     return fopen(newname, mode);
 }
 
+static int get_without_cr(FILE *f)
+{
+// This mess is here in case an input file has carriage returns in.
+// An isolated CR is turned into '\n', while the sequence turns into
+// a single '\n'. Other more complicated sequences of CR and LF may end up
+// delivering multiple newlines to downstream.
+    int c = getc(f);
+    if (c == '\r')
+    {   int c1 = getc(f);
+        if (c1 != '\n') ungetc(c1, f);
+        c = '\n';
+    }
+    return c;
+}
+
 int main(int argc, const char *argv[])
 {   int i;
     printf("const char *config_header[] =\n{\n    \"");
@@ -107,9 +122,9 @@ int main(int argc, const char *argv[])
                 state != STRINGESC &&
                 state != CHAR &&
                 state != CHARESC)
-            {   while (ch == ' ') ch = getc(f);
+            {   while (ch == ' ') ch = get_without_cr(f);
             }
-            else if (ch != EOF) ch = getc(f);  // next character
+            else if (ch != EOF) ch = get_without_cr(f);  // next character
             if (ch == EOF) break;
             switch (state)
             {

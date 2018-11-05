@@ -1,4 +1,4 @@
-// wxdvi.cpp
+// wxdvi.cpp                               Copyright (C) 2016-2017 Codemist
 
 // A sample wxWidgets application to display dvi files.
 // This will ONLY cope with a set of fonts that it itself
@@ -12,7 +12,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -40,11 +40,55 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-/* $Id$ */
+/* $Id: wxdvi.cpp 4292 2017-12-10 23:15:11Z arthurcnorman $ */
 
 
-// The first few lines are essentially taken from the wxWidgets documentation
-// and will be the same for almost all wxWidgets code.
+//
+// I have some choices here where I am not certain what to do, so while
+// another window on mu computer shows a large re-compilation happening I
+// will document soem thoughts here.
+//
+// My previous GUI wanted to keep output at "80 columns of fixed-pitch
+// text". It achieved that by preventing attempts to change the window
+// width by dragging. A menu could let the user alter font size and that
+// would cause the window width to alter. It did not feel fully comfortable.
+//
+// My first try with wxWidgets allowed arbitrary changes in window width, and
+// then adjusted font size to match, so that as far as Reduce was concerned
+// there was always the same logical amount of space. That (I think) feels
+// nice. The way I do it involves creating and rendering fonts such that
+// their size is specified in floating point. That can be done if I use
+// a wxGraphicsContext and wxGraphicsFont. However a problem there is that
+// using stock wxWidgets I can not use that with private application-specific
+// fonts. I thus have my own private extensions to wxWidgets to cope. I had
+// tried submitting my changes back to the wxWidgets management (who were
+// polite and helpful) but I ran out of steam before being able to reach the
+// quality level if my code that they needed.
+// I different scheme I could try would be to render text into a memory
+// buffer (probably at somewhat high resolution) and then either use
+// drawImage and user-mode scaling or use ScaleImage to reduce the image
+// to a version to display. That way I could use fonts with a whole-number
+// size to draw into the bitmap image but get things rendered at whatever
+// scale I wanted. This might do anti-aliasing for me as I went and these
+// days may well be quite fast enough. I could then use a stock unmodified
+// version of wxWidgets which would be a generally good idea.
+//
+// So my choices seem to be
+// (1) window if fixed width and menus change font size leading to
+//     window size adjustment.
+// (2) window size can be dragged, but font enlarges in integer steps,
+//     leaving a margin to the right of the window quite often.
+// (3) use wxGraphicsContext and my custom extensions to wxWidgets to
+//     support continuously variable font sizes.
+// (4) draw text to an intermediate buffer then rescale the image for
+//     display.
+//
+// At present the code here uses strategy (3) but I am minded to re-work it
+// so it has a command-line switch or perhaps a compilation option to
+// use (4) instead so I can compare performance and appearance.
+//
+//                                                           ACN, July 2016
+//
 
 #include "wx/wxprec.h"
 
@@ -58,6 +102,8 @@
 
 #include "config.h"
 
+#include "wxfwin.h"
+
 #ifdef WIN32
 // I will need a few windows-specific headers. Mainly to let me set
 // gdi+ antialiasing options. The newest versions of the i686-w64-mingw32
@@ -69,15 +115,10 @@
 #include <gdiplus.h>
 #include <io.h>
 
-
 #endif  // WIN32
 
 // I may be old fashioned, but I will be happier using C rather than C++
 // libraries here.
-
-#ifndef __STDC_CONTANT_MACROS
-#define __STDC_CONSTANT_MACROS 1
-#endif
 
 #include <string.h>
 #include <stdlib.h>
@@ -107,16 +148,30 @@ extern char *getcwd(char *s, size_t n);
 #endif
 #endif // HAVE_DIRENT_H
 
-
-
 #if !defined __WXMSW__ && !defined __WXPM__
 #include "fwin.xpm" // Icon to use in non-Windows cases
 #endif
 
 // I have a generated file that contains the widths of all the fonts
-// I am willing to use here.
+// I am willing to use here. Well this will be a MESS because for rendering
+// I will use STIXMath but I will allow input to pretend that it is in
+// cmr, cmmi, cmsy and cmex -- and I will map codepoints 0-127 in those
+// to parts of STIXMath... together with additional messy mappings that are
+// to do with how I once placed characters to get around systems that had
+// issues about use of control character codes for genuine glyphs.
 
+// The font widths in the table here only apply to the original Computer
+// Modern fonts and so may be utterly wrong if I use any other fonts!
 #include "cmfont-widths.cpp"
+
+// The information here (attempts to) map the codepoints of the original
+// Computer Modern fonts in ancient TeX coding onto Unicode code points,
+// where I will then use the STIXMath font for everything. Note that where
+// its metrics do not match cmr, cmmi, cmsy and cmex I will be a mess if the
+// dvi I am using used the original metrics!
+
+#include "cm-to-unicode.cpp"
+
 
 static FILE *logfile = NULL;
 
@@ -140,7 +195,6 @@ static void logprintf(const char *fmt, ...)
     fflush(stdout);
 #endif
 }
-
 
 
 class dviApp : public wxApp
@@ -200,8 +254,9 @@ private:
 // I will use a fixed limit.
 //
 #define MAX_FONTS 256
-    wxGraphicsFont graphicsFont[MAX_FONTS];       // the fonts I use here
+    wxGraphicsFont graphicsFont[MAX_FONTS];    // the fonts I use here
     bool graphicsFontValid[MAX_FONTS];         // the fonts I use here
+    int graphicsFontMapping[MAX_FONTS], currentFontMapping;
     font_width *fontWidth[MAX_FONTS], *currentFontWidth;
     double em;
 
@@ -247,367 +302,7 @@ BEGIN_EVENT_TABLE(dviFrame, wxFrame)
     EVT_SIZE(            dviFrame::OnSize)
 END_EVENT_TABLE()
 
-int get_current_directory(char *s, size_t n)
-{
-    if (getcwd(s, n) == 0)
-    {   switch(errno)
-        {
-    case ERANGE: return -2; // negative return value flags an error.
-    case EACCES: return -3;
-    default:     return -4;
-        }
-    }
-    else return strlen(s);
-}
-
-/*
- * The next procedure is responsible for establishing information about
- * both the "short-form" name of the program launched and the directory
- * it was found in. This latter directory may be a good place to keep
- * associated resources. Well many conventions would NOT view it as a
- * good place, but it is how I organise things!
- *
- * The way of finding the information concerned differs between Windows and
- * Unix/Linux, as one might expect.
- *
- * return non-zero value if failure.
- */
-
-#ifndef LONGEST_LEGAL_FILENAME
-#define LONGEST_LEGAL_FILENAME 1024
-#endif
-
-const char *fullProgramName = "./wxdvi.exe";
-const char *programName     = "wxdvi.exe";
-const char *programDir      = ".";
-
-/*
- * getenv() is a mild pain: Windows seems
- * to have a strong preference for upper case names.  To allow for
- * all this I do not call getenv() directly but go via the following
- * code that can patch things up.
- */
-
-const char *my_getenv(const char *s)
-{
-#ifdef WIN32
-    char uppercasename[LONGEST_LEGAL_FILENAME];
-    char *p = uppercasename;
-    int c;
-    while ((c = *s++) != 0) *p++ = toupper(c);
-    *p = 0;
-    return getenv(uppercasename);
-#else
-    return getenv(s);
-#endif
-}
-
-#ifdef WIN32
-
-int programNameDotCom = 0;
-
-static char this_executable[LONGEST_LEGAL_FILENAME];
-
-int find_program_directory(const char *argv0)
-{
-    char *w;
-    int len, ndir, npgm, j;
-/*
- * In older code I believed that I could rely on Windows giving me
- * the full path of my executable in argv[0]. With bits of mingw/cygwin
- * anywhere near me that may not be so, so I grab the information directly
- * from the Windows APIs.
- */
-    char execname[LONGEST_LEGAL_FILENAME];
-    GetModuleFileNameA(NULL, execname, LONGEST_LEGAL_FILENAME-2);
-    strcpy(this_executable, execname);
-    argv0 = this_executable;
-    programNameDotCom = 0;
-    if (argv0[0] == 0)      // should never happen - name is empty string!
-    {   programDir = ".";
-        programName = "wxdvi";  // nothing really known!
-        fullProgramName = ".\\wxdvi.exe";
-        return 0;
-    }
-
-    fullProgramName = argv0;
-    len = strlen(argv0);
-/*
- * If the current program is called c:\aaa\xxx.exe, then the directory
- * is just c:\aaa and the simplified program name is just xxx
- */
-    j = len-1;
-    if (len > 4 &&
-        argv0[len-4] == '.' &&
-        ((tolower(argv0[len-3]) == 'e' &&
-          tolower(argv0[len-2]) == 'x' &&
-          tolower(argv0[len-1]) == 'e') ||
-         (tolower(argv0[len-3]) == 'c' &&
-          tolower(argv0[len-2]) == 'o' &&
-          tolower(argv0[len-1]) == 'm')))
-    {   programNameDotCom = (tolower(argv0[len-3]) == 'c');
-        len -= 4;
-    }
-    for (npgm=0; npgm<len; npgm++)
-    {   int c = argv0[len-npgm-1];
-        if (c == '\\') break;
-    }
-    ndir = len - npgm - 1;
-    if (ndir < 0) programDir = ".";  // none really visible
-    else
-    {   if ((w = (char *)malloc(ndir+1)) == NULL) return 1;
-        strncpy(w, argv0, ndir);
-        w[ndir] = 0;
-        programDir = w;
-    }
-    if ((w = (char *)malloc(npgm+1)) == NULL) return 1;
-    strncpy(w, argv0 + len - npgm, npgm);
-    w[npgm] = 0;
-    programName = w;
-    return 0;
-}
-
-#else // !WIN32
-// Now for Unix, Linux, BSD (and hence Macintosh) worlds.
-
-
-/*
- * Different systems put or do not put underscores in front of these
- * names. My adaptation here should give me a chance to work whichever
- * way round it goes.
- */
-
-#ifndef S_IFMT
-# ifdef __S_IFMT
-#  define S_IFMT __S_IFMT
-# endif
-#endif
-
-#ifndef S_IFDIR
-# ifdef __S_IFDIR
-#  define S_IFDIR __S_IFDIR
-# endif
-#endif
-
-#ifndef S_IFREG
-# ifdef __S_IFREG
-#  define S_IFREG __S_IFREG
-# endif
-#endif
-
-#ifndef S_ISLNK
-# ifdef S_IFLNK
-#  ifdef S_IFMT
-#   define S_ISLNK(m) (((m) & S_IFMT) == S_IFLNK)
-#  endif
-# endif
-#endif
-
-
-/*
- * The length set here is at least the longest length that I
- * am prepared to worry about. If anybody installs the program in a
- * very deep directory such that its fully rooted name is over-long
- * things may not behave well. But I am not going to fuss with dynamic
- * allocation of or expansion of the arrays I use here.
- */
-
-int find_program_directory(const char *argv0)
-{
-    char pgmname[LONGEST_LEGAL_FILENAME];
-    char *w;
-    const char *cw;
-    int n, n1;
-/*
- * If the main reduce executable is has a full path-name /xxx/yyy/zzz then
- * I will use /xxx/yyy as its directory To find this I need to find the full
- * path for the executable. I ATTEMPT to follow the behaviour of "sh",
- * "bash" and "csh".  But NOTE WELL that if anybody launches this code in
- * an unusual manner (eg using an "exec" style function) that could confuse
- * me substantially. What comes in via argv[0] is typically just the final
- * component of the program name - what I am doing here is scanning to
- * see what path it might have corresponded to.
- *
- *
- * If the name of the executable starts with a "/" it is already an
- * absolute path name. I believe that if the user types (to the shell)
- * something like $DIR/bin/$PGMNAME or ~user/subdir/pgmname then the
- * environment variables and user-name get expanded out by the shell before
- * the command is actually launched.
- */
-    if (argv0 == NULL || argv0[0] == 0) // Information not there - return
-    {   programDir = (const char *)"."; // some sort of default.
-        programName = (const char *)"wxdvi";
-        fullProgramName = (const char *)"./wxdvi";
-        return 0;
-    }
-/*
- * I will treat 3 cases here
- * (a)   /abc/def/ghi      fully rooted: already an absolute name;
- * (b)   abc/def/ghi       treat as ./abc/def/ghi;
- * (c)   ghi               scan $PATH to see where it may have come from.
- */
-    else if (argv0[0] == '/') fullProgramName = argv0;
-    else
-    {   for (cw=argv0; *cw!=0 && *cw!='/'; cw++);   // seek a "/" *
-        if (*cw == '/')      // treat as if relative to current dir
-        {   // If the thing is actually written as "./abc/..." then
-            // strip of the initial "./" here just to be tidy.
-            if (argv0[0] == '.' && argv0[1] == '/') argv0 += 2;
-            n = get_current_directory(pgmname, sizeof(pgmname));
-            if (n < 0) return 1;    // fail! 1=current directory failure
-            if (n + strlen(argv0) + 2 >= sizeof(pgmname) ||
-                pgmname[0] == 0)
-                return 2; // Current dir unavailable or full name too long
-            else
-            {   pgmname[n] = '/';
-                strcpy(&pgmname[n+1], argv0);
-                fullProgramName = pgmname;
-            }
-        }
-        else
-        {   const char *path = my_getenv("PATH");
-/*
- * I omit checks for names of shell built-in functions, since my code is
- * actually being executed by here. So I get my search path and look
- * for an executable file somewhere on it. I note that the shells back this
- * up with hash tables, and so in cases where "rehash" might be needed this
- * code may become confused.
- */
-            struct stat buf;
-            uid_t myuid = geteuid(), hisuid;
-            gid_t mygid = getegid(), hisgid;
-            int protection;
-            int ok = 0;
-/*
- * I expect $PATH to be a sequence of directories with ":" characters to
- * separate them. I suppose it COULD be that somebody used directory names
- * that had embedded colons, and quote marks or escapes in $PATH to allow
- * for that. In such case this code will just fail to cope.
- */
-            if (path != NULL)
-            {   while (*path != 0)
-                {   while (*path == ':') path++; // skip over ":"
-                    n = 0;
-                    while (*path != 0 && *path != ':')
-                    {   pgmname[n++] = *path++;
-                        if (n > (int)(sizeof(pgmname)-3-strlen(argv0)))
-                            return 3; // fail! 3=$PATH element overlong
-                    }
-/*
- * Here I have separated off the next segment of my $PATH and put it at
- * the start of pgmname. Observe that to avoid buffer overflow I
- * exit abruptly if the entry on $PATH is itself too big for my buffer.
- */
-                    pgmname[n++] = '/';
-                    strcpy(&pgmname[n], argv0);
-// see if the file whose name I have just built up exists at all.
-                    if (stat(pgmname, &buf) == -1) continue;
-                    hisuid = buf.st_uid;
-                    hisgid = buf.st_gid;
-                    protection = buf.st_mode; // info about the file found
-/*
- * I now want to check if there is a file of the right name that is
- * executable by the current (effective) user.
- */
-                    if (protection & S_IXOTH ||
-                        (mygid == hisgid && protection & S_IXGRP) ||
-                        (myuid == hisuid && protection & S_IXUSR))
-                    {   ok = 1;   // Haha - I have found the one we ...
-                        break;    // are presumably executing!
-                    }
-                }
-            }
-            if (!ok) return 4;    // executable not found via $PATH
-/*
- * Life is not yet quite easy! $PATH may contain some items that do not
- * start with "/", ie that are still local paths relative to the
- * current directory. I want to be able to return an absolute fully
- * rooted path name! So unless the item we have at present starts with "/"
- * I will stick the current directory's location in front.
- */
-            if (pgmname[0] != '/')
-            {   char temp[LONGEST_LEGAL_FILENAME];
-                strcpy(temp, pgmname);
-                n = get_current_directory(pgmname, sizeof(pgmname));
-                if (n < 0) return 1;    // fail! 1=current directory failure
-                if ((n + strlen(temp) + 1) >= sizeof(pgmname)) return 9;
-                pgmname[n++] = '/';
-                strcpy(&pgmname[n], temp);
-            }
-            fullProgramName = pgmname;
-        }
-    }
-/*
- * Now if I have a program name I will try to see if it is a symbolic link
- * and if so I will follow it.
- */
-    {   struct stat buf;
-        char temp[LONGEST_LEGAL_FILENAME];
-        if (lstat(fullProgramName, &buf) != -1 &&
-            S_ISLNK(buf.st_mode) &&
-            (n1 = readlink(fullProgramName,
-                           temp, sizeof(temp)-1)) > 0)
-        {   temp[n1] = 0;
-            strcpy(pgmname, temp);
-            fullProgramName = pgmname;
-        }
-    }
-/*
- * Now fullProgramName is set up, but may refer to an array that
- * is stack allocated. I need to make it proper.
- */
-    w = (char *)malloc(1+strlen(fullProgramName));
-    if (w == NULL) return 5;           // 5 = malloc fails
-    strcpy(w, fullProgramName);
-    fullProgramName = w;
-#ifdef __CYGWIN__
-/*
- * Now if I built on raw cygwin I may have an unwanted ".com" or ".exe"
- * suffix, so I will purge that! This code exists here because the raw
- * cygwin build has a somewhat schitzo view as to whether it is a Windows
- * or a Unix-like system.
- */
-    if (strlen(w) > 4)
-    {   w += strlen(w) - 4;
-        if (w[0] == '.' &&
-            ((tolower(w[1]) == 'e' &&
-              tolower(w[2]) == 'x' &&
-              tolower(w[3]) == 'e') ||
-             (tolower(w[1]) == 'c' &&
-              tolower(w[2]) == 'o' &&
-              tolower(w[3]) == 'm'))) w[0] = 0;
-    }
-#endif
-/*
- * OK now I have the full name, which is of the form
- *   abc/def/fgi/xyz
- * and I need to split it at the final "/" (and by now I very fully expect
- * there to be at least one "/".
- */
-    for (n=strlen(fullProgramName)-1; n>=0; n--)
-        if (fullProgramName[n] == '/') break;
-    if (n < 0) return 6;               // 6 = no "/" in full file path
-    w = (char *)malloc(1+n);
-    if (w == NULL) return 7;           // 7 = malloc fails
-    strncpy(w, fullProgramName, n);
-    w[n] = 0;
-/*
- * Note that if the executable was "/foo" then programDir will end up as ""
- * so that programDir + "/" + programName works out properly.
- */
-    programDir = w;
-    n1 = strlen(fullProgramName) - n;
-    w = (char *)malloc(n1);
-    if (w == NULL) return 8;           // 8 = malloc fails
-    strncpy(w, fullProgramName+n+1, n1-1);
-    w[n1-1] = 0;
-    programName = w;
-    return 0;                          // whew!
-}
-
-#endif // WIN32
-
+#define LONGEST_LEGAL_FILENAME 1000
 
 int main(int argc, const char *argv[])
 {
@@ -630,7 +325,7 @@ int main(int argc, const char *argv[])
 // is not set. This is not a perfect test but it will spot the simple
 // cases. Eg I could look at stdin & stdout and check if it looks as if
 // they are pipes of they have been redirected...
-    {   const char *s = my_getenv("DISPLAY");
+    {   const char *s = getenv("DISPLAY");
         if (s==NULL || *s == 0) usegui = 0;
     }
 #endif
@@ -695,73 +390,6 @@ IMPLEMENT_APP_NO_MAIN(dviApp)
 
 // Pretty much everything so far has been uttery stylised and the contents
 // are forced by the structure that wxWidgets requires!
-
-
-static const char *fontNames[] =
-{
-// Right now I will add in ALL the fonts from the BaKoMa collection.
-// This can make sense in a font demo program but in a more serious
-// application I should be a little more selective!
-    "csl-cmb10",      "csl-cmbsy10",   "csl-cmbsy6",     "csl-cmbsy7",  
-    "csl-cmbsy8",     "csl-cmbsy9",    "csl-cmbx10",     "csl-cmbx12",  
-    "csl-cmbx5",      "csl-cmbx6",     "csl-cmbx7",      "csl-cmbx8",   
-    "csl-cmbx9",      "csl-cmbxsl10",  "csl-cmbxti10",   "csl-cmcsc10", 
-    "csl-cmcsc8",     "csl-cmcsc9",    "csl-cmdunh10",   "csl-cmex10",  
-    "csl-cmex7",      "csl-cmex8",     "csl-cmex9",      "csl-cmff10",  
-    "csl-cmfi10",     "csl-cmfib8",    "csl-cminch",     "csl-cmitt10", 
-    "csl-cmmi10",     "csl-cmmi12",    "csl-cmmi5",      "csl-cmmi6",   
-    "csl-cmmi7",      "csl-cmmi8",     "csl-cmmi9",      "csl-cmmib10",
-    "csl-cmmib6",     "csl-cmmib7",    "csl-cmmib8",     "csl-cmmib9",  
-    "csl-cmr10",      "csl-cmr12",     "csl-cmr17",      "csl-cmr5",    
-    "csl-cmr6",       "csl-cmr7",      "csl-cmr8",       "csl-cmr9",    
-    "csl-cmsl10",     "csl-cmsl12",    "csl-cmsl8",      "csl-cmsl9",   
-    "csl-cmsltt10",   "csl-cmss10",    "csl-cmss12",     "csl-cmss17",  
-    "csl-cmss8",      "csl-cmss9",     "csl-cmssbx10",   "csl-cmssdc10",
-    "csl-cmssi10",    "csl-cmssi12",   "csl-cmssi17",    "csl-cmssi8",  
-    "csl-cmssi9",     "csl-cmssq8",    "csl-cmssqi8",    "csl-cmsy10",  
-    "csl-cmsy5",      "csl-cmsy6",     "csl-cmsy7",      "csl-cmsy8",   
-    "csl-cmsy9",      "csl-cmtcsc10",  "csl-cmtex10",    "csl-cmtex8",  
-    "csl-cmtex9",     "csl-cmti10",    "csl-cmti12",     "csl-cmti7",   
-    "csl-cmti8",      "csl-cmti9",     "csl-cmtt10",     "csl-cmtt12",  
-    "csl-cmtt8",      "csl-cmtt9",     "csl-cmu10",      "csl-cmvtt10", 
-    "csl-euex10",     "csl-euex7",     "csl-euex8",      "csl-euex9",   
-    "csl-eufb10",     "csl-eufb5",     "csl-eufb6",      "csl-eufb7",   
-    "csl-eufb8",      "csl-eufb9",     "csl-eufm10",     "csl-eufm5",   
-    "csl-eufm6",      "csl-eufm7",     "csl-eufm8",      "csl-eufm9",   
-    "csl-eurb10",     "csl-eurb5",     "csl-eurb6",      "csl-eurb7",   
-    "csl-eurb8",      "csl-eurb9",     "csl-eurm10",     "csl-eurm5",   
-    "csl-eurm6",      "csl-eurm7",     "csl-eurm8",      "csl-eurm9",   
-    "csl-eusb10",     "csl-eusb5",     "csl-eusb6",      "csl-eusb7",   
-    "csl-eusb8",      "csl-eusb9",     "csl-eusm10",     "csl-eusm5",   
-    "csl-eusm6",      "csl-eusm7",     "csl-eusm8",      "csl-eusm9",   
-    "csl-msam10",     "csl-msam5",     "csl-msam6",      "csl-msam7",   
-    "csl-msam8",      "csl-msam9",     "csl-msbm10",     "csl-msbm5",   
-    "csl-msbm6",      "csl-msbm7",     "csl-msbm8",      "csl-msbm9"
-};
-
-
-#ifndef fontsdir
-#define fontsdir reduce.wxfonts
-#endif
-
-#define toString(x) toString1(x)
-#define toString1(x) #x
-
-void add_custom_fonts()
-{
-#ifndef MACINTOSH
-// Note that on a Mac I put the required fonts in the Application Bundle.
-    for (int i=0; i<(int)(sizeof(fontNames)/sizeof(fontNames[0])); i++)
-    {   char nn[LONGEST_LEGAL_FILENAME];
-        sprintf(nn, "%s/%s/%s.ttf",
-                    programDir, toString(fontsdir), fontNames[i]);
-        wxString widename(nn);
-        wxFont::AddPrivateFont(widename);
-    }
-    wxFont::ActivatePrivateFonts();
-#endif // MACINTOSH
-}
-
 
 
 
@@ -955,7 +583,7 @@ int32_t dviPanel::s4()
 
 void dviPanel::DefFont(int k)
 {
-#if 0
+#if 1
     logprintf("Define Font %d at offset %d\n", k, (int)(stringInput - dviData));
 #endif
     char fontname[LONGEST_LEGAL_FILENAME];
@@ -967,6 +595,7 @@ void dviPanel::DefFont(int k)
     int32_t designsize = s4() << 4;
     int arealen = *stringInput++;
     int namelen = *stringInput++;
+    int m;
     if (k >= MAX_FONTS)
     {   logprintf("This code can only cope with MAX_FONTS distinct fonts\n");
         return;
@@ -975,9 +604,16 @@ void dviPanel::DefFont(int k)
     {   logprintf("Fonts with an area specification are not supported\n");
         return;
     }
-    strcpy(fontname, "csl-");
-    for (int i=0; i<namelen; i++) fontname[i+4] = *stringInput++;
-    fontname[namelen+4] = 0;
+    for (int i=0; i<namelen; i++) fontname[i] = *stringInput++;
+    fontname[namelen] = 0;
+    if (strncmp(fontname, "cmr", 3) == 0) m = 0;
+    else if (strncmp(fontname, "cmmi", 4) == 0) m = 1;
+    else if (strncmp(fontname, "cmsy", 4) == 0) m = 2;
+    else if (strncmp(fontname, "cmex", 4) == 0) m = 3;
+    else
+    {   logprintf("Unknown font %s\n", fontname);
+        m = 0;
+    }
     if (graphicsFontValid[k]) return;
 #if 1
     logprintf("checksum = %.8x\n", checksum);
@@ -986,7 +622,7 @@ void dviPanel::DefFont(int k)
 #endif
     font_width *p = cm_font_width;
     while (p->name != NULL &&
-           strcmp(p->name, fontname+4) != 0) p++;
+           strcmp(p->name, fontname) != 0) p++;
     if (p->name == NULL)
     {   logprintf("Fonts not found in the private font-set I support\n");
         return;
@@ -1012,14 +648,16 @@ void dviPanel::DefFont(int k)
 // Continue in a spirit of optimism!
     }
     logprintf("Designsize = %.4g\n", (double)designsize/1048576.0);
-    graphicsFont[k] = gc->CreateFont(designsize/1048576.0, fontname);
+// Everything come from STIXMath!!!!
+    graphicsFont[k] = gc->CreateFont(designsize/1048576.0, "cslSTIXMath");
+    logprintf("font = %p\n", graphicsFont[k]);
     graphicsFontValid[k] = true;
+    graphicsFontMapping[k] = m;
     fontWidth[k] = p;
 }
 
 void dviPanel::SelectFont(int n)
-{
-    if (n >= MAX_FONTS)
+{   if (n >= MAX_FONTS)
     {   logprintf("This code can only cope with MAX_FONTS distinct fonts\n");
         return;
     }
@@ -1029,26 +667,24 @@ void dviPanel::SelectFont(int n)
     }
     gc->SetFont(graphicsFont[n]);
     currentFontWidth = fontWidth[n];
+    currentFontMapping = graphicsFontMapping[n];
 }
 
 
 int dviPanel::MapChar(int c)
-{
-// This function maps between a TeX character encoding and the one that is
-// used by the fonts and rendering engine that I use.
-    if (c < 0xa) return 0xa1 + c;
-    else if (c == 0xa) return 0xc5;
-#ifdef UNICODE
-// In Unicode mode I have access to the character at code point 0x2219. If
-// not I must insist on using my private version of the fonts where it is
-// at 0xb7.
-    else if (c == 0x14) return 0x2219;
-#endif
-    else if (c < 0x20) return 0xa3 + c;
-    else if (c == 0x20) return 0xc3;
-    else if (c == 0x7f) return 0xc4;
-    else if (c >= 0x80) return 0xa0;
-    else return c;
+{   if (c >= 0x80) return c;
+    switch (currentFontMapping)
+    {
+default:
+case 0:
+        return cmr_to_unicode[c];
+case 1:
+        return cmmi_to_unicode[c];
+case 2:
+        return cmsy_to_unicode[c];
+case 3:
+        return cmex_to_unicode[c];
+    }
 }
 
 double dviPanel::DVItoScreen(int n)
@@ -1074,13 +710,32 @@ static int rendered = 0;
 
 void dviPanel::SetChar(int32_t c)
 {
-#if 0
-    logprintf("SetChar%d [%c] %d %d\n", (int)c, (c <  0x20 || c >= 0x7f ? ' ' : (int)c), (int)h, (int)v);
+#if 1
+    logprintf("SetChar%d [%c] %d %d\n", (int)c,
+        (c <  0x20 || c >= 0x7f ? ' ' : (int)c),
+        (int)h, (int)v);
 #endif
-    wxString s = (wchar_t)MapChar(c);
+    int k = MapChar(c);
+    wchar_t ccc[4];
+// For the benefit of Windows I need to represent code points in other
+// then the basic multilingual pane as surrogate pairs.
+    if (sizeof(wchar_t) == 4 ||
+        k <= 0xffff)
+    {   ccc[0] = k;
+        ccc[1] = 0;
+    }
+    else
+    {   k = (k - 0x10000) & 0xfffff;
+        ccc[0] = 0xd800 + (k >> 10);
+        ccc[1] = 0xdc00 + (k & 0x3ff);
+        ccc[2] = 0;
+    }
+    wxString s(&ccc[0]);
     double width, height, descent, xleading;
     gc->GetTextExtent(s, &width, &height, &descent, &xleading);
+    logprintf("About to call DrawText...");
     gc->DrawText(s, DVItoScreen(h), DVItoScreen(v)-(height-descent));
+    logprintf("OK\n");
 // Now I must increase h by the width (in scaled points) of the character
 // I just set. This is not dependent at all on the way I map DVI internal
 // coordinates to screen ones.
@@ -1420,7 +1075,7 @@ bool dviApp::OnInit()
 
     const char *dvifilename = NULL;
     if (argc > 1) dvifilename = myargv[1];
-    
+
 #if DEBUG
     logprintf("dvifilename=%s\n",
               dvifilename == NULL ? "<null>" : dvifilename);
@@ -1618,7 +1273,7 @@ void dviPanel::OnPaint(wxPaintEvent &event)
     logprintf("Need to create fixed pitch font\n");
 // The graphicsFixedPitch font will be for a line spacing of exactly 10
 // pixels. This is of course TINY, but I will scale it as relevant.
-    graphicsFixedPitch = gc->CreateFont(10.0, wxT("csl-cmtt10"));
+    graphicsFixedPitch = gc->CreateFont(10.0, wxT("CMU Typewriter Text"));
     double dwidth, dheight, ddepth, dleading;
     gc->SetFont(graphicsFixedPitch);
     gc->GetTextExtent(wxT("M"), &dwidth, &dheight, &ddepth, &dleading);
@@ -1648,6 +1303,14 @@ void dviPanel::OnPaint(wxPaintEvent &event)
     delete gc;
     gc = NULL; // just to be tidy!
     return;
+}
+
+
+// A dummy definition that is needed because of wxfwin.cpp
+
+int windowed_worker(int argc, const char *argv[],
+                    fwin_entrypoint *fwin_main)
+{   return 0;
 }
 
 

@@ -463,14 +463,14 @@ symbolic procedure rdpsi!:compute!-lowerbound eps;
    
 
 symbolic procedure rdpsi!:(z,k);
-   if bfzerop!: z or minusp!: z and integerp!: z then bflerrmsg 'rdpsi!:
+   if bfzerop!: z or rd!:minusp z and integerp!: z then bflerrmsg 'rdpsi!:
     else begin scalar result, admissable, lb, refl, pival;
       integer shift, k7;
       k7 := k+7;
       % For negative z, use the reflection formula
       % psi(z) = psi(1-z) - pi/tan(pi*z)
       % unless z is a negative integer
-      if minusp!: z
+      if rd!:minusp z
 	then  << pival := !:pi k7;
 	         refl := divide!:(pival,tan!:(times!:(pival,z),k7),k7);
 	         z := difference!:(bfone!*,z); >>;
@@ -479,7 +479,7 @@ symbolic procedure rdpsi!:(z,k);
       lb :=  rdpsi!:compute!-lowerbound admissable;
       if greaterp!:(lb,z) then <<
 	 % make 20 extra shift steps to be on the safe side
- 	 shift := 20 + conv!:bf2i difference!:(lb,z);
+         shift := 20 + conv!:bf2i difference!:(lb,z);
  	 z := plus!:(z,i2bf!: shift) >>;
       result := plus!:(difference!: (log!:(z,k7), divide!:(bfone!*, times!:(bftwo!*, z), k7)),
 	       	       rdpsi!:1(divide!:(bfone!*,times!:(z,z),k7),k,admissable));
@@ -516,29 +516,31 @@ symbolic procedure crpsi!* u;
    % For negative repart(z), use the reflection formula
    % psi(z) = psi(1-z) - pi/tan(pi*z)
    % unless z is a negative integer
-    else if minusp!: tagrl u
+    else if rd!:minusp tagrl u
      then cr!:differ(
 	   (gfpsi!:(crprcd cr!:differ(!*rd2cr bfone!*,u),!:bprec!:) where !*!*roundbf := t),
 	   (cr!:quotient(crpi,crtan!*(cr!:times(crpi,u))) where crpi:=!*rd2cr pi!*()))
     else  (gfpsi!:(crprcd u,!:bprec!:) where !*!*roundbf := t);
 
 symbolic procedure gfpsi!:(z,k);
-   begin scalar result, admissable, gfnorm, gflog, lb;
+   if rd!:minusp tagrl z then rerror('specfn,0,{"Internal error in psi computation: gfpsi!: argument is negative: ",z})
+    else begin scalar result, admissable, gfnorm, gflog, lb;
       integer shift, k7;
       k7 := k+7;
-      gfnorm := rdhypot!*(gfrl z,gfim z);
       % The following is  rd!-tolerance!*
       admissable := make!:ibf(1, 6-k);
       lb :=  rdpsi!:compute!-lowerbound admissable;
       % this is the lower bound l for the norm of z = x +i*y where (x > 0)
       % ie. we need to compute the shift for n for x via (x+n)^2 + y^2 > l^2
       % obviously, scaling is necessary only if |x| < l and |y| < l,
-      % otherwise shift s > sqrt(l^2-y^2) - x 
+      % otherwise shift s > sqrt(l^2-y^2) - x , but only if sqrt(l^2-y^2) - x > 0
       if lessp!:(gfrl z, lb) and lessp!:(abs!: gfim z, lb) then <<
-	 % make 20 extra shift steps to be on the safe side
-	 shift := 20 + conv!:bf2i difference!:(bfsqrt difference!:(times!:(lb,lb),times!:(gfim z,gfim z)),gfrl z);
-	 shift := shift + 20;
- 	 z := gfplus(z,mkgf(i2bf!: shift,bfz!*)) >>;
+	 shift := conv!:bf2i difference!:(bfsqrt difference!:(times!:(lb,lb),times!:(gfim z,gfim z)),gfrl z);
+         if shift > 0 then <<
+            % make 20 extra shift steps to be on the safe side
+	    shift := shift + 20;
+ 	    z := gfplus(z,mkgf(i2bf!: shift,bfz!*)) >> >>;
+      gfnorm := rdhypot!*(gfrl z,gfim z);
       gflog := mkgf(log!:(gfnorm,k7),rdatan2!*(gfim z,gfrl z));
       result := gfplus(gfdiffer (gflog, gfquotient(rl2gfc bfone!*, gftimes(rl2gfc bftwo!*, z))),
 	       	       gfpsi!:1(gfquotient(rl2gfc bfone!*,gftimes(z,z)),k,admissable));
@@ -865,26 +867,37 @@ symbolic procedure zeta!*general!*calc!*sub(z,zp,admissable,pre,stt);
       return mk!*sq !*f2q mkround result;
    end;
 
-algebraic array stieltjes!: (5);  % for use in raw zeta computations
-algebraic array stf!:       (5);
+COMMENT The following procedure computes the value of the zeta function according
+        to formula 25.2.4 of https://dlmf.nist.gov/ , which is the expansion of the
+        zeta function about z=1.
+        See also
+             http://mathworld.wolfram.com/StieltjesConstants.html .
+        It is used only for small values of precision. 
 
-stieltjes!: (0) := +0.577215664901532860606512$ % Euler's constant
-stieltjes!: (1) := -0.072815845483676724860586$
-stieltjes!: (2) := -0.009690363192872318484530$
-stieltjes!: (3) := +0.002053834420303345866160$
-stieltjes!: (4) := +0.002325370065467300057468$
-stieltjes!: (5) := +0.000793323817301062701753$
-stf!: (0) := 1$
-stf!: (1) := 1$
-stf!: (2) := 2$
-stf!: (3) := 6$
-stf!: (4) := 24$
-stf!: (5) := 120$
+        The constants Stieltjes!:(n) are defined via the classical Stieltjes constants
+        as
+
+              Stieltjes!:(n) := (-1)^n*gamma_n / n! 
+
+;
+
+algebraic;
+
+array Stieltjes!: (5);  % for use in raw zeta computations
+
+Stieltjes!: (0) := +0.577215664901532860606512$ % Euler's constant
+Stieltjes!: (1) := +0.072815845483676724860586$
+Stieltjes!: (2) := -0.00484518159643616136422750173551$
+Stieltjes!: (3) := -0.000342305736717224331350228894166$
+Stieltjes!: (4) := +0.0000968904193944708054646771285453$
+Stieltjes!: (5) := -0.00000661103181084218943121035468498$
 
 algebraic procedure raw!*zeta(z);
    << z := z-1;
-      1/z + (for m := 0:5 sum ((-1)**m * stieltjes!:(m) * z**m / stf!:(m)))
+     1/z + for m := 0:5 sum (Stieltjes!:(m) * z**m)
    >>;
+
+symbolic;
 
 endmodule;
 

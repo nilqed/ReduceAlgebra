@@ -1,12 +1,15 @@
 ;;; reduce-mode.el --- Major mode to edit REDUCE computer-algebra code
 
-;; Copyright (c) 1994-2001, 2012 Francis J. Wright
+;; Copyright (C) 1998-2001, 2012, 2017, 2018 Francis J. Wright
 
-;; Author: Francis J. Wright <http://sourceforge.net/users/fjwright>
+;; Author: Francis J. Wright <https://sourceforge.net/u/fjwright>
 ;; Created: late 1992
-;; Version: $Id$
+;; Version: $Id: reduce-mode.el 4709 2018-08-04 15:07:37Z fjwright $
 ;; Keywords: languages
-;; Package-Version: 1.21
+;; Homepage: http://reduce-algebra.sourceforge.net/reduce-ide
+;; Package-Version: 1.54
+
+;; This file is not part of GNU Emacs.
 
 ;; This program is free software: you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as
@@ -19,8 +22,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with this program.  If not, see
-;; <http://www.gnu.org/licenses/>.
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;; Contributions by Rainer Schoepf flagged ; RS
 ;; Schoepf@goofy.zdv.Uni-Mainz.DE
@@ -30,12 +32,12 @@
 
 ;;; Commentary:
 
-;; REDUCE mode is a major mode for editing source code for the REDUCE
+;; REDUCE Mode is a major mode for editing source code for the REDUCE
 ;; computer algebra system, which is Open Source and available from
-;; <http://reduce-algebra.svn.sourceforge.net/>.
+;; <https://sourceforge.net/projects/reduce-algebra>.
 
-;; The latest version of REDUCE mode is available from
-;; <http://reduce-algebra.svn.sourceforge.net/viewvc/reduce-algebra/trunk/generic/emacs/>.
+;; The latest version of REDUCE Mode is available from
+;; <https://sourceforge.net/p/reduce-algebra/code/HEAD/tree/trunk/generic/emacs>.
 
 ;; Full documentation covering the installation and use of REDUCE mode
 ;; is provided by a texinfo source file called `reduce-ide.texinfo'.
@@ -56,13 +58,13 @@
 
 ;; (autoload 'reduce-mode "reduce-mode" "Major mode for REDUCE code editing" t)
 
-;; To run REDUCE mode automatically on files with extension ".red" or
+;; To run REDUCE Mode automatically on files with extension ".red" or
 ;; ".tst" put the following (after `autoload') in your `.emacs' file:
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.\\(red\\|tst\\)\\'" . reduce-mode))
 
-;; To make REDUCE mode customization always available put the
+;; To make REDUCE Mode customization always available put the
 ;; following (after `autoload') in your `.emacs' file:
 
 ;;;###autoload
@@ -84,12 +86,11 @@
 
 ;;	Enhancements
 ;;	============
-;;	highlight comment statements
 ;;	more flexible intelligent indentation, rationalize the code
 ;;	make skipping comment statements configurable (?)
 ;;	add RLisp88 support (?)
 ;;	more structure templates (?) -- while, repeat
-;;      faster font-lock (function rather than just regexps)?
+;;  faster font-lock (function rather than just regexps)?
 
 ;;; Code:
 
@@ -102,10 +103,9 @@
 
 ;; (message "Loading reduce-mode")	; TEMPORARY!
 
-(eval-when-compile			; keep compiler happy!
+(eval-when-compile						; keep compiler happy!
   (require 'font-lock)
-  (require 'timer)
-  (require 'paren))
+  (require 'timer))
 
 ;; Customizable user options:
 
@@ -245,7 +245,7 @@ Optional `cdr' is a replacement string or nullary function (for structures)."
 
 (defcustom reduce-comment-region-string "%% "
   "*String inserted by \\[reduce-comment-region] at start of each line."
-  :version "1.21" ; Names was reduce-comment-region up to version 1555!
+  :version "1.21" ; Name was reduce-comment-region up to version 1555!
   :type 'string
   :group 'reduce-format-display)
 
@@ -272,29 +272,13 @@ It should end with \\=\\=.  The default value is \"\\(else\\|end\\|>>\\)\\=\\=\"
 
 ;; Display:
 
-(defcustom reduce-show-delim-mode
-  ;; Set a sensible default:
-  (and window-system (featurep 'paren) show-paren-mode)
-  "*If non-nil then highlight matching group and block delimiters.
-Otherwise blink the opengroup matching an inserted closegroup."
-  :set (lambda (symbol value)
-	 (reduce-show-delim-mode (or value 0)))
-  :initialize 'custom-initialize-default
+(defcustom reduce-show-delim-mode-on show-paren-mode
+  "If non-nil then turn on `reduce-show-delim-mode' initially.
+Since `reduce-show-delim-mode' is a buffer-local minor mode, it
+can also be turned on and off in each buffer independently.
+Defaults to the value of `show-paren-mode'."
+  :package-version '(reduce-mode . "1.54")
   :type 'boolean
-  :group 'reduce-format-display)
-
-(defface reduce-show-delim-match-face
-  '((((class color)) (:background "turquoise"))
-    (t (:background "gray")))
-  "Face used for a matching REDUCE delimiter.
-Default is the same as for Show Paren mode."
-  :group 'reduce-format-display)
-
-(defface reduce-show-delim-mismatch-face
-  '((((class color)) (:foreground "white" :background "purple"))
-    (t (:reverse-video t)))
-  "Face used for a mismatching REDUCE delimiter.
-Default is the same as for Show Paren mode."
   :group 'reduce-format-display)
 
 (defcustom reduce-show-proc-mode nil
@@ -363,6 +347,8 @@ unless preceded by ' or (, for correct syntax highlighing of strings.")
 ;;; Automatically pre-define reduce mode to autoload if available
 ;;; when building Emacs (unlikely ever to be done!):
 
+(declare-function reduce-show-delim-mode "reduce-delim" ())
+
 ;;;###autoload
 (defun reduce-mode ()
   "Major mode for editing REDUCE source code -- part of REDUCE IDE.
@@ -414,32 +400,40 @@ Entry to this mode calls the value of `reduce-mode-hook' if non-nil."
   (setq major-mode 'reduce-mode)
   (setq mode-name "REDUCE")
   (reduce-mode-variables)
-  ;; Set up font-lock mode:
-  (set (make-local-variable 'font-lock-defaults)
+  ;; Set up font-lock mode - variables automatically buffer-local:
+  (setq font-lock-defaults
        ;; reduce-font-lock-keywords evaluates to a list of symbols!
        (list reduce-font-lock-keywords	; KEYWORDS
-	     nil			; KEYWORDS-ONLY
+	     nil   			; KEYWORDS-ONLY
 	     t				; CASE-FOLD
 	     nil			; SYNTAX-ALIST
-	     nil			; SYNTAX-BEGIN
 	     (cons			; (VARIABLE . VALUE) ...
-	      'font-lock-syntactic-keywords
+	      'font-lock-syntactic-keywords	; obsolete since 24.1! Use
+										; syntax-propertize-function
+										; instead!
 	      reduce-font-lock-syntactic-keywords)
 	     ))
+  (setq font-lock-multiline t)			; for comment statements
+  ;; Additional support for comment statements:
+  (add-to-list 'font-lock-extend-region-functions
+			   #'reduce-font-lock-extend-region-for-comment)
   ;; Make all parsing respect the syntax property set by the above
   ;; font-lock option (which is essential to parse "...!"):
   (set (make-local-variable 'parse-sexp-lookup-properties) t)
   ;; Optionally turn on REDUCE minor modes:
-  (if reduce-show-delim-mode (reduce-show-delim-mode t))
+  (when reduce-show-delim-mode-on
+	(require 'reduce-delim)
+	(reduce-show-delim-mode))
   (if reduce-auto-indent-mode (reduce-auto-indent-mode t))
   ;; For reduce-show-proc-mode:
   (set (make-local-variable 'which-func-mode) nil)
   (set (make-local-variable 'which-func-format) 'reduce-show-proc-string)
   (if reduce-show-proc-mode (reduce-show-proc-mode t))
+  ;; This seems to be obsolete in Emacs 26!
   ;; Experimental support for outline minor mode (cf. lisp-mode.el)
   ;; `outline-regexp' must match `heading' from beginning of line;
   ;; length of match determines level:
-  (set (make-local-variable 'outline-regexp) "[^ \t\n]")
+  ;; (set (make-local-variable 'outline-regexp) "[^ \t\n]")
   ;; Imenu support:
   (set (make-local-variable 'imenu-generic-expression)
        ;; `make-local-variable' in case imenu not yet loaded!
@@ -453,13 +447,11 @@ Entry to this mode calls the value of `reduce-mode-hook' if non-nil."
        'reduce-current-proc)
   (run-hooks 'reduce-mode-hook))
 
-(fset 'R (symbol-function 'reduce-mode)) ; a synonym
-
 (defun reduce-mode-variables ()
   "Define REDUCE mode local variables."
   (set-syntax-table reduce-mode-syntax-table)
-  (set (make-local-variable 'paragraph-start)
-       (concat "^$\\|" page-delimiter))
+  ;; (set (make-local-variable 'paragraph-start)
+  ;;      (concat "^$\\|" page-delimiter))
   (set (make-local-variable 'paragraph-separate)
        ;; paragraph-start)
        (concat paragraph-start "\\|^%")) ; RS
@@ -568,17 +560,15 @@ Entry to this mode calls the value of `reduce-mode-hook' if non-nil."
     ["Make Proc/Op Menu" (reduce-imenu-add-to-menubar t) :active (not reduce-imenu-done)
      :help "Show an imenu of procedures and operators"]
     "--"
-    ["Find Tag..." find-tag :active t
+    ["Find Tag..." xref-find-definitions :active t
      :help "Find a procedure definition using a tag file"]
-    ["Find Next Tag" (find-tag nil t) :active t
-     :help "Find the next procedure definition (using a tag file)"]
     ["New TAGS Table..." visit-tags-table :active t
      :help "Select a new tag file"]
     "--"
     ["Tag Directory..." reduce-tagify-dir :active t
-     :help "Tag all REDUCE files in this directory"]
-    ["Tag Subdirs..." reduce-tagify-subdirs :active t
-     :help "Tag all REDUCE files in sub-directories of `..'"]
+     :help "Tag REDUCE files in this directory"]
+    ["Tag Dir & Subdirs..." reduce-tagify-dir-recursively :active t
+     :help "Tag all REDUCE files under this directory"]
     )
    ;;   "-- TEMPLATES --" ; not good in ntemacs
    "--"
@@ -601,9 +591,10 @@ Entry to this mode calls the value of `reduce-mode-hook' if non-nil."
     :help "Customize REDUCE Mode"]
    ["Show Version" reduce-mode-show-version :active t
     :help "Show the REDUCE Mode version"]
-   ["Outline" outline-minor-mode
-    :style toggle :selected outline-minor-mode :active t
-    :help "Toggle outline minor mode"]
+   ;; This seems to be obsolete in Emacs 26!
+   ;; ["Outline" outline-minor-mode
+   ;;  :style toggle :selected outline-minor-mode :active t
+   ;;  :help "Toggle outline minor mode"]
    ["Update ChangeLog" add-change-log-entry-other-window :active t
     :help "Add change log entry other window"]
    ))
@@ -692,12 +683,12 @@ this one."
 	(reduce-calculate-indent-this)
 	(reduce-calculate-indent-prev))))
 
-(defconst procedure-regexp "\\<procedure[ \(]"
+(defconst procedure-regexp "\\(?:^\\|\\s-+\\|[;$]\\)procedure\\s-+[![:alpha:]]"
   "Regexp for use in a SEARCH to find a procedure header.")
 
 (defsubst looking-at-procedure ()
   "Return t if text after point matches the start of a procedure."
-  (looking-at ".*\\<procedure[ \(]"))
+  (looking-at ".*\\<procedure\\s-+[![:alpha:]]"))
 
 (defun reduce-calculate-indent-proc ()
   ;; "Handle comment lines, or if immediately following a procedure body
@@ -760,7 +751,10 @@ of the construct; otherwise return nil."
       (reduce-backward-block) (current-indentation))
      ((looking-at ">>")
       (reduce-backward-group) (current-indentation))
-     ) ))
+     ;; ((looking-at "#\\<endif\\>")
+     ;;  (reduce-backward-group) 0)
+     ((looking-at "#\\(\\<define\\>\\|\\<if\\>\\|\\<\\elif\\>\\|\\<\\else\\>\\|\\<endif\\>\\)")
+      0))))
 
 (defun reduce-find-matching-if ()
   "Find the `if' matching a `then' or `else'."
@@ -805,7 +799,7 @@ of the construct; otherwise return nil."
 	(let ((previous-indentation (current-column))
 	      extra-indentation)
 	  ;; Skip any label:
-	  (when (looking-at "\\(\\w+[ \t]*:\\)[^=]") ; label
+	  (when (looking-at "^\\(\\w+[ \t]*:\\)[^=]") ; label
 	    (goto-char (match-end 1))
 	    (skip-chars-forward "[ \t]")
 	    (if (eolp)		; label alone on line
@@ -836,6 +830,10 @@ of the construct; otherwise return nil."
 		     ;; Otherwise, extra indentation undefined
 		     )))
 	  (cond
+	   ((looking-at "#\\<endif\\>")
+	    (current-indentation))
+	   ((looking-at "#\\(\\<define\\>\\|\\<if\\>\\|\\<\\elif\\>\\|\\<\\else\\>\\)")
+	    (current-indentation))
 	   ;; If extra indentation determined then use it ...
 	   (extra-indentation (+ previous-indentation extra-indentation))
 	   ;; If beginning new statement or comma-separated element
@@ -1030,28 +1028,25 @@ current line if the text just typed matches `reduce-auto-indent-regexp'."
       )))
 
 (defun reduce-forward-procedure (arg)
-  "Move forward to next end of procedure. With ARG, do it ARG times."
+  "Move forward to next end of procedure.  With ARG, do it ARG times."
   (interactive "p")
   (let ((case-fold-search t) (start (point)) count)
     ;; Move to end of procedure starting before point:
     (if (reduce-re-search-backward procedure-regexp)
-	(reduce-forward-statement 2))
+		(reduce-forward-statement 2))
     ;; Now move forward by arg or arg-1 procedures
     ;; or stay put if at least one move not possible
-    (if (<= (point) start)
-	()
+    (unless (<= (point) start)
       (setq arg (1- arg)) (setq start (point)))
     (setq count arg)
     (while (and (> count 0) (reduce-re-search-forward procedure-regexp))
       (setq count (1- count)))
     (if (< count arg)
-	(reduce-forward-statement 2)
-      (goto-char start))
-    )
+		(reduce-forward-statement 2)
+      (goto-char start)))
   ;; Skip white space and any following eol:
   (skip-chars-forward " \t")
-  (if (= (following-char) ?\n) (forward-char))
-  )
+  (if (= (following-char) ?\n) (forward-char)))
 
 (defun reduce-mark-procedure (arg)
   "Mark this and following ARG procedures.
@@ -1125,9 +1120,9 @@ If looking at the end of a block or group, or the end-of-file marker,
 move over it after `reduce-max-up-tries' consecutive interactive tries."
   (interactive "p")
   (let ((case-fold-search t)
-	(pattern "[;$]\\|>>\\|\\<end\\>\\|<<\\|\\<begin\\>\\|\\s(\\|\\s)")
-	(start (point))
-	reduce-forward-statement-found)
+		(pattern "[;$]\\|>>\\|\\<end\\>\\|<<\\|\\<begin\\>\\|\\s(\\|\\s)")
+		(start (point))
+		reduce-forward-statement-found)
     ;; Skip an immediate closing bracket:
     (if (looking-at "[ \t\n]*\\s)") (goto-char (match-end 0)))
     (while (and (> arg 0) (reduce-forward-statement1 pattern))
@@ -1135,8 +1130,7 @@ move over it after `reduce-max-up-tries' consecutive interactive tries."
     ;; Never move backwards:
     (if (< (point) start) (goto-char start))
     ;; Move over  >>  or  end  on repeated interactive attempt:
-    (reduce-up-block-or-group-maybe reduce-forward-statement-found start)
-    ))
+    (reduce-up-block-or-group-maybe reduce-forward-statement-found start)))
 
 (defun reduce-forward-statement1 (pattern)
   "Move forward to next statement end and return t if successful."
@@ -1346,18 +1340,20 @@ negative argument means move backward instead of forward."
 Return t if successful; otherwise move as far as possible and return nil."
   (let (return)
     (while (and (setq return (reduce-re-search-forward
-			      "\\<end\\>\\|\\<begin\\>" 'move))
-		(memq (preceding-char) '(?n ?N)))
+							  "[^'\(]\\<end\\>\\|\\([^'\(]\\<begin\\>\\)" 'move))
+				(match-beginning 1))
       (reduce-forward-block))
     return))
 
+;; ***** Should reduce-backward-block also skip white space,which it
+;; ***** seems to do? This is a problem for reduce-show-delim-mode.
 (defun reduce-backward-block ()
   "Move backwards to start of block containing point.
 Return t if successful; otherwise move as far as possible and return nil."
   (let (return)
     (while (and (setq return (reduce-re-search-backward
-			      "\\<begin\\>\\|\\<end\\>" 'move))
-		(memq (following-char) '(?e ?E)))
+							  "[^'\(]\\<begin\\>\\|\\([^'\(]\\<end\\>\\)" 'move))
+				(match-beginning 1))
       (reduce-backward-block))
     return))
 
@@ -1474,21 +1470,21 @@ Otherwise do not move and return nil."
    ;; Check whether in % comment:
    (reduce-back-to-percent-comment-start)
    ;; Check whether in comment statement:
-   (let ((start (point))
-	 (pattern "[^!][;$]\\|\\<comment\\>"))
+   (let ((start (point)) posn
+		 (pattern "[^!][;$]\\|\\<comment\\>"))
      (cond
-      ((reduce-back-to-comment-statement-start pattern)
+      ((setq posn (reduce-back-to-comment-statement-start pattern))
        ;; in comment statement -- go to its true beginning
-       (goto-char (reduce-back-to-comment-statement-start pattern)) t)
-      (t (goto-char start) nil))	; not in comment statement
+       (goto-char posn) t)
+      (t (goto-char start) nil))		; not in comment statement
      )))
 
 (defun reduce-back-to-comment-statement-start (pattern)
   "Move backwards to the nearest `comment' keyword or separator.
-If it is `comment' then return its start position."
+If it is `comment' then return its start position; otherwise return nil."
   (while (and (re-search-backward pattern nil 'move)
-	      (reduce-back-to-percent-comment-start)))
-  (if (looking-at "comment") (point)) )
+			  (reduce-back-to-percent-comment-start)))
+  (if (looking-at "comment") (point)))
 
 (defun reduce-back-to-percent-comment-start ()
   "If point is in a percent comment then move to its start and return t.
@@ -1586,43 +1582,53 @@ or following point (cf. minor modes)."
 
 
 (defun reduce-fill-comment (justify)
-  "Fill successive %-comment lines; if JUSTIFY then also justify.
-Lines are around or immediately following point.
-Prefix arg means justify as well."
-  ;; Should perhaps add support for comment statements as well.
+  "Fill %-comment or comment statement paragraph at or after point.
+If JUSTIFY is non-nil (interactively, with prefix argument), justify as well."
   (interactive "*P")
   (save-excursion
     (let (first)
+	  ;; If in empty line then move to start of next non-empty line:
       (beginning-of-line)
-      ;; If point is before a comment line then move to its start:
-      ;; (Otherwise find start later by moving backwards.)
       (while (and (looking-at "[ \t]*$")
-		  (= (forward-line) 0)
-		  (setq first (point)) ))
-      ;; If point is in a comment then find its prefix and fill it:
-      (if (looking-at "[ \t]*%")
-	  (let (fill-prefix last)
-	    ;; Code modified from `set-fill-prefix' in fill.el
-	    (setq fill-prefix (buffer-substring
-			       (point)
-			       (progn (skip-chars-forward " \t%") (point))))
-	    (if (equal fill-prefix "")
-		(setq fill-prefix nil))
-	    ;; Find the last line of the comment:
-	    (while (and (= (forward-line) 0)
-			(looking-at "[ \t]*%")) )
-	    (setq last (point))
-	    ;; Move to the first line of the comment:
-	    (if first
-		(goto-char first)
-	      (while (and (= (forward-line -1) 0)
-			  (looking-at "[ \t]*%")) )
-	      ;; Might have reached bob, so ...
-	      (if (not (looking-at "[ \t]*%"))
-		  (forward-line)))
-	    ;; Fill region as one paragraph: break lines to fit fill-column.
-	    (fill-region-as-paragraph (point) last justify)
-	    )))))
+				  (= (forward-line) 0)
+				  (setq first (point))))
+	  ;; Is point within a comment statement?
+	  (if (or (and (looking-at "[ \t]*comment")
+				   (setq first (point)))
+			  ;; (See `reduce-font-lock-extend-region-for-comment'.)
+			  (save-excursion
+				(and (re-search-backward "\\(comment\\)\\|\\(;\\)" nil t)
+					 (match-beginning 1)
+					 (setq first (point)))))
+		  ;; Yes -- use normal text-mode fill, but only within the
+		  ;; comment statement, which might be within code:
+		  (save-restriction
+			(narrow-to-region first (save-excursion (search-forward ";")))
+			(fill-paragraph justify))
+		;;No...
+		;; If point is in a %-comment then find its prefix and fill it:
+		(if (looking-at "[ \t]*%")
+			(let (fill-prefix last)
+			  ;; Code modified from `set-fill-prefix' in fill.el.
+			  (setq fill-prefix (buffer-substring
+								 (point)
+								 (progn (skip-chars-forward " \t%") (point))))
+			  (if (equal fill-prefix "")
+				  (setq fill-prefix nil))
+			  ;; Find the last line of the comment:
+			  (while (and (= (forward-line) 0)
+						  (looking-at "[ \t]*%")))
+			  (setq last (point))
+			  ;; Move to the first line of the comment:
+			  (if first
+				  (goto-char first)
+				(while (and (= (forward-line -1) 0)
+							(looking-at "[ \t]*%")) )
+				;; Might have reached BOB, so ...
+				(if (not (looking-at "[ \t]*%"))
+					(forward-line)))
+			  ;; Fill region as one paragraph: break lines to fit fill-column.
+			  (fill-region-as-paragraph (point) last justify)))))))
 
 
 ;;;; ***************************
@@ -1811,173 +1817,6 @@ With argument, do it that many times."
 			     (point)))))
       )))
 
-
-;;; Display highlighting on whatever group or block delimiter matches
-;;; the one before or after point.
-;;; Based closely on paren.el --- highlight matching paren --- by RMS
-;;; NOTE: Cannot use simple syntactic matching even for group, because
-;;; it cannot distinguish a single < from <<, etc.
-
-;;; Add matching of delim AROUND point later???
-
-;; Overlay used to highlight the matching delim:
-(defvar reduce-show-delim-overlay nil)
-
-;; Overlay used to highlight the closedelim right before point:
-(defvar reduce-show-delim-overlay-1 nil)
-
-(defvar reduce-show-delim-idle-timer nil)
-
-(defun reduce-show-delim-mode (&optional arg)
-  "Toggle REDUCE Show Delim mode.
-With prefix ARG, turn REDUCE Show Delim mode on if and only if ARG is positive.
-Returns the new status of REDUCE Show Delim mode (non-nil means on).
-
-When REDUCE Show Delim mode is enabled, any matching delimiter is highlighted
-after `show-paren-delay' seconds of Emacs idle time."
-  (interactive "P")
-  (if window-system
-      (let ((on-p (if arg
-		      (> (prefix-numeric-value arg) 0)
-		    (not reduce-show-delim-mode))))
-	(and reduce-show-delim-idle-timer
-	     (cancel-timer reduce-show-delim-idle-timer))
-	(cond (on-p
-	       (require 'paren)		; for show-paren-delay
-	       (setq reduce-show-delim-idle-timer
-		     (run-with-idle-timer show-paren-delay t
-					  'reduce-show-delim-function))
-	       (define-key reduce-mode-map ">" nil)) ; undefined
-	      (t (and reduce-show-delim-overlay
-		      (overlay-buffer reduce-show-delim-overlay)
-		      (delete-overlay reduce-show-delim-overlay))
-		 (and reduce-show-delim-overlay-1
-		      (overlay-buffer reduce-show-delim-overlay-1)
-		      (delete-overlay reduce-show-delim-overlay-1))
-		 ;; Blink matching group delimiter
-		 (define-key reduce-mode-map ">"
-		   'reduce-self-insert-and-blink-matching-group-open)))
-	(setq reduce-show-delim-mode on-p))))
-
-(defun reduce-show-delim-function ()
-  "In REDUCE mode (only), perform matching delimiter highlighting.
-\(Highlights group and block delimiters only.)"
-  ;; Do nothing if no window system to display results with.
-  ;; Do nothing if executing keyboard macro.
-  ;; Do nothing if input is pending.
-  (when (and window-system (eq major-mode 'reduce-mode))
-    (let (pos dir mismatch face
-	      (case-fold-search t))
-      (cond
-       ((and (eq (following-char) ?<)
-	     ;; (or (eq (preceding-char) ?<)
-	     (eq (char-after (1+ (point))) ?<) );)
-	(setq dir 2))
-       ((and (eq (preceding-char) ?>)
-	     ;; (or (eq (following-char) ?>)
-	     (eq (char-after (- (point) 2)) ?>) );)
-	(setq dir -2))
-       ((save-match-data (looking-at "\\<begin\\>"))
-	(setq dir 3))
-       ((and (memq (preceding-char) '(?d ?D))
-	     (memq (char-after (- (point) 2)) '(?n ?N))
-	     (memq (char-after (- (point) 3)) '(?e ?E))
-	     (/= (char-syntax (following-char)) ?w)
-	     (/= (char-syntax (char-after (- (point) 4))) ?w)
-	     )
-	(setq dir -3))
-       )
-      ;;
-      ;; Find the other end of the sexp.
-      (when dir
-	(save-excursion
-	  (save-restriction
-	    ;; Determine the range within which to look for a match.
-	    (when blink-matching-paren-distance
-	      (narrow-to-region
-	       (max (point-min) (- (point) blink-matching-paren-distance))
-	       (min (point-max) (+ (point) blink-matching-paren-distance))))
-	    ;; Scan across one group or block within that range.
-	    ;; Errors or nil mean there is a mismatch.
-	    (condition-case ()
-		(progn
-		  (forward-char dir)
-		  (if (cond ((= dir 2) (reduce-forward-group))
-			    ((= dir -2) (reduce-backward-group))
-			    ((= dir 3) (reduce-forward-block))
-			    ((= dir -3) (reduce-backward-block)))
-		      (setq pos (point))
-		    (setq pos t mismatch t)))
-	      (error (setq pos t mismatch t)))
-	    )))
-      ;;
-      ;; Highlight the other end of the sexp, or unhighlight if none.
-      (if (not pos)
-	  (progn
-	    ;; If not at a delim that has a match,
-	    ;; turn off any previous delim highlighting.
-	    (and reduce-show-delim-overlay
-		 (overlay-buffer reduce-show-delim-overlay)
-		 (delete-overlay reduce-show-delim-overlay))
-	    (and reduce-show-delim-overlay-1
-		 (overlay-buffer reduce-show-delim-overlay-1)
-		 (delete-overlay reduce-show-delim-overlay-1)))
-	;;
-	;; Use the correct face.
-	(if mismatch
-	    (progn
-	      (if show-paren-ring-bell-on-mismatch
-		  (beep))
-	      (setq face 'reduce-show-delim-mismatch-face))
-	  (setq face 'reduce-show-delim-match-face))
-	;;
-	;; If matching backwards, highlight the closedelim
-	;; before point as well as its matching open.
-	;; If matching forward, and the opendelim is unbalanced,
-	;; highlight the delim at point to indicate misbalance.
-	;; Otherwise, turn off any such highlighting.
-	(if (and (> dir 0) (integerp pos))
-	    (when (and reduce-show-delim-overlay-1
-		       (overlay-buffer reduce-show-delim-overlay-1))
-	      (delete-overlay reduce-show-delim-overlay-1))
-	  (if (= dir 3) (setq dir 5))	; for mismatched `begin'
-	  (let ((from (if (> dir 0)
-			  (point)
-			(+ (point) dir)))
-		(to (if (> dir 0)
-			(+ (point) dir)
-		      (point))))
-	    (if reduce-show-delim-overlay-1
-		(move-overlay reduce-show-delim-overlay-1
-			      from to (current-buffer))
-	      (setq reduce-show-delim-overlay-1 (make-overlay from to)))
-	    ;; Always set the overlay face, since it varies.
-	    (overlay-put reduce-show-delim-overlay-1 'face face)))
-	;;
-	;; Turn on highlighting for the matching delim, if found.
-	;; If it's an unmatched delim, turn off any such highlighting.
-	(unless (integerp pos)
-	  (delete-overlay reduce-show-delim-overlay))
- 	(if (= dir -3) (setq dir -5))	; for matched `begin'
-	(let ((to (if (or (eq show-paren-style 'expression)
-			  (and (eq show-paren-style 'mixed)
-			       (not (pos-visible-in-window-p pos))))
-		      (point)
-		    pos))
-	      (from (if (or (eq show-paren-style 'expression)
-			    (and (eq show-paren-style 'mixed)
-				 (not (pos-visible-in-window-p pos))))
-			pos
-		      (save-excursion
-			(goto-char pos)
-			(- (point) dir)))))
-	  (if reduce-show-delim-overlay
-	      (move-overlay reduce-show-delim-overlay from to (current-buffer))
-	    (setq reduce-show-delim-overlay (make-overlay from to))))
-	;;
-	;; Always set the overlay face, since it varies.
-	(overlay-put reduce-show-delim-overlay 'face face)))))
-
 
 ;;;; *****************************
 ;;;; Support for reposition-window
@@ -2083,29 +1922,30 @@ passing on any prefix argument (in raw form)."
   ;; NB: digits have word syntax
   "Regular expression matching a REDUCE identifier.")
 
-(defconst reduce-keyword-regexp
-  (mapconcat 'identity			; keywords
-	     '("begin" "return" "end\\(module\\)?"
-	       "if" "then" "else"
-	       "while" "do" "repeat" "until"
-	       "collect" "join" "conc" "sum" "product"
-	       "for\\(\\s *\\(all\\|each\\)\\)?" "step"
-	       "in" "on" "off" "comment" "write"
-	       "let"			; "where" "when" ???
-	       "assert_install" "assert_install_all"
-	       "assert_uninstall" "assert_uninstall_all"
-	       "assert"
-
-	       ;; Lisp keywords used frequently in REDUCE:
-	       "lambda"  "function"
-	       ;; "put" "flag" "remprop" "remflag"
-	       )
-	     "\\|")
-  "Regular expression matching a REDUCE keyword.")
-
 (defconst reduce-infix-regexp
-  "where\\|when\\|or\\|and\\|member\\|memq\\|neq\\|eq"
-  )
+  "where\\|when\\|or\\|and\\|member\\|memq\\|neq\\|eq")
+
+(defconst reduce-keyword-regexp
+  (mapconcat 'identity
+			 (list
+			  "begin" "return" "end\\(module\\)?"
+			  "if" "then" "else"
+			  "while" "do" "repeat" "until"
+			  "collect" "join" "conc" "sum" "product"
+			  "for\\(\\s *\\(all\\|each\\)\\)?" "step"
+			  "in" "on" "off" "write"
+			  "let" "clearrules"
+			  "clear" "pause"
+			  "assert_install" "assert_install_all"
+			  "assert_uninstall" "assert_uninstall_all"
+			  "assert"
+
+			  ;; Lisp keywords used frequently in REDUCE:
+			  "lambda" "function"
+			  ;; "put" "flag" "remprop" "remflag"
+			  reduce-infix-regexp)
+			 "\\|")
+  "Regular expression matching a REDUCE keyword.")
 
 ;(defvar reduce-reserved-variable-regexp
 ;  "e\\|i\\|infinity\\|nil\\|pi\\|t")
@@ -2119,13 +1959,15 @@ passing on any prefix argument (in raw form)."
 (defconst reduce-asserted-arg-types-rule ;; TS
      (list (concat "[(,]\\s-*"
 		 "\\("
-		 "[^: ]+";  should be reduce-identifier-regexp but this did not work
+		 "[^: \"]+";  should be reduce-identifier-regexp but this did not work
+;;		 reduce-identifier-regexp
 		 "\\)"
 		 "\\s-*:\\s-*"
 		 "\\("
-		 "[^), ]+";  should be reduce-identifier-regexp but this did not work
+		 "[^), \"]+";  should be reduce-identifier-regexp but this did not work
+;;		 reduce-identifier-regexp
 		 "\\)")
-	 '(2 font-lock-type-face t)))
+	   '(2 font-lock-type-face t)))
 
 (defconst reduce-asserted-return-type-rule ;; TS
      (list (concat ")\\s-*:\\s-*"
@@ -2156,18 +1998,41 @@ passing on any prefix argument (in raw form)."
 	      '(1 font-lock-keyword-face t)
 	      '(2 font-lock-function-name-face))))
 
+(defconst reduce-preprocessor-rules  ;; TS
+  (list
+   (list (concat "\\(#\\<define\\>\\)\\s +\\("
+   		 reduce-identifier-regexp
+   		 "\\)\\s +\\("
+   		 reduce-identifier-regexp
+   		 "\\)")
+   	 '(1 font-lock-preprocessor-face)
+   	 '(2 font-lock-function-name-face)
+   	 '(3 font-function-name-face))
+   (list "\\(#\\<if\\>\\)\\s +\\(.*$\\)"
+	 '(1 font-lock-preprocessor-face)
+	 '(2 font-lock-default-face))
+   (list "\\(#\\<elif\\>\\)\\s +\\(.*$\\)"
+	 '(1 font-lock-preprocessor-face)
+	 '(2 font-lock-default-face))
+   (list "\\(#\\<else\\>\\)"
+	 '(1 font-lock-preprocessor-face))
+   (list "\\(#\\<endif\\>\\)"
+	 '(1 font-lock-preprocessor-face))))
+
 (defconst reduce-font-lock-keywords-0
   (append (list
 	   ;; Main keywords:
 	   (list (concat
 		  ;; Ignore quoted keywords and composite identifiers:
-		  "\\(^[^!_']?\\|[^!][^!_']\\)"
+		  ;; "\\(^[^!_']?\\|[^!][^!_']\\)"
+		  "\\(^[^!_'#]?\\|[^!#][^!_'#]\\)"
 		  "\\<\\(\\(" reduce-keyword-regexp "\\)"
 		  ;; Handle consecutive keywords:
 		  "\\(\\s +\\(" reduce-keyword-regexp "\\)\\)*"
 		  "\\)\\>"
 		  ;; Ignore composite identifiers:
-		  "[^!_]"
+		  ;; "[^!_]"
+		  "[^!_#]"
 		  ) '(2 font-lock-keyword-face))
 	   ;; Group delimiters and references:
 	   '("<<\\|>>\\|\\<\\(module\\|go\\(\\s *to\\)?\\)\\>"
@@ -2186,85 +2051,126 @@ passing on any prefix argument (in raw form)."
 	     (1 font-lock-type-face))
 	   ;; Type declarations:
 	   ;; '("[^!][^_]\\<\\(algebraic\\|symbolic\\|operator\\|scalar\\|integer\\|real\\)\\>[^!_]"
-	   '("\\(?:^\\|[^_]\\)\\<\\(algebraic\\|symbolic\\|operator\\|scalar\\|integer\\|real\\)\\>[^!_]"
+	   '("\\(?:^\\|[^_]\\)\\<\\(algebraic\\|symbolic\\|operator\\|scalar\\|integer\\|real\\|linear\\)\\>[^!_]"
 	     (1 font-lock-type-face))
 	   reduce-asserted-arg-types-rule
 	   reduce-asserted-return-type-rule)
 	  reduce-assert-declare-rules
-	  reduce-assert-struct-rules)
+	  reduce-assert-struct-rules
+	  reduce-preprocessor-rules)
   "Default minimal REDUCE fontification rules.")
+
+(defvar font-lock-beg) (defvar font-lock-end)
+(defun reduce-font-lock-extend-region-for-comment ()
+  "Extend font-lock region if necessary to include all of any
+comment statements that it intersects, and if so return non-nil.
+This function is prepended to `font-lock-extend-region-functions'."
+  (let (new-beg new-end)
+	(goto-char font-lock-beg)
+	;; Is font-lock-beg within a comment?
+	(save-excursion
+	  (if (and (re-search-backward "\\(comment\\)\\|\\(;\\)" nil t)
+			   (match-beginning 1))
+		  (setq new-beg (point))))
+	(when (or new-beg
+			  ;; Or does a comment start in the font-lock region?
+			  (search-forward "comment" font-lock-end t))
+	  ;; If either of the above then...
+	  (search-forward ";" nil 1)		; if un-terminated move to EOB
+	  ;; Do multiple comments start in the font-lock region?
+	  (while (and (< (point) font-lock-end)
+				  (search-forward "comment" font-lock-end t))
+		(search-forward ";" nil 1))		; if un-terminated move to EOB
+	  (if (> (point) font-lock-end)
+		  (setq new-end (point))))
+	;; Temporary message for testing:
+	;; (message "reduce-font-lock-extend-region-for-comment: %s --> %s, %s --> %s"
+	;; 		 font-lock-beg new-beg font-lock-end new-end)
+	;; Return non-nil if font-lock region adjusted:
+	(or (if new-beg (setq font-lock-beg new-beg))
+		(if new-end (setq font-lock-end new-end)))))
 
 (defconst reduce-font-lock-keywords-basic
   (list
+   
+   ;; Comment statements.  Note that `.' does not match EOL and the
+   ;; repetition must be non-greedy `*?'.  This fontification must
+   ;; override any previous (syntactic) fontification.  Being normally
+   ;; multi-line, it requires the support of the function
+   ;; `reduce-font-lock-extend-region-for-comment'.
+   '("\\(?:^\\|[ \t;$]\\)\\(comment\\(?:\\s-\\|\n\\)\\(?:.\\|\n\\)*?;\\)" .
+	 (1 font-lock-comment-face t))
+
    ;; Main keywords:
    (list (concat
-	  ;; Ignore quoted keywords and composite identifiers:
-	  "\\(^[^!_']?\\|[^!][^!_']\\)"
-	  "\\<\\(\\(" reduce-keyword-regexp "\\)"
-	  ;; Handle consecutive keywords:
-	  "\\(\\s +\\(" reduce-keyword-regexp "\\)\\)*"
-	  "\\)\\>"
-	  ;; Ignore composite identifiers:
-	  "[^!_]"
-	  ) '(2 font-lock-keyword-face))
+		  ;; Ignore quoted keywords and composite identifiers:
+		  ;; "\\(^[^!_']?\\|[^!][^!_']\\)"
+		  "\\(^[^!_'#]?\\|[^!#][^!_'#]\\)"
+		  "\\<\\(\\(" reduce-keyword-regexp "\\)"
+		  ;; Handle consecutive keywords:
+		  "\\(\\s +\\(" reduce-keyword-regexp "\\)\\)*"
+		  "\\)\\>"
+		  ;; Ignore composite identifiers:
+		  ;; "[^!_]"
+		  "[^!_#]"
+		  ) '(2 font-lock-keyword-face))
+
    ;; Group delimiters:  OK
    '("<<\\|>>" . font-lock-keyword-face)
 
    ;; Procedure declarations:
    (list (concat "\\<\\(procedure\\)\\s +"
-		 "\\(" reduce-identifier-regexp "\\)" "\\s *(?")
-	 '(1 font-lock-keyword-face)
-	 ;; This will probably cause highlighting within comments, see above:
-;; 	 '(2 font-lock-function-name-face t)
- 	 '(2 font-lock-function-name-face)  ; no highlighting in comments; TS
-	 ;; Anchored matches (single line only!):
-	 (list (concat "\\s *"
-		       "\\(" reduce-identifier-regexp "\\)"
-		       "\\s *\\([\);$].*\\|\\s.\\)"
-					; Stop after `)', `;' or `$'
-		       )
-	       nil nil
-	       '(1 font-lock-variable-name-face))
-	 )
+				 "\\(" reduce-identifier-regexp "\\)" "\\s *(?")
+		 '(1 font-lock-keyword-face)
+		 ;; This will probably cause highlighting within comments, see above:
+		 ;; 	 '(2 font-lock-function-name-face t)
+ 		 '(2 font-lock-function-name-face)  ; no highlighting in comments; TS
+		 ;; Anchored matches (single line only!):
+		 (list (concat "\\s *"
+					   "\\(" reduce-identifier-regexp "\\)"
+					   "\\s *\\([\);$].*\\|\\s.\\)"
+										; Stop after `)', `;' or `$'
+					   )
+			   nil nil
+			   '(1 font-lock-variable-name-face)))
 
    ;; Type declarations:
    (list "\\<\\(operator\\|scalar\\|integer\\|real\\)\\s "
-	 '(1 font-lock-type-face)
-	 ;; Anchored matches (single line only!):
-	 (list (concat "\\s *"
-		       "\\(" reduce-identifier-regexp "\\)"
-		       "\\s *\\s."
-		       )
-	       nil nil
-	       '(1 font-lock-variable-name-face))
-	 )
+		 '(1 font-lock-type-face)
+		 ;; Anchored matches (single line only!):
+		 (list (concat "\\s *"
+					   "\\(" reduce-identifier-regexp "\\)"
+					   "\\s *\\s."
+					   )
+			   nil nil
+			   '(1 font-lock-variable-name-face)))
 
    ;; References -- goto and labels:
    (list (concat "\\<\\(go\\(\\s *to\\)?\\)\\s +"
-		 "\\(" reduce-identifier-regexp "\\)")
-	 '(1 font-lock-keyword-face)
-	 '(3 font-lock-constant-face))	; was font-lock-reference-face
+				 "\\(" reduce-identifier-regexp "\\)")
+		 '(1 font-lock-keyword-face)
+		 '(3 font-lock-constant-face))	; was font-lock-reference-face
    (cons (concat "^\\s *\\(" reduce-identifier-regexp "\\)\\s *:[^=]")
-	 '(1 font-lock-constant-face))	; was font-lock-reference-face
+		 '(1 font-lock-constant-face))	; was font-lock-reference-face
    )
-  "Basic REDUCE fontification sub-rules."
-  )
+  "Basic REDUCE fontification sub-rules.")
 
 (defconst reduce-font-lock-keywords-algebraic
-  (list
-   ;; More type declarations:
-   (list "\\<\\(array\\|matrix\\)\\s "
-	 '(1 font-lock-type-face)
-	 ;; Anchored matches (single line only!):
-	 (list (concat "\\s *"
-		       "\\(" reduce-identifier-regexp "\\)"
-		       "\\s *\\(([^\)]*)\\s *\\)?\\s."
-		       )
-	       nil nil
-	       '(1 font-lock-variable-name-face))
-	 )
-   reduce-asserted-arg-types-rule
-   reduce-asserted-return-type-rule)
+  (append (list
+	   ;; More type declarations:
+	   (list "\\<\\(array\\|matrix\\)\\s "
+		 '(1 font-lock-type-face)
+		 ;; Anchored matches (single line only!):
+		 (list (concat "\\s *"
+			       "\\(" reduce-identifier-regexp "\\)"
+			       "\\s *\\(([^\)]*)\\s *\\)?\\s."
+			       )
+		       nil nil
+		       '(1 font-lock-variable-name-face))
+		 )
+	   reduce-asserted-arg-types-rule
+	   reduce-asserted-return-type-rule)
+	  reduce-preprocessor-rules)
   "More algebraic-mode REDUCE fontification sub-rules.")
 
 (defconst reduce-font-lock-keywords-symbolic
@@ -2290,7 +2196,8 @@ passing on any prefix argument (in raw form)."
 	   reduce-asserted-arg-types-rule
 	   reduce-asserted-return-type-rule)
 	  reduce-assert-declare-rules
-	  reduce-assert-struct-rules)
+	  reduce-assert-struct-rules
+	  reduce-preprocessor-rules)
   "More symbolic-mode REDUCE fontification sub-rules.")
 
 (defconst reduce-font-lock-keywords-full
@@ -2346,28 +2253,24 @@ passing on any prefix argument (in raw form)."
 	 ;; and avoid mis-highlighting variables:
 	 '(1 font-lock-function-name-face keep))
    )
-  "Full maximal REDUCE fontification sub-rules."
-  )
+  "Full maximal REDUCE fontification sub-rules.")
 
 (defconst reduce-font-lock-keywords-1
   (append reduce-font-lock-keywords-basic
-	  reduce-font-lock-keywords-algebraic)
-  "Standard algebraic-mode REDUCE fontification rules."
-  )
+		  reduce-font-lock-keywords-algebraic)
+  "Standard algebraic-mode REDUCE fontification rules.")
 
 (defconst reduce-font-lock-keywords-2
   (append reduce-font-lock-keywords-basic
-	  reduce-font-lock-keywords-symbolic)
-  "Standard symbolic-mode REDUCE fontification rules."
-  )
+		  reduce-font-lock-keywords-symbolic)
+  "Standard symbolic-mode REDUCE fontification rules.")
 
 (defconst reduce-font-lock-keywords-3
   (append reduce-font-lock-keywords-basic
-	  reduce-font-lock-keywords-algebraic
-	  reduce-font-lock-keywords-symbolic
-	  reduce-font-lock-keywords-full)
-  "Full REDUCE fontification rules."
-  )
+		  reduce-font-lock-keywords-algebraic
+		  reduce-font-lock-keywords-symbolic
+		  reduce-font-lock-keywords-full)
+  "Full REDUCE fontification rules.")
 
 ;; Provide a REDUCE font-lock menu, based on font-lock-menu.el by
 ;; Simon Marshall <simon@gnu.ai.mit.edu>.
@@ -2554,61 +2457,91 @@ in mode line after `reduce-show-proc-delay' seconds of Emacs idle time."
 ;;;; Support for tagging procedure definitions
 ;;;; *****************************************
 
+(defcustom reduce-etags-directory invocation-directory
+  "Directory containing the etags program, or nil if it is in path.
+If non-nil the string must end with /."
+  :package-version '(reduce-mode . "1.54")
+  :type '(choice (directory :tag "Etags program directory")
+				 (const :tag "Etags is in exec path" nil))
+  :group 'reduce-interface)
+
 (defun reduce-tagify-dir (dir)
-  "Generate a REDUCE TAGS file for all `.red' files in directory DIR.
-By default DIR is the current directory."
+  "Generate a REDUCE TAGS file for `*.red' files in directory DIR.
+TAGS goes in DIR, which by default is the current directory."
   (interactive
    (list (read-directory-name
-	  "Tag files in dir: "		; PROMPT
-	  nil				; DIR (default cwd)
-	  nil				; DEFAULT-DIRNAME
-	  t				; MUSTMATCH
-	  )))
-  (reduce-tagify dir "*.red"))
+		  "Tag files in dir: "			; PROMPT
+		  nil							; DIR (default cwd)
+		  nil							; DEFAULT-DIRNAME
+		  t)))							; MUSTMATCH
+  (setq dir (directory-file-name (expand-file-name dir)))
+  (reduce--tagify
+   dir (directory-files dir nil "\\.red\\'")
+   (message "Tagging files `%s/*.red'..." dir)))
 
-(defun reduce-tagify-subdirs (dir)
-  "Generate a REDUCE TAGS file in directory DIR for all its subdirectories.
-By default DIR is the parent of the current directory."
+(defun reduce--tagify (dir files msg)
+  "Generate a REDUCE TAGS file in directory DIR for specified FILES.
+FILES must be a list of filenames, which can be relative to DIR.
+MSG is the message displayed when the tagging process started."
+  (let* ((default-directory dir)
+		 (value
+		  (apply
+		   #'call-process			   ; creates a synchronous process
+		   (concat reduce-etags-directory "etags") ; program
+		   nil									   ; infile
+		   "*rtags-log*"						   ; destination
+		   nil									   ; display
+		   "--lang=none"						   ; args ...
+		   "--regex=/[^%]*procedure[ \\t]+\\([^ \\t\(;$]+\\)/\\1/i"
+		   files)))						; LIST of filenames
+	(if (eq value 0)
+		(message "%sdone" msg)
+	  (message "etags failed with status: %s" value))))
+
+(defun reduce-tagify-dir-recursively (dir)
+  "Generate a REDUCE TAGS file for all `*.red' files under directory DIR.
+TAGS goes in DIR, which by default is the current directory."
   (interactive
    (list (read-directory-name
-	  "Tag subdirs of dir: "	; PROMPT
-	  (expand-file-name "..")	; DIR
-	  nil				; DEFAULT-DIRNAME
-	  t				; MUSTMATCH
-	  )))
-  (reduce-tagify dir "*/*.red"))
+		  "Tag all files under dir: "	; PROMPT
+		  nil							; DIR (default cwd)
+		  nil							; DEFAULT-DIRNAME
+		  t)))							; MUSTMATCH
+  (setq dir (directory-file-name (expand-file-name dir)))
+  (let ((reduce--tagify-root dir))
+	;; reduce--tagify-root required by `reduce--directory-files-recursively'.
+	(reduce--tagify
+	 dir (reduce--directory-files-recursively dir)
+	 (message "Tagging all files `%s/...*.red'..." dir))))
 
-; (start-process			; creates an asynchronous process
-;  "*rtags*"				; NAME for process
-;  "*rtags-out*"			; BUFFER-OR-NAME for stdout
-;  "sh"					; PROGRAM in `exec-path' to run
-;  "-c"					; ARGS ...
-;  "etags --lang=none '--regex=/[^%]*procedure[ \t]+\([^ \t()]+\)/\1/' $dir.red"
-;  )
+(defvar reduce--tagify-root)
 
-(defun reduce-tagify (dir files)
-  "Generate a REDUCE TAGS file in directory DIR as cwd for specified FILES.
-FILES can be a UNIX shell regexp."
-  ;; Assumes a UNIX shell called `sh' in `exec-path'!
-  ;; (Could avoid use of `sh' by constructing file list in lisp.)
-  (unless (file-directory-p dir) (error "Not a directory: %s" dir))
-  (setq dir (file-name-as-directory (expand-file-name dir)))
-  (message "Tagging files `%s%s' ..." dir files)
-  (let ((shell-file-name "sh")	       ; necessary for MS Windows etc.
-	(default-directory dir))
-    (set-process-sentinel
-     (start-process-shell-command ; creates an asynchronous shell process
-      "*rtags*"			  ; NAME for process
-      "*rtags-log*"		  ; BUFFER for stdout
-      (concat		    ; COMMAND: program in `exec-path' and args
-       "etags --lang=none '--regex=/[^%\n]*procedure[ \t]+\\([^ \t()]+\\)/\\1/' "
-       files))
-     'reduce-tagify-sentinel)))
-
-(defun reduce-tagify-sentinel (process event)
-  "Sentinel to show (primarily) when the tagification is finished."
-  (message "REDUCE tagify process %s has %s."
-	   process (substring event 0 -1))) ; remove trailing \n
+(defun reduce--directory-files-recursively (dir)
+  "Return a list of all `*.red' files under DIR.
+This function works recursively.  Files are returned in \"depth first\"
+order, and files from each directory are sorted in alphabetical order.
+Each file name appears in the returned list relative to directory
+`reduce--tagify-root', assumed to be bound locally in the caller."
+  ;; Modelled on `directory-files-recursively'.
+  (let (result
+		files
+		;; When DIR is "/", remote file names like "/method:" could
+		;; also be offered.  We shall suppress them.
+		(tramp-mode (and tramp-mode (file-remote-p (expand-file-name dir)))))
+    (dolist (file (sort (file-name-all-completions "" dir) 'string<))
+      (unless (member file '("./" "../"))
+		(if (directory-name-p file)
+			(let* ((leaf (substring file 0 -1))
+				   (full-file (expand-file-name leaf dir)))
+			  (setq result
+					(nconc result (reduce--directory-files-recursively
+								   full-file))))
+		  (when (string-match "\\.red\\'" file)
+			(push (file-relative-name
+				   (expand-file-name file dir)
+				   reduce--tagify-root)
+				  files)))))
+    (nconc result (nreverse files))))
 
 
 ;;;; **********************************************************************

@@ -1,4 +1,4 @@
-// cslread.h                             Copyright (C) Codemist, 1989-2016
+// cslread.h                             Copyright (C) Codemist, 1989-2017
 
 //
 // Header defining the structure of the package system for use by
@@ -7,7 +7,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -36,7 +36,7 @@
  *************************************************************************/
 
 
-// $Id$
+// $Id: cslread.h 4627 2018-05-27 09:04:04Z arthurcnorman $
 
 #ifndef header_read_h
 #define header_read_h 1
@@ -71,18 +71,16 @@ typedef struct Package
 #define packhdr_(p)   (*(Header *)    ((char *)(p) + (0 - TAG_VECTOR)))
 #define packid_(p)    (*(LispObject *)((char *)(p) + (CELL - TAG_VECTOR)))
 #define packint_(p)   (*(LispObject *)((char *)(p) + (2*CELL - TAG_VECTOR)))
-#define packvint_(p)  (*(LispObject *)((char *)(p) + (3*CELL - TAG_VECTOR)))
-#define packnint_(p)  (*(LispObject *)((char *)(p) + (4*CELL - TAG_VECTOR)))
-#define packflags_(p) (*(LispObject *)((char *)(p) + (5*CELL - TAG_VECTOR)))
+#define packnint_(p)  (*(LispObject *)((char *)(p) + (3*CELL - TAG_VECTOR)))
+#define packflags_(p) (*(LispObject *)((char *)(p) + (4*CELL - TAG_VECTOR)))
 #ifdef COMMON
-#define packext_(p)   (*(LispObject *)((char *)(p) + (6*CELL - TAG_VECTOR)))
-#define packvext_(p)  (*(LispObject *)((char *)(p) + (7*CELL - TAG_VECTOR)))
-#define packnext_(p)  (*(LispObject *)((char *)(p) + (8*CELL - TAG_VECTOR)))
-#define packname_(p)  (*(LispObject *)((char *)(p) + (9*CELL - TAG_VECTOR)))
-#define packnick_(p)  (*(LispObject *)((char *)(p) + (10*CELL - TAG_VECTOR)))
-#define packuses_(p)  (*(LispObject *)((char *)(p) + (11*CELL - TAG_VECTOR)))
-#define packused_(p)  (*(LispObject *)((char *)(p) + (12*CELL - TAG_VECTOR)))
-#define packshade_(p) (*(LispObject *)((char *)(p) + (13*CELL - TAG_VECTOR)))
+#define packext_(p)   (*(LispObject *)((char *)(p) + (5*CELL - TAG_VECTOR)))
+#define packnext_(p)  (*(LispObject *)((char *)(p) + (6*CELL - TAG_VECTOR)))
+#define packname_(p)  (*(LispObject *)((char *)(p) + (7*CELL - TAG_VECTOR)))
+#define packnick_(p)  (*(LispObject *)((char *)(p) + (8*CELL - TAG_VECTOR)))
+#define packuses_(p)  (*(LispObject *)((char *)(p) + (9*CELL - TAG_VECTOR)))
+#define packused_(p)  (*(LispObject *)((char *)(p) + (10*CELL - TAG_VECTOR)))
+#define packshade_(p) (*(LispObject *)((char *)(p) + (11*CELL - TAG_VECTOR)))
 #endif
 
 #define CP  qvalue(current_package)
@@ -96,10 +94,11 @@ typedef struct Package
 #define NO_PREFIX           'x'
 
 extern bool is_constituent(int c);
-extern LispObject intern(int len, bool escaped);
-extern LispObject iintern(LispObject str, int32_t h, LispObject p,
+extern LispObject intern(size_t len, bool escaped);
+extern LispObject iintern(LispObject str, size_t h, LispObject p,
                           int str_is_ok /* NOT a bool */);
-extern LispObject find_package(char *name, int len);
+extern LispObject get_symbol(bool gensymp);
+extern LispObject find_package(char *name, size_t len);
 extern LispObject read_from_vector(char *v);
 
 #define MAX_PROMPT_LENGTH 80

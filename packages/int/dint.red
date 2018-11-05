@@ -28,8 +28,16 @@ module dint;  % Definite integration support.
 
 fluid '(!*precise);
 
+% If you go "on acn;" then definite integration will use a small stanza of
+% experimental code (from A C Norman, hence the name of the switch) that
+% uses simple indefinite integration to make a first attempt at any
+% definite integration that has finite bounds.
+  
+switch acn;
+off acn;
+
 symbolic procedure simpdint u;
-   begin scalar low,upp,fn,var,x,y,cflag,dmod,result;
+   begin scalar cflag,dmod,result;
       if length u neq 4
         then rerror(int,2,"Improper number of arguments to INT");
       if dmode!*
@@ -38,13 +46,35 @@ symbolic procedure simpdint u;
                 if (dmod := get(dmode!*,'dname))
                   then onoff(dmod,nil)
              >> where !*msg := nil;
-      load!-package 'defint;
+%%% Replaced by autoload mechanism
+%      load!-package 'defint;
+      result := simpdint1 u;
+      << if dmod then onoff(dmod,t);
+         if cflag then onoff('complex,t)>> where !*msg := nil;
+      	 return result;
+   end;
+
+
+symbolic procedure simpdint1 u;
+   begin scalar low,upp,fn,var,x,y,result;
       fn := car u;
       var := cadr u;
       low := caddr u;
       upp := cadddr u;
       low := reval low;
       upp := reval upp;
+      % Now I will have really simple code that tries to deal with cases that are
+% easily solve using indefinite integration. At this stage I am not going to
+% worry about branch cuts!
+      if low neq 'infinity and low neq '(minus infinity) and
+         upp neq 'infinity and upp neq '(minus infinity) and
+         idp var and !*acn then <<
+        result := simpint list(fn, var);
+        if not smemq('int, result) then << % Has the integration completed OK
+          x := subsq(result, list (var . low));
+          y := subsq(result, list (var . upp));
+          return addsq(negsq x, y) >> >>;
+% End of hack to try direct integration
       if low = upp then return nil ./ 1
        else if null getd 'new_defint then nil
        else if upp = 'infinity
@@ -79,8 +109,6 @@ symbolic procedure simpdint u;
                                y := indefint!* {fn,var,low})
         then return simp!* {'difference,x,y};
       result := mkdint(fn,var,low,upp);
-      << if dmod then onoff(dmod,t);
-         if cflag then onoff('complex,t)>> where !*msg := nil;
       return result;
    end;
 
@@ -89,7 +117,7 @@ symbolic procedure defint!* u;
     where x = errorset2 {'new_defint,mkquote u};
 
 symbolic procedure indefint!* u;
-   (if errorp x or eqcar(car x,'indefint2) then 'unknown else car x)
+   (if errorp x or smemq('indefint2,car x) then 'unknown else car x)
     where x = errorset2 {'new_indefint,mkquote u};
 
 symbolic procedure mkdint(fn,var,low,upp);

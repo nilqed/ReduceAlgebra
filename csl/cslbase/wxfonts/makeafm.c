@@ -4,7 +4,7 @@
 // wil be stuff to extra just the maths tables...
 
 /**************************************************************************
- * Copyright (C) 2015, Codemist Ltd.                     A C Norman       *
+ * Copyright (C) 2015, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -34,7 +34,7 @@
 
 
 
-// $Id$
+// $Id: makeafm.c 3662 2016-05-11 20:07:09Z arthurcnorman $
 
 // This program scans the output from showttf.c and extracts from
 // it stuff that I will put in a file called *.afm. This will not be a full

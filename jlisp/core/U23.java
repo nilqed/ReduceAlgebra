@@ -35,7 +35,7 @@ package uk.co.codemist.jlisp.core;
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: U23.java 3141 2015-06-21 19:23:30Z arthurcnorman $
 
 
 // U23.java

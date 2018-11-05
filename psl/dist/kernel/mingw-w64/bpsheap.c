@@ -1,11 +1,12 @@
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% File:         bpsheap.c
+% File:         PXK:bpsheap.c
 % Description:  Code to dynamically set up bps and heap structures
 % Author:       RAM, HP/FSD
 % Created:      9-Mar-84
 % Modified:
+% Status:       Open Source: BSD License
 % Mode:         Text
 % Package:
 %
@@ -93,10 +94,10 @@ Be sure to update $pxnk/load-psl.sl to include correct collector. */
 
 #define NUMBEROFHEAPS 2
 
-#define MINSIZE        1000     /* Default total in number of bytes. */
-#define MALLOCSIZE     500000   /* Default size for OS support functions. */
-#define EXTRABPSSIZE   300000   /* Minimum amount to increase bps by. */
-#define MINIMUMHEAPADD 20000    /* Minimum amount to increase heap by */
+#define MINSIZE        1000 * 1024 * 1024  /* Default total in number of bytes. */
+#define MALLOCSIZE     500000              /* Default size for OS support functions. */
+#define EXTRABPSSIZE   300000              /* Minimum amount to increase bps by. */
+#define MINIMUMHEAPADD 20000               /* Minimum amount to increase heap by */
 
 
 #ifndef BPSSIZE
@@ -132,8 +133,12 @@ extern long long  oldheapupperbound;
 extern long long  oldheaplast;
 extern long long  oldheaptrapbound;
 
+void setupbps();
+void getheap();
+void read_error();
+
 /* Write this ourselves to keep from including half the math library */
-static power(x, n)
+static int power(x, n)
 int x, n;
 {
 int i, p;
@@ -147,6 +152,7 @@ return(p);
 int creloc (long long array[], long len, long long diff, long long lowb);
 char * cygpath2winpath(char * cygpath);
 
+int
 setupbpsandheap(argc,argv)
 int argc;
 char *argv[];
@@ -319,7 +325,7 @@ if (imagefile != NULL) {
   //        else
   {creloc(&symval,headerword[0]/8,diff, heaplowerbound -1);}
 
-  if (hugo != headerword[0]) read_error();
+  if (hugo != headerword[0]) read_error("symbol table",hugo,headerword[0]);
   
   hugo = fread ((char*)hlb,1,headerword[1],imago);
   //       if (hlb < heaplowerbound)
@@ -328,11 +334,11 @@ if (imagefile != NULL) {
   {creloc((long long *)hlb,headerword[1]/8,diff, heaplowerbound -1);}
   heaplast += diff;
   
-  if (hugo != headerword[1]) read_error();
+  if (hugo != headerword[1]) read_error("heap",hugo,headerword[1]);
   hugo = fread (&hashtable,1,headerword[2],imago);
-  if (hugo != headerword[2]) read_error();
+  if (hugo != headerword[2]) read_error("hash table",hugo,headerword[2]);
   hugo = fread ((char*)bpslowerbound,1,headerword[3],imago);
-  if (hugo != headerword[3]) read_error();
+  if (hugo != headerword[3]) read_error("BPS",hugo,headerword[3]);
   fclose (imago);
   if (memset) {
     oldheaplowerbound = ohl; oldheapupperbound = ohub;
@@ -346,9 +352,11 @@ return (0);
 
 }
 
-read_error()
+void
+read_error(char * what,long long bytesread,long long byteswanted)
 {
-  printf("file too short\n");
+  printf("File too short while reading %s: bytes read = %ld (%lx), bytes expected = %ld (%lx)\n",
+	 what,bytesread,bytesread,byteswanted,byteswanted);
   exit(-1);
 }
 
@@ -359,6 +367,7 @@ read_error()
 
 extern int mprotect_exec (char *p,  long long bpssize);
 
+void
 setupbps ()
 {
   char *p = (char *) bps;
@@ -381,6 +390,7 @@ setupbps ()
    nextbps is now greater than heaplast means that unexec should be not be
    tried after this routine is called. The image would be huge.
  */
+long
 allocatemorebps()
 {
   int old_nextbps = nextbps;
@@ -439,7 +449,7 @@ allocatemorebps()
   return(EXTRABPSSIZE);   /* This will be a paramter later */
 }
 
-
+void
 getheap(heapsize)
 long long heapsize;
 {
@@ -528,6 +538,7 @@ long long heapsize;
 
 /* Tag( alterheapsize )
  */
+int
 alterheapsize(increment)
 int increment;
 {

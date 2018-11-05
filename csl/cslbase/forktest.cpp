@@ -1,3 +1,5 @@
+// forktest.cpp                            Copyright (C) 2016-2017 Codemist
+
 //
 // This file is NOT part of CSL. It is a test file used while testing
 // development of support for any hypothetical future concurrency schemes.
@@ -44,7 +46,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: forktest.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
 
 
 volatile int a = 0;

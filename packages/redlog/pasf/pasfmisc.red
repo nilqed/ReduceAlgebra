@@ -1,8 +1,11 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 2002-2009 A. Dolzmann, A. Seidl, T. Sturm, 2010 T. Sturm
-% ----------------------------------------------------------------------
+module pasfmisc;
+% This module provides a collection of algorithms shared by all other modules
+% in Presburger arithmetic standard form (PASF) context.
+
+revision('pasfmisc, "$Id: pasfmisc.red 3961 2017-03-19 08:24:03Z thomas-sturm $");
+
+copyright('pasfmisc, "(c) 2002-2009 A. Dolzmann, A. Seidl, T. Sturm, 2010-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -27,18 +30,6 @@
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
-
-lisp <<
-   fluid '(pasf_misc_rcsid!* pasf_misc_copyright!*);
-   pasf_misc_rcsid!* :=
-      "$Id$";
-   pasf_misc_copyright!* :=
-      "(c) 1995-2009 by A. Dolzmann, A. Seidl, T. Sturm, 2010 T. Sturm"
->>;
-
-module pasfmisc;
-% This module provides a collection of algorithms shared by all other modules
-% in Presburger arithmetic standard form (PASF) context.
 
 procedure pasf_atf2iv(atf);
    % Presburger arithmetic standard form atomic formula to interval. [atf] is
@@ -320,7 +311,7 @@ procedure pasf_varlat(atf);
       vl := append(kernels pasf_arg2l atf, if pasf_congp atf then kernels pasf_m atf else nil);
       if !*rlbrkcxk then
 	 vl := for each v in vl join
-	    rltools_lpvarl v;
+	    lto_lpvarl v;
       return vl
    end;
 
@@ -753,37 +744,37 @@ procedure pasf_expanda(answ,phi);
    % components. The argument [phi] is not yet used. This is planned
    % to be the original quantified formula so that its matrix can be
    % possibly used for finding suitable values.
-   begin scalar guard,w,badl,goodl,gdis,sample;
+   begin scalar guard, w, badl, goodl, gdis, nrangel, answ;
       for each a in answ do <<
 	 secondvalue!* := nil;
       	 guard := pasf_expand car a;
 	 w := secondvalue!*;
-	 sample := pasf_findsample(cadr a,caddr a,w);
-	 if car sample then
-	    badl := lto_insert({guard,nconc(cdr sample,'!! . car sample)},badl)
+	 nrangel . answ := pasf_findsample(cadr a,caddr a,w);
+ 	 if nrangel then
+	    badl := lto_insert(guard . reversip(('implicit . 'list . nrangel) . reverse answ), badl)
 	 else
-	    goodl := lto_insert({guard,cdr sample},goodl)
+	    goodl := lto_insert(guard . answ, goodl)
       >>;
-      gdis := cl_simpl(rl_smkn('or,for each gp in goodl collect car gp),nil,-1);
+      gdis := cl_simpl(rl_smkn('or, for each gp in goodl collect car gp), nil, -1);
       if !*rlqeasri then
       	 badl := for each gp in badl join
-	    if pasf_srip(car gp,gdis) then <<
+	    if pasf_srip(car gp, gdis) then <<
 	       if !*rlverbose then ioto_prin2 "(SRI) ";
 	       nil
 	    >> else
 	       {gp};
-      return nconc(reversip goodl,reversip badl)
+      return nconc(reversip goodl, reversip badl)
    end;
 
 procedure pasf_srip(prem,concl);
    % Presburger arithmetic standard form simplifier-recognized
    % implication.
-   cl_simpl(rl_mk2('impl,prem,concl),nil,-1) eq 'true;
+   cl_simpl(rl_mk2('impl, prem, concl), nil, -1) eq 'true;
 
 procedure pasf_findsample(rangel,points,hitl);
    begin scalar w,answ,nrangel;
       answ := for each point in points collect
-	 {car point,cadr point,prepsq subsq(simp caddr point,hitl)};
+	 car point . prepsq subsq(simp cdr point,hitl);
       nrangel := for each range in rangel join <<
 	 w := cl_simpl(cl_subfof(hitl,range),nil,-1);
 	 % FRAGE: Kann false rauskommen? Was dann?
@@ -792,7 +783,15 @@ procedure pasf_findsample(rangel,points,hitl);
       return nrangel . answ
    end;
 
-procedure pasf_zsimpl(f);
+asserted procedure pasf_zsimpl(f: Formula): Formula;
+   % This procedure is not used anywhere throughout the code. It was a service,
+   % which I have removed. The input must be univariate, and there should be
+   % only bounds into one direction on the variable. The procedure tries to
+   % determine the corresponding upper or lower bound. The result is not
+   % equivalent: x>1 and  (x>10 or ncong(x,0,2)) yields x>=2 without the
+   % incongruence condition. Also, is has not been properly tested: It applies
+   % "minus" to standard forms, which can be seen when replacing 1 with 0 in our
+   % example. -- TS
    begin scalar w,z,fl,fb,best,gleq,glessp,gone;
       w := cl_fvarl f;
       if cdr w then rederr {"pasf_zsimpl: more than one variable: ",w};
@@ -914,17 +913,10 @@ procedure pasf_subfof1(atf,var,ex);
       numr subf(pasf_arg2r atf,{(var . ex)}));
    % LASARUK: Evidence for an error!
 
-% When off prevent pasf_newvar interning new variable symbols.
-switch rlpasfintern;
-on1 'rlpasfintern;
-
-procedure pasf_newvar(f);
+inline procedure pasf_newvar(f);
    % Presburger arithmetic standard form new variable generation. [f] is a
    % formula. Returns a new variable which is not present in [f].
-   if !*rlpasfintern then
-      intern gensym()
-   else
-      gensym();
+   lto_fastgensym();
 
 procedure pasf_newvar1(f);
    % Presburger arithmetic standard form new variable generation. [f] is a

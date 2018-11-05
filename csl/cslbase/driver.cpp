@@ -1,8 +1,8 @@
-//  driver.cpp                                  Copyright (C) 2016 Codemist
+//  driver.cpp                                  Copyright (C) 2017 Codemist
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist                          A C Norman       *
+ * Copyright (C) 2017, Codemist                          A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -31,7 +31,7 @@
  *************************************************************************/
 
 
-// $Id$
+// $Id: driver.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
 
 //
 // This is code that starts up Reduce and exercises it using a
@@ -222,7 +222,8 @@ int main(int argc, char *argv[])
         return 1;
     }
     try
-    {   res = submain(argc, argv);
+    {   START_SETJMP_BLOCK;
+        res = submain(argc, argv);
     }
     catch (int r)
     {   res = r;

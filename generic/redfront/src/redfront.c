@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------
-   $Id$
+   $Id: redfront.c 3960 2017-03-19 08:01:16Z thomas-sturm $
    ---------------------------------------------------------------------
    (c) 1999-2009 A. Dolzmann and T. Sturm, 1999-2014 T. Sturm
    ---------------------------------------------------------------------
@@ -132,10 +132,14 @@ int det_dist(char *argv0) {
     dist = PSL;
   else if (strcmp(bn,"rfcsl") == 0)
     dist = CSL;
+  else if (strcmp(bn,"rfcslb") == 0)
+    dist = CSLB;
   else {
-    printf("Select distribution [csl/psl] ");
+    printf("Select distribution [csl/cslb/psl] ");
     scanf("%s",d);
-    if (strcmp(d,"csl") == 0)
+    if (strcmp(d,"cslb") == 0)
+      dist = CSLB;
+    else if (strcmp(d,"csl") == 0)
       dist = CSL;
     else if (strcmp(d,"psl") == 0)
       dist = PSL;
@@ -527,16 +531,17 @@ char **create_call(int argc,char *argv[]) {
     for (i = xargstart; i < argc; i++)
       nargv[i - xargstart + 5] = argv[i];
     nargv[argc - xargstart + 5] = (char *)0;
-  } else {  // dist == CSL
-    if ((tempfd = open(REDUCE,O_RDONLY)) == -1) {  /* Does not check x */
+  } else {  // dist == CSL || dist == CSLB
+    nargv[0] = dist == CSLB ? BOOTSTRAPREDUCE : REDUCE;
+
+    if ((tempfd = open(nargv[0], O_RDONLY)) == -1) {  /* Does not check x */
       char errstr[1024];
-      sprintf(errstr,"cannot open %s",REDUCE);
+      sprintf(errstr, "cannot open %s", nargv[0]);
       perror(errstr);
       rf_exit(-1);
     } else
       close(tempfd);
 
-    nargv[0] = REDUCE;
     nargv[1] = "-w";
     nargv[2] = "-b";
     if (verbose) {

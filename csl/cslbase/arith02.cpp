@@ -1,4 +1,4 @@
-//  arith02.cpp                       Copyright (C) 1990-2016 Codemist    
+//  arith02.cpp                            Copyright (C) 1990-2017 Codemist
 
 //
 // Arithmetic functions.
@@ -8,7 +8,7 @@
 //
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -38,7 +38,7 @@
 
 
 
-// $Id$
+// $Id: arith02.cpp 4689 2018-07-08 10:47:41Z arthurcnorman $
 
 #include "headers.h"
 #ifdef WITH_CILK
@@ -68,22 +68,13 @@
 //
 
 //
-// I provide symbols IMULTIPLY and IDIVIDE which can be asserted if the
-// corresponding routines have been provided elsewhere (e.g. in machine
-// code for extra speed)
-//
-
-#ifndef IMULTIPLY
-
-#ifdef HAVE_UINT64_T
-//
 // If I have 64-bit unsigneds available this function in not in fact needed
 // since a macro in arith.h arranges that the multiplication is done
 // in-line.  However this version is left here in the source code as
 // convenient documentation of what the function needs to do.
 //
 
-uint32_t Imultiply(uint32_t *rlow, uint32_t a, uint32_t b, uint32_t c)
+inline uint32_t Imultiply(uint32_t *rlow, uint32_t a, uint32_t b, uint32_t c)
 //
 //          (result, *rlow) = a*b + c     as 62-bit product
 //
@@ -103,136 +94,54 @@ uint32_t Imultiply(uint32_t *rlow, uint32_t a, uint32_t b, uint32_t c)
     return (uint32_t)(r >> 31);
 }
 
-
-#else
-
-uint32_t Imultiply(uint32_t *rlow, uint32_t a, uint32_t b, uint32_t c)
-//
-//          (result, *rlow) = a*b + c     as 62-bit product
-//
-// The code given here forms the produce by doing three single-precision
-// (16*16->32) multiplies and using shifts etc to glue the partial results
-// together.  This is slightly faster than the above (maybe simpler?) code
-// on at least some machines.
-//
-{   uint32_t ah, bh;
-    uint32_t w0, w1, w2;
-    ah = a >> 16;
-//
-// On some machines I know that multi-bit shifts are especially painful,
-// while on others it is nasty to access the literal value needed as a
-// mask here.  Hence I make some show of providing an alternative.
-//
-    a &= 0xffff;
-    bh = b >> 16;
-    b &= 0xffff;
-//
-// At present I can not see any way of issuing any of these multiplies
-// any earlier, or of doing useful work between the times that I launch
-// them, or even delaying before I use their results.  This will be rather
-// sad on machines where multiplication could overlap with other operations.
-//
-    w2 = ah*bh;
-    w1 = (a + ah)*(b + bh);
-    w0 = a*b;
-//
-// The largest exact result that can be computed by the next line (given
-// that a and b start off just 31 bit) is 0xfffd0002
-//
-    w1 = (w1 - w2) - w0;  // == (a*bh + b*ah)
-//
-// I split into 30 bits in the lower word and 32 in the upper, so I have
-// 2 bits available for temporary carry effects in the lower part.
-//
-    w2 = (w2 << 2) + (w1 >> 14) + (w0 >> 30) + (c >> 30);
-    w1 &= 0x3fff;
-    w0 = (c & 0x3fffffff) + (w0 & 0x3fffffffU) + (w1 << 16);
-    w0 += ((w2 & 1) << 30);
-    w2 = (w2 >> 1) + (w0 >> 31);
-    *rlow = w0 & 0x7fffffffU;
-    return w2;
-}
-
-#endif
-#endif // IMULTIPLY
-
-static LispObject timesii(LispObject a, LispObject b)
+static inline LispObject timesii(LispObject a, LispObject b)
 //
 // multiplying two fixnums together is much messier than adding them,
-// mainly because the result can easily be a two-word bignum
+// mainly because the result can easily be a bignum
 //
-{   uint32_t aa = (uint32_t)int_of_fixnum(a),
-                 bb = (uint32_t)int_of_fixnum(b);
-    uint32_t temp, low, high;
-//
-// Multiplication by 0 or by 1 is just possibly common enough to be worth
-// filtering out the following special cases.  Avoidance of the tedious
-// checks for overflow may make this useful even if Imultiply is very fast.
-//
-    if (aa <= 1)
-    {   if (aa == 0) return fixnum_of_int(0);
-        else return b;
-    }
-    else if (bb <= 1)
-    {   if (bb == 0) return fixnum_of_int(0);
-        else return a;
-    }
-//
-// I dump the low part of the product in temp then copy to a variable low
-// because temp has to have its address taken and so is not a candidate for
-// living in a register.
-//
-    Dmultiply(high, temp, clear_top_bit(aa), clear_top_bit(bb), 0);
-//
-// The result handed back here has only 31 bits active in its low part.
-//
-    low = temp;
-//
-// The next two lines convert the unsigned product produced by Imultiply
-// into a signed product.
-//
-    if ((int32_t)aa < 0) high -= bb;
-    if ((int32_t)bb < 0) high -= aa;
-    if ((high & 0x40000000) == 0) high = clear_top_bit(high);
-    else high = set_top_bit(high);
-    if (high == 0 && (low & 0x40000000) == 0)
-    {   // one word positive result
-        if (low <= 0x07ffffff) return fixnum_of_int(low);
-        else return make_one_word_bignum(low);
-    }
-    else if (high == 0xffffffffU && (low & 0x40000000) != 0)
-    {   // one word negative result
-        low = set_top_bit(low);
-        if (((int32_t)low & fix_mask) == fix_mask) return fixnum_of_int(low);
-        else return make_one_word_bignum(low);
-    }
-    else return make_two_word_bignum(high, low);
+{   int64_t aa = (int64_t)int_of_fixnum(a),
+            bb = (int64_t)int_of_fixnum(b);
+// If I am on a 32-bit system then fixnums are only 28 bits wide so using
+// int64_t multiplication can never overflow.
+    if (!SIXTY_FOUR_BIT) return make_lisp_integer64(aa*bb);
+// I am now arranging that there will ALWAYS appear to be a 128-bit
+// integer type int128_t. On some platforms this will be provided by the
+// C++ compiler, possibly with direct CPU assistance. In other cases it
+// will be implemented painfully in software in the files int128_t.h and
+// and int128_t.cpp.
+    return make_lisp_integer128((int128_t)aa * (int128_t)bb);
 }
 
 static LispObject timesis(LispObject a, LispObject b)
-{
-#ifndef SHORT_FLOAT
-    return fixnum_of_int(0);
-#else
-    Float_union bb;
-    bb.i = b - TAG_SFLOAT;
-    bb.f = (float) ((float)int_of_fixnum(a) * bb.f);
-    return (bb.i & ~(int32_t)0xf) + TAG_SFLOAT;
-#endif
+{   double d = (double)int_of_fixnum(a)*value_of_immediate_float(b);
+    return pack_immediate_float(d, b);
 }
 
 //
 // This code has existed since around 1990, but in January 2008 a bug
-// surfaced relating to cases such as (-2)*(2^61-1) where the top digit of the
-// bignum is close to overflowing and so needing an additional word.
+// surfaced relating to cases such as (-2)*(2^61-1) where the top digit
+// of the bignum is close to overflowing and so needing an additional word.
+//
 // The ability of bugs to persist in code that is notionally simple is
 // something to remind oneself about constantly!
 //
+// In the case of a 64-bit machine the fixnum argument a could be over
+// 2^31 (by rather a lot). That would really mess this code up a lot, so
+// if that case arises I will divert into timesbb.
+
+static LispObject timesbb(LispObject a, LispObject b);
 
 static LispObject timesib(LispObject a, LispObject b)
-{   int32_t aa = int_of_fixnum(a), lenb, i;
+{   if (SIXTY_FOUR_BIT)
+    {   intptr_t aa = int_of_fixnum(a);
+        if (!signed31_in_ptr(aa))  // See if a is too big for the easy code
+            return timesbb(make_fake_bignum(aa), b);
+// Here a is just a 31-bit signed value.
+    }
+    int32_t aa = (int32_t)int_of_fixnum(a);
+    size_t lenb, i;
     uint32_t carry, ms_dig, w;
-    LispObject c, nil;
+    LispObject c;
 //
 // I will split off the (easy) cases of the fixnum being -1, 0 or 1.
 //
@@ -241,21 +150,20 @@ static LispObject timesib(LispObject a, LispObject b)
     else if (aa == -1) return negateb(b);
     lenb = bignum_length(b);
     push(b);
-    c = getvector(TAG_NUMBERS, TYPE_BIGNUM, lenb);
+    c = get_basic_vector(TAG_NUMBERS, TYPE_BIGNUM, lenb);
     pop(b);
-    errexit();
     lenb = (lenb-CELL)/4;
     if (aa < 0)
     {   aa = -aa;
-        carry = 0xffffffffU;
+        carry = 0x80000000U;
         for (i=0; i<lenb-1; i++)
-        {   carry = clear_top_bit(~bignum_digits(b)[i]) + top_bit(carry);
+        {   carry = ADD32(clear_top_bit(~bignum_digits(b)[i]), top_bit(carry));
             bignum_digits(c)[i] = clear_top_bit(carry);
         }
 //
 // I do the most significant digit separately.
 //
-        carry = ~bignum_digits(b)[i] + top_bit(carry);
+        carry = ADD32(~bignum_digits(b)[i], top_bit(carry));
 //
 // there is a special case needed here - if b started off as a number
 // like 0xc0000000,0,0,0 then negating it would call for extension of
@@ -268,7 +176,7 @@ static LispObject timesib(LispObject a, LispObject b)
 //
         if (carry == 0x40000000)
         {   bignum_digits(c)[i] = (aa & 1) << 30;
-            aa = aa >> 1;
+            aa = (aa & ~1)/2;
             goto extend_by_one_word;
         }
         if ((carry & 0x40000000) != 0) carry = set_top_bit(carry);
@@ -290,7 +198,7 @@ static LispObject timesib(LispObject a, LispObject b)
 //
     carry = 0;
 //
-// here aa is > 0, and a fortiori the 0x80000000 bit of aa is clear,
+// Here aa is > 0, and a fortiori the 0x80000000 bit of aa is clear,
 // so I do not have to worry about the difference between 31 and 32
 // bit values for aa.
 //
@@ -332,9 +240,8 @@ extend_by_one_word:
 // Need to allocate more space to grow into. I need to grow by just 4 bytes.
 //
     push(c);
-    a = getvector(TAG_NUMBERS, TYPE_BIGNUM, CELL+4+4*lenb);
+    a = get_basic_vector(TAG_NUMBERS, TYPE_BIGNUM, CELL+4+4*lenb);
     pop(c);
-    errexit();
     for (i=0; i<lenb; i++)
         bignum_digits(a)[i] = bignum_digits(c)[i];
     bignum_digits(a)[i] = aa;
@@ -346,8 +253,7 @@ static LispObject timesir(LispObject a, LispObject b)
 //
 // multiply integer (fixnum or bignum) by ratio.
 //
-{   LispObject nil = C_nil;
-    LispObject w = nil;
+{   LispObject w = nil;
     if (a == fixnum_of_int(0)) return a;
     else if (a == fixnum_of_int(1)) return b;
     push3(b, a, nil);
@@ -355,22 +261,13 @@ static LispObject timesir(LispObject a, LispObject b)
 #define a   stack[-1]
 #define b   stack[-2]
     g = gcd(a, denominator(b));
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     a = quot2(a, g);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     g = quot2(denominator(b), g);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     a = times2(a, numerator(b));
-    nil = C_nil;
-    if (exception_pending()) goto fail;
 //
 // make_ratio tidies things up if the denominator was exactly 1
 //
     w = make_ratio(a, g);
-fail:
     popv(3);
     return w;
 #undef a
@@ -382,50 +279,67 @@ static LispObject timesic(LispObject a, LispObject b)
 //
 // multiply an arbitrary non-complex number by a complex one
 //
-{   LispObject nil;
-    LispObject r = real_part(b), i = imag_part(b);
+{   LispObject r = real_part(b), i = imag_part(b);
     push2(a, r);
     i = times2(a, i);
     pop2(r, a);
-    errexit();
     push(i);
     r = times2(a, r);
     pop(i);
-    errexit();
     return make_complex(r, i);
 }
 
 static LispObject timesif(LispObject a, LispObject b)
-{   double d = (double)int_of_fixnum(a) * float_of_number(b);
-    if (trap_floating_overflow &&
-        floating_edge_case(d))
-    {   floating_clear_flags();
-        return aerror("floating point times");
+{   switch (type_of_header(flthdr(b)))
+    {   case TYPE_LONG_FLOAT:
+        {   float128_t x, z;
+            i64_to_f128M(int_of_fixnum(a), &x);
+            f128M_mul(&x, long_float_addr(b), &z);
+            return make_boxfloat128(z);
+        }
+        case TYPE_SINGLE_FLOAT:
+            return make_boxfloat(
+                (double)int_of_fixnum(a) * single_float_val(b),
+                TYPE_SINGLE_FLOAT);
+        case TYPE_DOUBLE_FLOAT:
+        default:
+            return make_boxfloat(
+                (double)int_of_fixnum(a) * double_float_val(b),
+                TYPE_DOUBLE_FLOAT);
     }
-// if b was a single or short float then there can be an overflow to infinity
-// within make_boxfloat... which will be detected there.
-    return make_boxfloat(d, type_of_header(flthdr(b)));
 }
 
 #define timessi(a, b) timesis(b, a)
 
 static LispObject timessb(LispObject a, LispObject b)
-{   double d = float_of_number(a) * float_of_number(b);
-    return make_sfloat(d);
+{   double d = value_of_immediate_float(a) * float_of_number(b);
+    return pack_immediate_float(d, a);
 }
 
 #define timessr(a, b) timessb(a, b)
 
 #define timessc(a, b) timesic(a, b)
 
+// This function is re-used with its first argument bignums and rationals
+// as well as short floats, hence the use of the general conversion
+// used on arg1.
+
 static LispObject timessf(LispObject a, LispObject b)
-{   double d = float_of_number(a) * float_of_number(b);
-    if (trap_floating_overflow &&
-        floating_edge_case(d))
-    {   floating_clear_flags();
-        return aerror("floating point times");
+{   switch (type_of_header(flthdr(b)))
+    {   case TYPE_LONG_FLOAT:
+            {   float128_t x, z;
+                x = float128_of_number(a);
+                f128M_mul(&x, long_float_addr(b), &z);
+                return make_boxfloat128(z);
+            }
+        case TYPE_SINGLE_FLOAT:
+            return make_boxfloat(
+                float_of_number(a) * single_float_val(b), TYPE_SINGLE_FLOAT);
+        case TYPE_DOUBLE_FLOAT:
+        default:
+            return make_boxfloat(
+                float_of_number(a) * double_float_val(b), TYPE_DOUBLE_FLOAT);
     }
-    return make_boxfloat(d, type_of_header(flthdr(b)));
 }
 
 #define timesbi(a, b) timesib(b, a)
@@ -439,10 +353,10 @@ static LispObject timessf(LispObject a, LispObject b)
 
 
 static void long_times(uint32_t *c, uint32_t *a, uint32_t *b,
-                       uint32_t *d, int32_t lena, int32_t lenb, int32_t lenc);
+                       uint32_t *d, size_t lena, size_t lenb, size_t lenc);
 
 static void long_times1(uint32_t *c, uint32_t *a, uint32_t *b,
-                        uint32_t *d, int32_t lena, int32_t lenb, int32_t lenc)
+                        uint32_t *d, size_t lena, size_t lenb, size_t lenc)
 //
 // Here both a and b are big, with lena <= lenb.  Split each into two chunks
 // of size (lenc/4), say (a1,a2) and (b1,b2), and compute each of
@@ -452,21 +366,21 @@ static void long_times1(uint32_t *c, uint32_t *a, uint32_t *b,
 // where in the last case a1+a2 and b1+b2 can be computed keeping their
 // carry bits as k1 and k2 (so that a1+a2 and b1+b2 are restricted to
 // size lenb). The chunks can then be combined with a few additions and
-// subtractions to form the product that is really wanted.  If in fact a
-// was shorter than lenc/4 (so that after a is split up the top half is
+// subtractions to form the product that is really wanted.  If in fact (a)
+// was shorter than lenc/4 (so that after (a) is split up the top half is
 // all zero) I do things in a more straightforward way.  I require that on
 // entry to this code lenc<4 < lenb <= lenc/2.
 //
-{   int32_t h = lenc/4;   // lenc must have been made even enough...
-    int32_t lena1 = lena - h;
-    int32_t lenb1 = lenb - h;
+{   size_t h = lenc/4;   // lenc must have been made even enough...
+    size_t lena1 = lena < h ? 0 : lena - h;
+    size_t lenb1 = lenb - h;
     uint32_t carrya, carryb;
-    int32_t i;
+    size_t i;
 //
-// if the top half of a would be all zero I go through a separate path,
+// if the top half of (a) would be all zero I go through a separate path,
 // doing just two subsidiary multiplications.
 //
-    if (lena1 <= 0)
+    if (lena1 == 0)
     {   long_times(c+h, a, b+h, d, lena, lenb-h, 2*h);
         for (i=0; i<h; i++) c[3*h+i] = 0;
         long_times(d, a, b, c, lena, h, 2*h);
@@ -583,8 +497,6 @@ static void long_times1(uint32_t *c, uint32_t *a, uint32_t *b,
 //
 }
 
-#if defined HAVE_LIBPTHREAD || defined WIN32
-
 //
 // If I have big enough numbers I will decompose in Karatsuba style and
 // perform the three top-level multiplications in parallel using some threads
@@ -594,11 +506,21 @@ static void long_times1(uint32_t *c, uint32_t *a, uint32_t *b,
 // processor. To that effect the variable karatsuba_parallel is set either to
 // the cut-off or to a value so huge that this code will never be activated.
 //
-// The two threads kara_worker1 and kara_worker2 just sit and wait for
+// The two threads that run kara_worker just sit and wait for
 // requests. When they get one they call long_times. Memory allocation etc
 // has all been done elsewhere. These threads never terminate, and so will
 // end up being killed when the whole program exits.
 //
+// A previous version of this code used Windows native threads on Windows and
+// pthreads elsewhere, with different synchronization code not just as between
+// those case but also between Linux and Macintosh. I now use the C++11
+// threading primitives which makes the code much more uniform. And I have
+// also gained better (albeit still basic!) understanding of multi-core
+// programming and so this time I use condition variables rather than an
+// indordinate number of semaphores. However there is still some conditional
+// compilation in the code here. If the "CILK" parallel framework is present
+// that will be used, which provides a yet higher level way of expressing
+// all that is needed.
 
 //
 //   Karatsuba memory:
@@ -678,217 +600,46 @@ static void long_times1(uint32_t *c, uint32_t *a, uint32_t *b,
 //   DONE!
 //
 
-#ifdef DEBUG_PARALLEL_KARATSUBA
-
-static void shownum(FILE *log, uint32_t *p, int n, const char *s)
-{   int i, k, d, some = 0;
-    fprintf(log, "%s:", s);
-    k = 31*n;  // Number of bits
-    d = 0;
-    for (i=n-1; i>=0; i--)
-    {   int word = p[i];
-        int b;
-        for (b=0; b<31; b++)
-        {   d = d << 1;
-            k--;
-            if ((word & 0x40000000) != 0) d |= 1;
-            if ((k & 3) == 0)
-            {   if (d!=0 || some || (i==0 && b!=30))
-                {   fprintf(log, "%.1x", d);
-                    some = 1;
-                }
-                d = 0;
-            }
-            word = word << 1;
-        }
-    }
-    fprintf(log, "\n");
-    fflush(log);
-}
-
-#else
-#define shownum(log, p, n, s) // Nothing
-#endif
-
-#ifndef WITH_CILK
-#ifdef MACINTOSH
-sem_t *kara_sem1a, *kara_sem1b, *kara_sem1c,
-      *kara_sem2a, *kara_sem2b, *kara_sem2c;
-#else
-sem_t kara_sem1a, kara_sem1b, kara_sem1c,
-      kara_sem2a, kara_sem2b, kara_sem2c;
-#endif
-#endif // ! WITH_CILK
+static uint32_t *kara_0_c, *kara_0_a, *kara_0_b, *kara_0_d;
+static uint32_t kara_0_lena, kara_0_lenb, kara_0_lenc;
 
 static uint32_t *kara_1_c, *kara_1_a, *kara_1_b, *kara_1_d;
 static uint32_t kara_1_lena, kara_1_lenb, kara_1_lenc;
 
 #ifndef WITH_CILK
 
-KARARESULT WINAPI kara_worker1(KARAARG p)
-{
-#ifdef DEBUG_PARALLEL_KARATSUBA
-    FILE *log = fopen("worker1.log", "w");
-    fprintf(log, "Start of worker1.log\n");
-    fflush(log);
-#endif
-    for (;;)
-    {
-//
-// The handshake here uses three semaphores. Well the counting behaviour
-// of semaphore is not used, they are each either owned or free (rather like
-// a simple mutex). They have to be semaphores rather than mutexes because
-// at least on some platforms the system provided mutex has an "owner" thread
-// and can not be released by any thread other than the one that claimed it.
-// Each transaction with this worker involves just two post/wait pairs - one
-// to tell the worker that there is something for it to do and the second
-// to report that a result is available. The use of three semaphores in a
-// cyclic pattern as here is to avoid race conditions. Note that a call
-// to sem_wait could be interrupted by an signal. If that happens I will
-// fall out of step and that would be bad. So I loop on the sem_wait until
-// it returns zero.
-//
-#ifdef MACINTOSH
-        while (sem_wait(kara_sem1a) != 0)
-            /*NOTHING*/;   // wait until asked to do something
-#else
-        while (sem_wait(&kara_sem1a) != 0)
-            /*NOTHING*/;  // wait until asked to do something
-#endif
-        shownum(log, kara_1_a, kara_1_lena, "kara 1 a");
-        shownum(log, kara_1_b, kara_1_lenb, "kara 1 b");
-        if (kara_1_lenc != 0)
-            long_times(kara_1_c, kara_1_a, kara_1_b, kara_1_d,
-                       kara_1_lena, kara_1_lenb, kara_1_lenc);
-        shownum(log, kara_1_c, kara_1_lenc, "kara 1 result");
-#ifdef MACINTOSH
-        sem_post(kara_sem1b);   // announce that result is ready.
-#else
-        sem_post(&kara_sem1b);  // announce that result is ready.
-#endif
-
-#ifdef MACINTOSH
-        while (sem_wait(kara_sem1c) != 0)
-            /*NOTHING*/;   // wait until asked to do something
-#else
-        while (sem_wait(&kara_sem1c) != 0)
-            /*NOTHING*/;  // wait until asked to do something
-#endif
-        shownum(log, kara_1_a, kara_1_lena, "kara 1 a");
-        shownum(log, kara_1_b, kara_1_lenb, "kara 1 b");
-        if (kara_1_lenc != 0)
-            long_times(kara_1_c, kara_1_a, kara_1_b, kara_1_d,
-                       kara_1_lena, kara_1_lenb, kara_1_lenc);
-        shownum(log, kara_1_c, kara_1_lenc, "kara 1 result");
-#ifdef MACINTOSH
-        sem_post(kara_sem1a);   // announce that result is ready.
-#else
-        sem_post(&kara_sem1a);  // announce that result is ready.
-#endif
-
-#ifdef MACINTOSH
-        while (sem_wait(kara_sem1b) != 0)
-            /*NOTHING*/;   // wait until asked to do something
-#else
-        while (sem_wait(&kara_sem1b) != 0)
-            /*NOTHING*/;  // wait until asked to do something
-#endif
-        shownum(log, kara_1_a, kara_1_lena, "kara 1 a");
-        shownum(log, kara_1_b, kara_1_lenb, "kara 1 b");
-        if (kara_1_lenc != 0)
-            long_times(kara_1_c, kara_1_a, kara_1_b, kara_1_d,
-                       kara_1_lena, kara_1_lenb, kara_1_lenc);
-        shownum(log, kara_1_c, kara_1_lenc, "kara 1 result");
-#ifdef MACINTOSH
-        sem_post(kara_sem1c);   // announce that result is ready.
-#else
-        sem_post(&kara_sem1c);  // announce that result is ready.
-#endif
+void kara_worker(int my_id)
+{   for (;;)
+    {   // Wait until there is work to be done.
+        {   std::unique_lock<std::mutex> lk(kara_mutex);
+            while ((kara_ready & (1<<my_id)) == 0)
+                cv_kara_ready.wait(lk);
+            if ((kara_ready & KARA_QUIT) != 0) return;
+            kara_ready &= ~(1<<my_id);
+        }
+// Do the work.
+        if (my_id == 0)
+        {   if (kara_0_lenc != 0)
+                long_times(kara_0_c, kara_0_a, kara_0_b, kara_0_d,
+                           kara_0_lena, kara_0_lenb, kara_0_lenc);
+        }
+        else
+        {   if (kara_1_lenc != 0)
+                long_times(kara_1_c, kara_1_a, kara_1_b, kara_1_d,
+                           kara_1_lena, kara_1_lenb, kara_1_lenc);
+        }
+// Inform the master thread that it may continue.
+        {   std::lock_guard<std::mutex> lk(kara_mutex);
+            kara_done++;
+        }
+        cv_kara_done.notify_one();
     }
-// The code here never exits!
-    return (KARARESULT)0;
 }
 
 #endif // ! WITH_CILK
-static uint32_t *kara_2_c, *kara_2_a, *kara_2_b, *kara_2_d;
-static uint32_t kara_2_lena, kara_2_lenb, kara_2_lenc;
 
-#ifndef WITH_CILK
-KARARESULT WINAPI kara_worker2(KARAARG p)
-{
-#ifdef DEBUG_PARALLEL_KARATSUBA
-    FILE *log = fopen("worker2.log", "w");
-    fprintf(log, "Start of worker2.log\n");
-    fflush(log);
-#endif
-    for (;;)
-    {
-#ifdef MACINTOSH
-        while (sem_wait(kara_sem2a) != 0)
-            /*NOTHING*/;   // wait until asked to do something
-#else
-        while (sem_wait(&kara_sem2a) != 0)
-            /*NOTHING*/;  // wait until asked to do something
-#endif
-        shownum(log, kara_2_a, kara_2_lena, "kara 2 a");
-        shownum(log, kara_2_b, kara_2_lenb, "kara 2 b");
-        if (kara_2_lenc != 0)
-            long_times(kara_2_c, kara_2_a, kara_2_b, kara_2_d,
-                       kara_2_lena, kara_2_lenb, kara_2_lenc);
-        shownum(log, kara_2_c, kara_2_lenc, "kara 2 result");
-#ifdef MACINTOSH
-        sem_post(kara_sem2b);   // announce that result is ready.
-#else
-        sem_post(&kara_sem2b);  // announce that result is ready.
-#endif
-
-#ifdef MACINTOSH
-        while (sem_wait(kara_sem2c) != 0)
-            /*NOTHING*/;   // wait until asked to do something
-#else
-        while (sem_wait(&kara_sem2c) != 0)
-            /*NOTHING*/;  // wait until asked to do something
-#endif
-        shownum(log, kara_2_a, kara_2_lena, "kara 2 a");
-        shownum(log, kara_2_b, kara_2_lenb, "kara 2 b");
-        if (kara_2_lenc != 0)
-            long_times(kara_2_c, kara_2_a, kara_2_b, kara_2_d,
-                       kara_2_lena, kara_2_lenb, kara_2_lenc);
-        shownum(log, kara_2_c, kara_2_lenc, "kara 2 result");
-#ifdef MACINTOSH
-        sem_post(kara_sem2a);   // announce that result is ready.
-#else
-        sem_post(&kara_sem2a);  // announce that result is ready.
-#endif
-
-#ifdef MACINTOSH
-        while (sem_wait(kara_sem2b) != 0)
-            /*NOTHING*/;   // wait until asked to do something
-#else
-        while (sem_wait(&kara_sem2b) != 0)
-            /*NOTHING*/;  // wait until asked to do something
-#endif
-        shownum(log, kara_2_a, kara_2_lena, "kara 2 a");
-        shownum(log, kara_2_b, kara_2_lenb, "kara 2 b");
-        if (kara_2_lenc != 0)
-            long_times(kara_2_c, kara_2_a, kara_2_b, kara_2_d,
-                       kara_2_lena, kara_2_lenb, kara_2_lenc);
-        shownum(log, kara_2_c, kara_2_lenc, "kara 2 result");
-#ifdef MACINTOSH
-        sem_post(kara_sem2c);   // announce that result is ready.
-#else
-        sem_post(&kara_sem2c);  // announce that result is ready.
-#endif
-    }
-// The code here never exits!
-    return (KARARESULT)0;
-}
-
-static int semaphore_usage = 0;
-
-#endif // ! WITH_CILK
 static void long_times1p(uint32_t *c, uint32_t *a, uint32_t *b,
-                         uint32_t *d, int32_t lena, int32_t lenb, int32_t lenc)
+                         uint32_t *d, size_t lena, size_t lenb, size_t lenc)
 //
 // Here both a and b are big, with lena <= lenb.  Split each into two chunks
 // of size (lenc/4), say (a1,a2) and (b1,b2), and compute each of
@@ -898,25 +649,23 @@ static void long_times1p(uint32_t *c, uint32_t *a, uint32_t *b,
 // where in the last case a1+a2 and b1+b2 can be computed keeping their
 // carry bits as k1 and k2 (so that a1+a2 and b1+b2 are restricted to
 // size lenb). The chunks can then be combined with a few additions and
-// subtractions to form the product that is really wanted.  If in fact a
-// was shorter than lenc/4 (so that after a is split up the top half is
+// subtractions to form the product that is really wanted.  If in fact (a)
+// was shorter than lenc/4 (so that after (a) is split up the top half is
 // all zero) I do things in a more straightforward way.  I require that on
 // entry to this code lenc<4 < lenb <= lenc/2.
 //
-{   int32_t h = lenc/4;   // lenc must have been made even enough...
-    int32_t lena1 = lena - h;
-    int32_t lenb1 = lenb - h;
+{   size_t h = lenc/4;   // lenc must have been made even enough...
+    size_t lena1 = lena < h ? 0 : lena - h;
+    size_t lenb1 = lenb - h;
     uint32_t carry, asumcarry, bsumcarry, carryc, carryc1, carryc2;
-    int32_t i;
-    shownum(stdout, a, lena, "a");
-    shownum(stdout, b, lenb, "b");
+    size_t i;
 //
 // if the top half of a would be all zero I go through a separate path,
 // doing just two subsidiary multiplications. Note that if I do that I
 // only have a single sub-task to delegate work to and so the potential
 // speedup from parallel working is reduced.
 //
-    if (lena1 <= 0)
+    if (lena1 == 0)
     {   kara_1_c = c+h;         // set up input data for worker 1
         kara_1_a = a;
         kara_1_b = b+h;
@@ -925,89 +674,29 @@ static void long_times1p(uint32_t *c, uint32_t *a, uint32_t *b,
         kara_1_lenb = lenb - h;
         kara_1_lenc = 2*h;
 // To keep the worker threads in step I will post dummy work to thread 2.
-        kara_2_lena = kara_2_lenb = kara_2_lenc = 0;
+        kara_0_lena = kara_0_lenb = kara_0_lenc = 0;
 #ifndef WITH_CILK
-        switch (semaphore_usage)
-        {
-#ifdef MACINTOSH
-            case 0: sem_post(kara_sem1a);   // allow worker 1 to start.
-                sem_post(kara_sem2a);   // allow worker 2 to start.
-                break;
-            case 1: sem_post(kara_sem1c);   // allow worker 1 to start.
-                sem_post(kara_sem2c);   // allow worker 2 to start.
-                break;
-            case 2: sem_post(kara_sem1b);   // allow worker 1 to start.
-                sem_post(kara_sem2b);   // allow worker 2 to start.
-                break;
-#else
-            case 0: sem_post(&kara_sem1a);  // allow worker 1 to start.
-                sem_post(&kara_sem2a);  // allow worker 2 to start.
-                break;
-            case 1: sem_post(&kara_sem1c);  // allow worker 1 to start.
-                sem_post(&kara_sem2c);  // allow worker 2 to start.
-                break;
-            case 2: sem_post(&kara_sem1b);  // allow worker 1 to start.
-                sem_post(&kara_sem2b);  // allow worker 2 to start.
-                break;
-#endif
+        {   std::lock_guard<std::mutex> lk(kara_mutex);
+            kara_ready = KARA_0 | KARA_1;
+            kara_done = 0;
         }
+        cv_kara_ready.notify_all();
 #else // WITH_CILK
         cilk_spawn long_times(kara_1_c,kara_1_a,kara_1_b,kara_1_d,
                               kara_1_lena,kara_1_lenb,kara_1_lenc);
-        cilk_spawn long_times(kara_2_c,kara_2_a,kara_2_b,kara_2_d,
-                              kara_2_lena,kara_2_lenb,kara_2_lenc);
+        cilk_spawn long_times(kara_0_c,kara_0_a,kara_0_b,kara_0_d,
+                              kara_0_lena,kara_0_lenb,kara_0_lenc);
 #endif // WITH_CILK
         // Now do my own work in parallel with worker 1
         for (i=0; i<h; i++) c[3*h+i] = 0;
         long_times(d, a, b, c, lena, h, 2*h);
 #ifndef WITH_CILK
-        switch (semaphore_usage)
-        {
-#ifdef MACINTOSH
-            case 0: while (sem_wait(kara_sem1b) != 0)
-                    /*NOTHING*/;   // wait for worker 1 to finish.
-                while (sem_wait(kara_sem2b) != 0)
-                    /*NOTHING*/;   // wait for worker 2 to finish.
-                semaphore_usage = 1;
-                break;
-            case 1: while (sem_wait(kara_sem1a) != 0)
-                    /*NOTHING*/;   // wait for worker 1 to finish.
-                while (sem_wait(kara_sem2a) != 0)
-                    /*NOTHING*/;   // wait for worker 2 to finish.
-                semaphore_usage = 2;
-                break;
-            case 2: while (sem_wait(kara_sem1c) != 0)
-                    /*NOTHING*/;   // wait for worker 1 to finish.
-                while (sem_wait(kara_sem2c) != 0)
-                    /*NOTHING*/;   // wait for worker 2 to finish.
-                semaphore_usage = 0;
-                break;
-#else
-            case 0: while (sem_wait(&kara_sem1b) != 0)
-                    /*NOTHING*/;  // wait for worker 1 to finish.
-                while (sem_wait(&kara_sem2b) != 0)
-                    /*NOTHING*/;  // wait for worker 2 to finish.
-                semaphore_usage = 1;
-                break;
-            case 1: while (sem_wait(&kara_sem1a) != 0)
-                    /*NOTHING*/;  // wait for worker 1 to finish.
-                while (sem_wait(&kara_sem2a) != 0)
-                    /*NOTHING*/;  // wait for worker 2 to finish.
-                semaphore_usage = 2;
-                break;
-            case 2: while (sem_wait(&kara_sem1c) != 0)
-                    /*NOTHING*/;  // wait for worker 1 to finish.
-                while (sem_wait(&kara_sem2c) != 0)
-                    /*NOTHING*/;  // wait for worker 2 to finish.
-                semaphore_usage = 0;
-                break;
-#endif
+        {   std::unique_lock<std::mutex> lk(kara_mutex);
+            while (kara_done != 2) cv_kara_done.wait(lk);
         }
 #else // WITH_CILK
         cilk_sync;
 #endif // WITH_CILK
-        shownum(stdout, &c[h], 2*h, "top part");
-        shownum(stdout, d, 2*h, "bottom part");
         for (i=0; i<h; i++) c[i] = d[i];
         carry = 0;
         for (; i<2*h; i++)
@@ -1020,7 +709,6 @@ static void long_times1p(uint32_t *c, uint32_t *a, uint32_t *b,
             c[i] = clear_top_bit(w);
             carry = w >> 31;
         }
-        shownum(stdout, c, lenc, "result");
         return;
     }
 //
@@ -1041,50 +729,31 @@ static void long_times1p(uint32_t *c, uint32_t *a, uint32_t *b,
 // Second:
 //       (c3,c2) = a1*b1 using d1 as workspace;
 //
-    kara_2_c = c+2*h;       // set up input data for worker 2
-    kara_2_a = a+h;
-    kara_2_b = b+h;
-    kara_2_d = d+h;         // workspace
+    kara_0_c = c+2*h;       // set up input data for worker 2
+    kara_0_a = a+h;
+    kara_0_b = b+h;
+    kara_0_d = d+h;         // workspace
 //
 // Note that the top halves of the two inputs might not use up the
 // full width of the number that is available, but the product generated
 // here will be widened to fill all its space.
 //
-    kara_2_lena = lena1;
-    kara_2_lenb = lenb1;
-    kara_2_lenc = 2*h;
+    kara_0_lena = lena1;
+    kara_0_lenb = lenb1;
+    kara_0_lenc = 2*h;
 #ifndef WITH_CILK
-    switch (semaphore_usage)
-    {
-#ifdef MACINTOSH
-        case 0: sem_post(kara_sem2a);   // allow worker 1 to start.
-            sem_post(kara_sem1a);   // allow worker 2 to start.
-            break;
-        case 1: sem_post(kara_sem1c);   // allow worker 1 to start.
-            sem_post(kara_sem2c);   // allow worker 2 to start.
-            break;
-        case 2: sem_post(kara_sem1b);   // allow worker 1 to start.
-            sem_post(kara_sem2b);   // allow worker 2 to start.
-            break;
-#else
-        case 0: sem_post(&kara_sem2a);  // allow worker 1 to start.
-            sem_post(&kara_sem1a);  // allow worker 2 to start.
-            break;
-        case 1: sem_post(&kara_sem1c);  // allow worker 1 to start.
-            sem_post(&kara_sem2c);  // allow worker 2 to start.
-            break;
-        case 2: sem_post(&kara_sem1b);  // allow worker 1 to start.
-            sem_post(&kara_sem2b);  // allow worker 2 to start.
-            break;
-#endif
+    {   std::lock_guard<std::mutex> lk(kara_mutex);
+        kara_ready = KARA_0 | KARA_1;
+        kara_done = 0;
     }
+    cv_kara_ready.notify_all();
 #else // WITH_CILK
     if (kara_1_lenc != 0)
         cilk_spawn long_times(kara_1_c,kara_1_a,kara_1_b,kara_1_d,
                               kara_1_lena,kara_1_lenb,kara_1_lenc);
-    if (kara_2_lenc != 0)
-        cilk_spawn long_times(kara_2_c,kara_2_a,kara_2_b,kara_2_d,
-                              kara_2_lena,kara_2_lenb,kara_2_lenc);
+    if (kara_0_lenc != 0)
+        cilk_spawn long_times(kara_0_c,kara_0_a,kara_0_b,kara_0_d,
+                              kara_0_lena,kara_0_lenb,kara_0_lenc);
 #endif // WITH_CILK
 //
 // The rest can be done using the main thread.
@@ -1102,7 +771,6 @@ static void long_times1p(uint32_t *c, uint32_t *a, uint32_t *b,
         d[3*h+i] = clear_top_bit(w);
         asumcarry = w >> 31;
     }
-    shownum(stdout, &d[3*h], h, "a0+a1");
     bsumcarry = 0;
     for (i=0; i<h; i++)
     {   uint32_t w = b[i] + bsumcarry;
@@ -1110,60 +778,23 @@ static void long_times1p(uint32_t *c, uint32_t *a, uint32_t *b,
         d[4*h+i] = clear_top_bit(w);
         bsumcarry = w >> 31;
     }
-    shownum(stdout, &d[4*h], h, "b0+b1");
 //       (d6,d5) = d3*d4 using d2 as workspace;
     long_times(&d[5*h], &d[3*h], &d[4*h], &d[2*h], h, h, 2*h);
-    shownum(stdout, &d[5*h], 2*h, "(a0+a1)*(b0+b1)");
 //
 // Now I wish to re-sync with the two sub-tasks...
 //
     fflush(stdout);
 #ifndef WITH_CILK
-    switch (semaphore_usage)
-    {
-#ifdef MACINTOSH
-        case 0: while (sem_wait(kara_sem1b) != 0);   // wait for worker 1 to finish.
-            while (sem_wait(kara_sem2b) != 0);   // wait for worker 2 to finish.
-            semaphore_usage = 1;
-            break;
-        case 1: while (sem_wait(kara_sem1a) != 0);   // wait for worker 1 to finish.
-            while (sem_wait(kara_sem2a) != 0);   // wait for worker 2 to finish.
-            semaphore_usage = 2;
-            break;
-        case 2: while (sem_wait(kara_sem1c) != 0);   // wait for worker 1 to finish.
-            while (sem_wait(kara_sem2c) != 0);   // wait for worker 2 to finish.
-            semaphore_usage = 0;
-            break;
-#else
-        case 0: while (sem_wait(&kara_sem1b) != 0);  // wait for worker 1 to finish.
-            while (sem_wait(&kara_sem2b) != 0);  // wait for worker 2 to finish.
-            semaphore_usage = 1;
-            break;
-        case 1: while (sem_wait(&kara_sem1a) != 0);  // wait for worker 1 to finish.
-            while (sem_wait(&kara_sem2a) != 0);  // wait for worker 2 to finish.
-            semaphore_usage = 2;
-            break;
-        case 2: while (sem_wait(&kara_sem1c) != 0);  // wait for worker 1 to finish.
-            while (sem_wait(&kara_sem2c) != 0);  // wait for worker 2 to finish.
-            semaphore_usage = 0;
-            break;
-#endif
+    {   std::unique_lock<std::mutex> lk(kara_mutex);
+        while (kara_done != 2) cv_kara_done.wait(lk);
     }
 #else // WITH_CILK
     cilk_sync;
 #endif // WITH_CILK
-    shownum(stdout, kara_1_a, kara_1_lena, "kara 1 a");
-    shownum(stdout, kara_1_b, kara_1_lenb, "kara 1 b");
-    shownum(stdout, kara_1_c, kara_1_lenc, "kara 1 c");
-    shownum(stdout, kara_2_a, kara_2_lena, "kara 2 a");
-    shownum(stdout, kara_2_b, kara_2_lenb, "kara 2 b");
-    shownum(stdout, kara_2_c, kara_2_lenc, "kara 2 c");
-    shownum(stdout, c+2*h, 2*h, "top half product");
 //
 // Now I just need to combine the various bits together!
 //       d0 = c1;                  preserve (c1, c0)
 //
-    shownum(stdout, c, lenc, "packed a1*b1|a0*b0");
     for (i=0; i<h; i++) d[i] = c[h+i];
 //
 //       (c3, c2, c1) -= (0, c3, c2);
@@ -1174,7 +805,6 @@ static void long_times1p(uint32_t *c, uint32_t *a, uint32_t *b,
         c[h+i] = clear_top_bit(w);
         carryc1 = w >> 31;
     }
-    shownum(stdout, c, lenc, "after (c3,c2,c1) -= (0, c3, c2)");
 //
 //       (c3, c2, c1) -= (0, d0, c0);
 //
@@ -1189,7 +819,6 @@ static void long_times1p(uint32_t *c, uint32_t *a, uint32_t *b,
         c[h+i] = clear_top_bit(w);
         carryc2 = w >> 31;
     }
-    shownum(stdout, c, lenc, "after (c3,c2,c1) -= (0, d0, c0)");
 //
 // I held on to the "borrow" bits that combine with c3
 //
@@ -1219,7 +848,6 @@ static void long_times1p(uint32_t *c, uint32_t *a, uint32_t *b,
         }
         carryc += carry;
     }
-    shownum(stdout, c, lenc, "Just needs (d5, d6) adding in");
 // Now just needs (d5, d6) adding in... as in
 //       (c3, c2, c1) += (<deferred carry>, d5, d6);
 //
@@ -1238,25 +866,22 @@ static void long_times1p(uint32_t *c, uint32_t *a, uint32_t *b,
         c[h+i] = clear_top_bit(w);
         carry = w >> 31;
     }
-    shownum(stdout, c, lenc, "final result");
 //
 // The product is now complete
 //
 }
 
-#endif // Thread support
-
 static void long_times2(uint32_t *c, uint32_t *a, uint32_t *b,
-                        int32_t lena, int32_t lenb, int32_t lenc)
+                        size_t lena, size_t lenb, size_t lenc)
 //
 // This case is standard old fashioned long multiplication.  Dump the
 // result into c.
 //
-{   int32_t i;
+{   size_t i;
     for (i=0; i<lenc; i++) c[i] = 0;
     for (i=0; i<lena; i++)
     {   uint32_t carry = 0, da = a[i];
-        int32_t j;
+        size_t j;
 //
 // When I multiply by (for instance) a high power of 2 there will
 // be plenty of zero digits in the number being worked with, and
@@ -1264,7 +889,7 @@ static void long_times2(uint32_t *c, uint32_t *a, uint32_t *b,
 //
         if (da != 0)
         {   for (j=0; j<lenb; j++)
-            {   int32_t k = i + j;
+            {   size_t k = i + j;
                 Dmultiply(carry, c[k], da, b[j],
 // NB the addition here is OK and fits into a 32-bit unsigned result
                           carry + c[k]);
@@ -1274,12 +899,10 @@ static void long_times2(uint32_t *c, uint32_t *a, uint32_t *b,
     }
 }
 
-#if defined HAVE_LIBPTHREAD || defined WIN32
-int karatsuba_parallel = KARATSUBA_PARALLEL_CUTOFF;
-#endif
+size_t karatsuba_parallel = KARATSUBA_PARALLEL_CUTOFF;
 
 static void long_times(uint32_t *c, uint32_t *a, uint32_t *b,
-                       uint32_t *d, int32_t lena, int32_t lenb, int32_t lenc)
+                       uint32_t *d, size_t lena, size_t lenb, size_t lenc)
 //
 // This decides if a multiplication is big enough to benefit from
 // decomposition a la Karatsuba.
@@ -1290,12 +913,12 @@ static void long_times(uint32_t *c, uint32_t *a, uint32_t *b,
 //
 {   if (lenb < lena)
     {   uint32_t *t1;
-        int32_t t2;
+        size_t t2;
         t1 = a; a = b; b = t1;
         t2 = lena; lena = lenb; lenb = t2;
     }
     if (4*lenb <= lenc) // In this case I should shrink lenc a bit..
-    {   int32_t newlenc = (lenb+1)/2;
+    {   size_t newlenc = (lenb+1)/2;
         int k = 0;
         while (newlenc > KARATSUBA_CUTOFF)
         {   newlenc = (newlenc + 1)/2;
@@ -1308,9 +931,8 @@ static void long_times(uint32_t *c, uint32_t *a, uint32_t *b,
         newlenc = 4*newlenc;
         while (lenc > newlenc) c[--lenc] = 0;
     }
-#if defined HAVE_LIBPTHREAD || defined WIN32
     if (lena > karatsuba_parallel)
-    {   int save = karatsuba_parallel;
+    {   size_t save = karatsuba_parallel;
 //
 // I will only allow a single level of the recursion to use threads, and I
 // achieve that by temporarily resetting the cut-off here...
@@ -1319,10 +941,9 @@ static void long_times(uint32_t *c, uint32_t *a, uint32_t *b,
         long_times1p(c, a, b, d, lena, lenb, lenc);
         karatsuba_parallel = save;
     }
-    else
-#endif // Thread support
-        if (lena > KARATSUBA_CUTOFF) long_times1(c, a, b, d, lena, lenb, lenc);
-        else long_times2(c, a, b, lena, lenb, lenc);
+    else if (lena > KARATSUBA_CUTOFF)
+        long_times1(c, a, b, d, lena, lenb, lenc);
+    else long_times2(c, a, b, lena, lenb, lenc);
 }
 
 static LispObject timesbb(LispObject a, LispObject b)
@@ -1331,11 +952,11 @@ static LispObject timesbb(LispObject a, LispObject b)
 // procedure.
 //
 {   int sign = 1;
-    LispObject c, d, nil;
-    int32_t lena, lenb, lenc, i;
+    LispObject c, d;
+    size_t lena, lenb, lenc, i;
     lena = (bignum_length(a) - CELL)/4;
     lenb = (bignum_length(b) - CELL)/4;
-    if (lena == 1 && lenb == 1)
+    if (!SIXTY_FOUR_BIT && lena == 1 && lenb == 1)
 //
 // I am going to deem multiplication of two one-word bignums worthy of
 // a special case, since it is probably fairly common and it will be cheap
@@ -1343,10 +964,12 @@ static LispObject timesbb(LispObject a, LispObject b)
 // off the signs, because Imultiply can only deal with 31-bit unsigned values.
 // One-word bignums each have value at least 2^27 (or else they would have
 // been represented as fixnums) so the result here will always be a two-word
-// bignum.
+// bignum. This can not arise on a 64-bit machine because in that case any
+// value that could have aspired to be a 1-word bignum would in fact have
+// ended up as a fixnum.
 //
     {   int32_t va = (int32_t)bignum_digits(a)[0],
-                    vb = (int32_t)bignum_digits(b)[0], vc;
+                vb = (int32_t)bignum_digits(b)[0], vc;
         uint32_t vclow;
         if (va < 0)
         {   if (vb < 0) Dmultiply(vc, vclow, -va, -vb, 0);
@@ -1385,11 +1008,11 @@ static LispObject timesbb(LispObject a, LispObject b)
 // have to get longer (because of the twos complement assymmetry),
 // but can never cause it to shrink,  In particular it can never lead
 // to demotion to a fixnum, so after this call to negateb it is still
-// OK to assume that a is a bignum.
+// OK to assume that a is a bignum. The manner in which the call to
+// negate allocates more memory is ugly here.
 //
         a = negateb(a);
         pop(b);
-        errexit();
         lena = (bignum_length(a) - CELL)/4;
     }
     if (((int32_t)bignum_digits(b)[lenb-1]) < 0)
@@ -1398,7 +1021,6 @@ static LispObject timesbb(LispObject a, LispObject b)
         // see above comments about negateb
         b = negateb(b);
         pop(a);
-        errexit();
         lenb = (bignum_length(b) - CELL)/4;
     }
     if (lenb < lena)    // Commute so that b is at least as long as a
@@ -1418,7 +1040,7 @@ static LispObject timesbb(LispObject a, LispObject b)
 // being related to the size of the numbers being handled.
 //
     if (lena > KARATSUBA_CUTOFF)
-    {   int32_t lend;
+    {   size_t lend;
         int k = 0;
 //
 // I pad lenc up to have a suitably large power of 2 as a factor so
@@ -1434,59 +1056,44 @@ static LispObject timesbb(LispObject a, LispObject b)
             k--;
         }
         lenc = 2*lenc;
-        c = getvector(TAG_NUMBERS, TYPE_BIGNUM, CELL+8*lenc);
-        errexitn(2);
-#if defined HAVE_LIBPTHREAD || defined WIN32
-//
+        c = get_basic_vector(TAG_NUMBERS, TYPE_BIGNUM, CELL+8*lenc);
 // If I run using threads then each of the three threads can need some
 // workspace, so I will allocate (rather a lot) more.
-//
         lend = (7*lenc)/2;
-#else
-        lend = lenc;
-#endif
 
-//
 // The next line should save a serious amount of memory turn-over when
 // doing a lot of arithmetic. It maintains a multiplication buffer, but
 // one that is discarded at the start of any garbage collection. Thus
 // between garbage collections it will get allocated just big enough
 // but it should not cause clutter when not used.
-//
         if (multiplication_buffer == nil ||
-            (4*lend+CELL) > (intptr_t)length_of_header(numhdr(multiplication_buffer)))
+            (4*lend+CELL) > length_of_header(numhdr(multiplication_buffer)))
         {   push(c);
             multiplication_buffer =
-                getvector(TAG_NUMBERS, TYPE_BIGNUM, CELL+4*lend);
+                get_basic_vector(TAG_NUMBERS, TYPE_BIGNUM, CELL+4*lend);
             pop(c);
-            errexitn(2);
         }
         lenc = 2*lenc;
     }
     else
     {
-//
 // In cases where I will use classical long multiplication there is no
 // need to waste space with extra padding or with the workspace vector d.
-//
         lenc = lena + lenb;
-        c = getvector(TAG_NUMBERS, TYPE_BIGNUM, CELL+4*lenc);
-        errexitn(2);
+        c = get_basic_vector(TAG_NUMBERS, TYPE_BIGNUM, CELL+4*lenc);
         if (multiplication_buffer == nil)
         {   push(c);
             multiplication_buffer =
-                getvector(TAG_NUMBERS, TYPE_BIGNUM, CELL+8*lenc);
+                get_basic_vector(TAG_NUMBERS, TYPE_BIGNUM, CELL+8*lenc);
             pop(c);
-            errexitn(2);
         }
     }
     pop2(b, a);
-    errexit();
     d = multiplication_buffer;
     {   uint32_t *da = &bignum_digits(a)[0],
-                      *db = &bignum_digits(b)[0],
-                       *dc = &bignum_digits(c)[0],
-                        *dd = &bignum_digits(d)[0];
+                 *db = &bignum_digits(b)[0],
+                 *dc = &bignum_digits(c)[0],
+                 *dd = &bignum_digits(d)[0];
         long_times(dc, da, db, dd, lena, lenb, lenc);
     }
 //
@@ -1500,8 +1107,7 @@ static LispObject timesbb(LispObject a, LispObject b)
 // that was allocated, lena+lenb is a much better guess of how much data
 // is active in it.
 //
-    errexit();
-    {   int32_t newlenc = lena + lenb;
+    {   size_t newlenc = lena + lenb;
 //
 // I tidy up by putting a zero in any padding word above the top of the
 // active data, and by inserting a header in space that gets trimmed off
@@ -1531,12 +1137,12 @@ static LispObject timesbb(LispObject a, LispObject b)
 // its length just lena+lenb, even if it had been padded out earlier.
 //
     if (sign < 0)
-    {   uint32_t carry = 0xffffffffU;
+    {   uint32_t carry = 0x80000000U;
         for (i=0; i<lenc-1; i++)
-        {   carry = clear_top_bit(~bignum_digits(c)[i]) + top_bit(carry);
+        {   carry = ADD32(clear_top_bit(~bignum_digits(c)[i]), top_bit(carry));
             bignum_digits(c)[i] = clear_top_bit(carry);
         }
-        carry = ~bignum_digits(c)[i] + top_bit(carry);
+        carry = ADD32(~bignum_digits(c)[i], top_bit(carry));
         if (carry != 0xffffffffU)
         {   bignum_digits(c)[i] = carry;
             return c;   // no truncation needed
@@ -1615,8 +1221,7 @@ static LispObject timesrr(LispObject a, LispObject b)
 //
 // multiply a pair of rational numbers
 //
-{   LispObject nil = C_nil;
-    LispObject w = nil;
+{   LispObject w = nil;
     push5(numerator(a), denominator(a),
           numerator(b), denominator(b), nil);
 #define g   stack[0]
@@ -1625,31 +1230,14 @@ static LispObject timesrr(LispObject a, LispObject b)
 #define da  stack[-3]
 #define na  stack[-4]
     g = gcd(na, db);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     na = quot2(na, g);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     db = quot2(db, g);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     g = gcd(nb, da);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     nb = quot2(nb, g);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     da = quot2(da, g);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     na = times2(na, nb);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     da = times2(da, db);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     w = make_ratio(na, da);
-fail:
     popv(5);
     return w;
 #undef g
@@ -1675,8 +1263,7 @@ static LispObject timescc(LispObject a, LispObject b)
 //
 // multiply a pair of complex values
 //
-{   LispObject nil = C_nil;
-    LispObject w = nil;
+{   LispObject w = nil;
     push4(real_part(a), imag_part(a),
           real_part(b), imag_part(b));
     push2(nil, nil);
@@ -1687,28 +1274,13 @@ static LispObject timescc(LispObject a, LispObject b)
 #define ia  stack[-4]
 #define ra  stack[-5]
     u = times2(ra, rb);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     v = times2(ia, ib);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     v = negate(v);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     u = plus2(u, v);                    // real part of result
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     v = times2(ra, ib);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     ib = times2(rb, ia);
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     v = plus2(v, ib);                   // imaginary part
-    nil = C_nil;
-    if (exception_pending()) goto fail;
     w = make_complex(u, v);
-fail:
     popv(6);
     return w;
 #undef u
@@ -1731,47 +1303,20 @@ fail:
 
 #define timesfc(a, b) timescf(b, a)
 
-static LispObject timesff(LispObject a, LispObject b)
-//
-// multiply boxed floats - see commentary on plusff()
-//
-{
-    int32_t ha = type_of_header(flthdr(a)), hb = type_of_header(flthdr(b));
-    int32_t hc;
+static inline LispObject timesff(LispObject a, LispObject b)
+{   int ha = type_of_header(flthdr(a)), hb = type_of_header(flthdr(b));
+    int hc;
     if (ha == TYPE_LONG_FLOAT || hb == TYPE_LONG_FLOAT)
     {   float128_t x, y, z;
         x = float128_of_number(a);
         y = float128_of_number(b);
         f128M_mul(&x, &y, &z);
-        if (trap_floating_overflow &&
-            floating_edge_case128(&z))
-            return aerror("floating point times");
         return make_boxfloat128(z);
     }
     else if (ha == TYPE_DOUBLE_FLOAT || hb == TYPE_DOUBLE_FLOAT)
         hc = TYPE_DOUBLE_FLOAT;
     else hc = TYPE_SINGLE_FLOAT;
     double r = float_of_number(a) * float_of_number(b);
-// I am going to assume that I have IEEE arithmetic set if a mode where
-// edge-case calculations return an infinity or a NaN. Both these cases
-// can arise here.  huge*huge can yield an infinity, while if somehow
-// one already had an infinity then multiplying it by 0.0 will give a NaN.
-// I use the arithmetic tests here since the stand a chance of working
-// "almost everywhere". There are two serious alternatives. One is to
-// use fetestexcept() [and variations on that on platforms where it is
-// not available] to test after performing an operation. That is perhaps
-// standardized in C++11, but support may still be patchy across the compilers
-// that people are still using. The other would be to arrange that overflow
-// etc raised traps/exceptions that then get reconised and handled.
-// Portability there is also delicate and the trap handling is messy. So the
-// somewhat odd tests here at present seems safest to me. Note that
-// 1.0/MAX_DOUBLE is non-zero on a proper IEEE system because sub-normalised
-// numbers provide significant footroom (headroom would be room at the top!).
-    if (trap_floating_overflow &&
-        floating_edge_case(r))
-    {   floating_clear_flags();
-        return aerror("floating point times");
-    }
     return make_boxfloat(r, hc);
 }
 
@@ -1790,35 +1335,26 @@ static LispObject timesff(LispObject a, LispObject b)
 
 extern LispObject genuine_times2(LispObject a, LispObject b);
 
-
 LispObject times2(LispObject a, LispObject b)
-{   LispObject ab1, aa, bb, nil = C_nil;
+{   LispObject ab1, aa, bb;
     push2(a, b);
     ab1 = plus2(a, b);               // a + b
-    errexitn(2);
     ab1 = genuine_times2(ab1, ab1);  // a^2 + 2*a*b + b^2
-    errexitn(2);
     pop2(b, a);
     push3(a, b, ab1);
     aa = genuine_times2(a, a);       // a^2
-    errexitn(3);
     pop3(ab1, b, a);
     push4(a, b, aa, ab1);
     bb = genuine_times2(b, b);       // b^2
-    errexitn(4);
     pop(ab1);
     ab1 = difference2(ab1, bb);      // now a^2 + 2*a*b
-    errexitn(3);
     pop(aa);
     ab1 = difference2(ab1, aa);      // 2*a*b
-    errexitn(2);
     ab1 = quot2(ab1, fixnum_of_int(2));
-    errexitn(2);
     pop2(b, a);
     push3(ab1, a, b);
     aa = genuine_times2(a, b);
     pop3(b, a, ab1);
-    errexit();
     if (!numeq2(aa, ab1))
     {   err_printf("multiply messed up\n");
         err_printf("a = "); prin_to_error(a);
@@ -1826,26 +1362,37 @@ LispObject times2(LispObject a, LispObject b)
         err_printf("\n((a+b)^-a^-b^)/2) = "); prin_to_error(ab1);
         err_printf("\na*b = "); prin_to_error(aa);
         err_printf("\n\n");
-        return aerror("bad times");
+        aerror("bad times");
     }
     return aa;
 }
 
 #define times2(a,b) genuine_times2(a,b)
+
 #endif
 
 LispObject times2(LispObject a, LispObject b)
-{   switch ((int)a & TAG_BITS)
+#ifdef TEST_BIGNUM
+{   validate_number("Arg1 for times", a, a, b);
+    validate_number("Arg2 for times", b, a, b);
+    extern LispObject times2a(LispObject a, LispObject b);    
+    LispObject r = times2a(a, b);
+    validate_number("result for times", r, a, b);
+    return r;
+}
+
+LispObject times2a(LispObject a, LispObject b)
+#endif
+{   switch ((int)a & XTAG_BITS)
     {   case TAG_FIXNUM:
-            switch ((int)b & TAG_BITS)
+            switch ((int)b & XTAG_BITS)
             {   case TAG_FIXNUM:
                     return timesii(a, b);
-#ifdef SHORT_FLOAT
-                case TAG_SFLOAT:
+                case XTAG_SFLOAT:
                     return timesis(a, b);
-#endif
                 case TAG_NUMBERS:
-                {   int32_t hb = type_of_header(numhdr(b));
+                case TAG_NUMBERS+TAG_XBIT:
+                {   int hb = type_of_header(numhdr(b));
                     switch (hb)
                     {   case TYPE_BIGNUM:
                             return timesib(a, b);
@@ -1854,28 +1401,27 @@ LispObject times2(LispObject a, LispObject b)
                         case TYPE_COMPLEX_NUM:
                             return timesic(a, b);
                         default:
-                            return aerror1("bad arg for times",  b);
+                            aerror1("bad arg for times",  b);
                     }
                 }
                 case TAG_BOXFLOAT:
+                case TAG_BOXFLOAT+TAG_XBIT:
                     return timesif(a, b);
                 default:
-                    return aerror1("bad arg for times",  b);
+                    aerror1("bad arg for times",  b);
             }
-#ifdef SHORT_FLOAT
-        case TAG_SFLOAT:
-            switch (b & TAG_BITS)
+        case XTAG_SFLOAT:
+            switch (b & XTAG_BITS)
             {   case TAG_FIXNUM:
                     return timessi(a, b);
-                case TAG_SFLOAT:
-                {   Float_union aa, bb; // timesss() coded in-line
-                    aa.i = a - TAG_SFLOAT;
-                    bb.i = b - TAG_SFLOAT;
-                    aa.f = (float) (aa.f * bb.f);
-                    return (aa.i & ~(int32_t)0xf) + TAG_SFLOAT;
+                case XTAG_SFLOAT:
+                {   double d = value_of_immediate_float(a) *
+                               value_of_immediate_float(b);
+                    return pack_immediate_float(d, a, b);
                 }
                 case TAG_NUMBERS:
-                {   int32_t hb = type_of_header(numhdr(b));
+                case TAG_NUMBERS+TAG_XBIT:
+                {   int hb = type_of_header(numhdr(b));
                     switch (hb)
                     {   case TYPE_BIGNUM:
                             return timessb(a, b);
@@ -1884,28 +1430,28 @@ LispObject times2(LispObject a, LispObject b)
                         case TYPE_COMPLEX_NUM:
                             return timessc(a, b);
                         default:
-                            return aerror1("bad arg for times",  b);
+                            aerror1("bad arg for times",  b);
                     }
                 }
                 case TAG_BOXFLOAT:
+                case TAG_BOXFLOAT+TAG_XBIT:
                     return timessf(a, b);
                 default:
-                    return aerror1("bad arg for times",  b);
+                    aerror1("bad arg for times",  b);
             }
-#endif
         case TAG_NUMBERS:
-        {   int32_t ha = type_of_header(numhdr(a));
+        case TAG_NUMBERS+TAG_XBIT:
+        {   int ha = type_of_header(numhdr(a));
             switch (ha)
             {   case TYPE_BIGNUM:
-                    switch ((int)b & TAG_BITS)
+                    switch ((int)b & XTAG_BITS)
                     {   case TAG_FIXNUM:
                             return timesbi(a, b);
-#ifdef SHORT_FLOAT
-                        case TAG_SFLOAT:
+                        case XTAG_SFLOAT:
                             return timesbs(a, b);
-#endif
                         case TAG_NUMBERS:
-                        {   int32_t hb = type_of_header(numhdr(b));
+                        case TAG_NUMBERS+TAG_XBIT:
+                        {   int hb = type_of_header(numhdr(b));
                             switch (hb)
                             {   case TYPE_BIGNUM:
                                     return timesbb(a, b);
@@ -1914,24 +1460,24 @@ LispObject times2(LispObject a, LispObject b)
                                 case TYPE_COMPLEX_NUM:
                                     return timesbc(a, b);
                                 default:
-                                    return aerror1("bad arg for times",  b);
+                                    aerror1("bad arg for times",  b);
                             }
                         }
                         case TAG_BOXFLOAT:
+                        case TAG_BOXFLOAT+TAG_XBIT:
                             return timesbf(a, b);
                         default:
-                            return aerror1("bad arg for times",  b);
+                            aerror1("bad arg for times",  b);
                     }
                 case TYPE_RATNUM:
-                    switch (b & TAG_BITS)
+                    switch (b & XTAG_BITS)
                     {   case TAG_FIXNUM:
                             return timesri(a, b);
-#ifdef SHORT_FLOAT
-                        case TAG_SFLOAT:
+                        case XTAG_SFLOAT:
                             return timesrs(a, b);
-#endif
                         case TAG_NUMBERS:
-                        {   int32_t hb = type_of_header(numhdr(b));
+                        case TAG_NUMBERS+TAG_XBIT:
+                        {   int hb = type_of_header(numhdr(b));
                             switch (hb)
                             {   case TYPE_BIGNUM:
                                     return timesrb(a, b);
@@ -1940,24 +1486,24 @@ LispObject times2(LispObject a, LispObject b)
                                 case TYPE_COMPLEX_NUM:
                                     return timesrc(a, b);
                                 default:
-                                    return aerror1("bad arg for times",  b);
+                                    aerror1("bad arg for times",  b);
                             }
                         }
                         case TAG_BOXFLOAT:
+                        case TAG_BOXFLOAT+TAG_XBIT:
                             return timesrf(a, b);
                         default:
-                            return aerror1("bad arg for times",  b);
+                            aerror1("bad arg for times",  b);
                     }
                 case TYPE_COMPLEX_NUM:
-                    switch (b & TAG_BITS)
+                    switch (b & XTAG_BITS)
                     {   case TAG_FIXNUM:
                             return timesci(a, b);
-#ifdef SHORT_FLOAT
-                        case TAG_SFLOAT:
+                        case XTAG_SFLOAT:
                             return timescs(a, b);
-#endif
                         case TAG_NUMBERS:
-                        {   int32_t hb = type_of_header(numhdr(b));
+                        case TAG_NUMBERS+TAG_XBIT:
+                        {   int hb = type_of_header(numhdr(b));
                             switch (hb)
                             {   case TYPE_BIGNUM:
                                     return timescb(a, b);
@@ -1966,27 +1512,28 @@ LispObject times2(LispObject a, LispObject b)
                                 case TYPE_COMPLEX_NUM:
                                     return timescc(a, b);
                                 default:
-                                    return aerror1("bad arg for times",  b);
+                                    aerror1("bad arg for times",  b);
                             }
                         }
                         case TAG_BOXFLOAT:
+                        case TAG_BOXFLOAT+TAG_XBIT:
                             return timescf(a, b);
                         default:
-                            return aerror1("bad arg for times",  b);
+                            aerror1("bad arg for times",  b);
                     }
-                default:    return aerror1("bad arg for times",  a);
+                default:    aerror1("bad arg for times",  a);
             }
         }
         case TAG_BOXFLOAT:
-            switch ((int)b & TAG_BITS)
+        case TAG_BOXFLOAT+TAG_XBIT:
+            switch ((int)b & XTAG_BITS)
             {   case TAG_FIXNUM:
                     return timesfi(a, b);
-#ifdef SHORT_FLOAT
-                case TAG_SFLOAT:
+                case XTAG_SFLOAT:
                     return timesfs(a, b);
-#endif
                 case TAG_NUMBERS:
-                {   int32_t hb = type_of_header(numhdr(b));
+                case TAG_NUMBERS+TAG_XBIT:
+                {   int hb = type_of_header(numhdr(b));
                     switch (hb)
                     {   case TYPE_BIGNUM:
                             return timesfb(a, b);
@@ -1995,16 +1542,17 @@ LispObject times2(LispObject a, LispObject b)
                         case TYPE_COMPLEX_NUM:
                             return timesfc(a, b);
                         default:
-                            return aerror1("bad arg for times",  b);
+                            aerror1("bad arg for times",  b);
                     }
                 }
                 case TAG_BOXFLOAT:
+                case TAG_BOXFLOAT+TAG_XBIT:
                     return timesff(a, b);
                 default:
-                    return aerror1("bad arg for times",  b);
+                    aerror1("bad arg for times",  b);
             }
         default:
-            return aerror1("bad arg for times",  a);
+            aerror1("bad arg for times",  a);
     }
 }
 

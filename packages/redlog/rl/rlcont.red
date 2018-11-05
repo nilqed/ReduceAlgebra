@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2009 Andreas Dolzmann and Thomas Sturm
-% ----------------------------------------------------------------------
+module rlcont;  % Reduce logic component context selection.
+
+revision('rlcont, "$Id: rlcont.red 4058 2017-05-23 17:12:59Z thomas-sturm $");
+
+copyright('rlcont, "(c) 1995-2009 A. Dolzmann, T. Sturm, 2016 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -26,22 +27,7 @@
 % THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-% 
-
-lisp <<
-   fluid '(rl_cont_rcsid!* rl_cont_copyright!*);
-   rl_cont_rcsid!* :=
-      "$Id$";
-   rl_cont_copyright!* := "Copyright (c) 1995-2009 A. Dolzmann and T. Sturm"
->>;
-
-module rlcont;
-% Reduce logic component context selection. Submodule of [redlog].
-
-%put('rlset,'stat,'rl_setstat);
-%put('rlset,'formfn,'rl_setform);
-
-put('rlset,'psopfn,'rl_set!$);
+%
 
 put('b,'rl_calias,'ibalp);
 put('!B,'rl_calias,'ibalp);  % for !*raise=nil
@@ -67,24 +53,7 @@ put('z,'rl_calias,'pasf);
 put('!Z,'rl_calias,'pasf);
 put('integers,'rl_calias,'pasf);
 
-% procedure rl_setstat();
-%    begin scalar f,x,l;
-%       f := cursym!*;
-%       x := scan();
-%       if x neq '!*lpar!* then <<
-% 	 scan();
-% 	 return f . {x}
-%       >>;
-%        while (x := scan()) neq '!*semicol!* do
-% 	 if not (x eq '!*comma!*) then
-% 	    l := x . l;
-%       if not eqcar(l,'!*rpar!*) then
-% 	 symerr("Too few right parentheses",nil);
-%       return f . reversip cdr l
-%    end;
-
-% procedure rl_setform(l);
-%    rl_set!$ cdr l;
+put('rlset,'psopfn,'rl_set!$);
 
 procedure rl_set!$(argl);
    begin scalar w;
@@ -159,6 +128,12 @@ procedure rl_enter(argl);
       rmsubs();
       return nil
    end;
+
+asserted procedure rl_simpterm(x: Any): Any;
+   apply(get(car rl_cid!*, 'rl_simpterm), {x});
+
+asserted procedure rl_prepterm(x: Any): Any;
+   apply(get(car rl_cid!*, 'rl_prepterm), {x});
 
 procedure rl_cname(usedcname);
    get(usedcname, 'rl_calias) or usedcname;

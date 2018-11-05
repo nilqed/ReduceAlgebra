@@ -1,8 +1,12 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2009 A. Dolzmann, T. Sturm, 2010 T. Sturm
-% ----------------------------------------------------------------------
+module ofsf;
+% Ordered field standard form. Main module. Algorithms on first-order formulas
+% over ordered fields. The language contains binary relations ['equal], ['neq],
+% ['greaterp], ['lessp], ['geq], ['leq].
+
+revision('ofsf, "$Id: ofsf.red 4078 2017-06-05 20:48:43Z thomas-sturm $");
+
+copyright('ofsf, "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -28,33 +32,18 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
 
-lisp <<
-   fluid '(ofsf_rcsid!* ofsf_copyright!*);
-   ofsf_rcsid!* :=
-      "$Id$";
-   ofsf_copyright!* := "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010 T. Sturm"
->>;
-
-module ofsf;
-% Ordered field standard form. Main module. Algorithms on first-order
-% formulas over ordered fields. The language contains binary relations
-% ['equal], ['neq], ['greaterp], ['lessp], ['geq], ['leq].
-
 create!-package('(ofsf ofsfsiat ofsfsism ofsfbnf ofsfqe ofsfopt ofsfgs
    ofsfmisc ofsfcad ofsfcadproj ofsfanuex ofsfxopt ofsfdet ofsftfc ofsfhqe
-   ofsfdecdeg ofsfexfr ofsftrop ofsflp ofsfdpep ofsfvsl
-   ofsfvsblock ofsfvseset ofsfvssub ofsfvslists),
+   ofsfdecdeg ofsfexfr ofsftrop ofsflp ofsfdpep ofsfvsl ofsfic ofsfvsblock
+   ofsfvsans ofsfvseset ofsfvssub ofsfvslists ofsfsmtqe qepcad mma),
    nil);
 
 load!-package 'redlog;
 loadtime load!-package 'cl;
-loadtime load!-package 'rltools;
 loadtime load!-package 'linalg;
 loadtime load!-package 'matrix;
 loadtime load!-package 'factor;
 loadtime load!-package 'cgb;
-
-off1 'assert;
 
 exports ofsf_simpterm,ofsf_prepat,ofsf_resimpat,ofsf_lengthat,ofsf_chsimpat,
    ofsf_simpat,ofsf_op,ofsf_arg2l,ofsf_arg2r,ofsf_argn,ofsf_mk2,ofsf_0mk2,
@@ -73,8 +62,6 @@ exports ofsf_simpterm,ofsf_prepat,ofsf_resimpat,ofsf_lengthat,ofsf_chsimpat,
    ofsf_a2cdl,ofsf_t2cdl,ofsf_subat,ofsf_subalchk,ofsf_eqnrhskernels,
    ofsf_getineq,ofsf_structat,ofsf_ifstructat,ofsf_termmlat,ofsf_multsurep,
    ofsf_cad,ofsf_cadswitches;
-
-imports cl,rltools;
 
 fluid '(!*rlsiatadv !*rlsipd !*rlsiexpl !*rlsiexpla !*rlgssub !*rlsiso !*rlqesr
    !*rlgsrad !*rlgsred !*rlgsprod !*rlgserf !*rlverbose !*rlqedfs !*rlsipw
@@ -182,6 +169,7 @@ put('ofsf,'rl_services,'(
    (rl_identifyonoff!* . cl_identifyonoff)
    (rl_simpl!* . cl_simpl)
    (rl_thsimpl!* . ofsf_thsimpl)
+   (rl_dump!* . ofsf_dump)
    (rl_nnf!* . cl_nnf)
    (rl_nnfnot!* . cl_nnfnot)
    (rl_pnf!* . cl_pnf)
@@ -212,8 +200,9 @@ put('ofsf,'rl_services,'(
    (rl_opt!* . ofsf_opt)
    (rl_ifacl!* . cl_ifacl)
    (rl_ifacml!* . cl_ifacml)
+   (rl_ifacdegl!* . cl_ifacdegl)
    (rl_matrix!* . cl_matrix)
-   (rl_apnf!* . cl_apnf)
+   (rl_miniscope!* . cl_miniscope)
    (rl_atml!* . cl_atml)
    (rl_tnf!* . cl_tnf)
    (rl_atl!* . cl_atl)
@@ -237,7 +226,6 @@ put('ofsf,'rl_services,'(
    (rl_xqe!* . ofsf_xopt!-qe)
    (rl_xqea!* . ofsf_xopt!-qea)
    (rl_lthsimpl!* . ofsf_lthsimpl)
-   (rl_lthsimpl!* . ofsf_lthsimpl)
    (rl_quine!* . cl_quine)
    (rl_cadporder!* . ofsf_cadporder)
    (rl_gcadporder!* . ofsf_gcadporder)
@@ -249,6 +237,7 @@ put('ofsf,'rl_services,'(
    (rl_tan2!* . ofsf_tan2)
    (rl_depth!* . cl_depth)
    (rl_qesil!* . cl_qesil)
+   (rl_symbolify!* . ofsf_symbolify)
    (rl_straightify!* . cl_straightify)
    (sl_straightify!* . cl_sstraightify)
    (sl_simpl!* . cl_ssimpl)
@@ -257,14 +246,20 @@ put('ofsf,'rl_services,'(
    (rl_dfgprint!* . cl_dfgPrint)
    (rl_smt2Print!* . cl_smt2Print)
    (rl_smt2Read!* . cl_smt2Read)
+   (rl_smtqe!* . smtqe_smtqe)
    (rl_dima!* . ofsf_dima)
    (rl_sat2pol!* . ofsf_sat2pol)
+   (rl_psat2pol!* . ofsf_psat2pol)
    (rl_tropsat!* . ofsf_tropsat)
    (rl_ptropsat!* . ofsf_ptropsat)
    (rl_dpep!* . ofsf_dpep)
    (rl_vsl!* . vsl_vsl)
    (rl_sign!* . cl_sign)
-   (sl_unstraightify!* . sl_unstraightify)));
+   (rl_preqe!* . ofsf_preqe)
+   (rl_mathematica!* . mma_mathematica)
+   (rl_qepcad!* . qepcad_qepcad)
+   (rl_nra2qf!* . cl_nra2qf)	 
+   (rl_slfq!* . qepcad_slfq)));
 
 % Admin
 put('ofsf,'simpfnname,'ofsf_simpfn);
@@ -406,7 +401,7 @@ struct VSpc checked by VSpcP;  % annotated prime constituent (APC)
 struct VScs checked by VScsP;  % candidate solutions
 struct VStp checked by VStpP;  % test point
 struct VSde checked by VSdeP;  % VS data for elimination set computation
-struct VSdt checked by VSdtP;  % VS data for formula traversal
+struct VSdc checked by VSdcP;  % VS data for candidate solutions computation
 % defined in module ofsfvssub:
 struct VSvs checked by VSvsP;  % VS
 struct VSar checked by VSarP;  % VS: arbitrary
@@ -419,7 +414,7 @@ struct PositionL checked by PositionLP;  % list of Position
 struct VSprL checked by VSprLP;  % list of VSpr
 struct VStpL checked by VStpLP;  % list of VStp
 struct VSndL checked by VSndLP;  % list of VSnd
-struct VSdtL checked by VSdtLP;  % list of VSdt
+struct VSdcL checked by VSdcLP;  % list of VSdc
 
 %%% checking procedures %%%
 
@@ -450,8 +445,8 @@ procedure VStpP(s);  % test point
 procedure VSdeP(s);  % VS data for elimination set computation
    vectorp s and getv(s, 0) eq 'vsde;
 
-procedure VSdtP(s);  % VS data for formula traversal
-   vectorp s and getv(s, 0) eq 'vsdt;
+procedure VSdcP(s);  % VS data for candidate solutions computation
+   vectorp s and getv(s, 0) eq 'vsdc;
 
 procedure VSvsP(s);  % VS
    VSarP s or VSdgP s or VStsP s;
@@ -483,8 +478,8 @@ procedure VStpLP(s);
 procedure VSndLP(s);
    null s or (pairp s and VSndP car s and VSndLP cdr s);
 
-procedure VSdtLP(s);
-   null s or (pairp s and VSdtP car s and VSdtLP cdr s);
+procedure VSdcLP(s);
+   null s or (pairp s and VSdcP car s and VSdcLP cdr s);
 
 % Access Functions
 inline procedure ofsf_op(atf);

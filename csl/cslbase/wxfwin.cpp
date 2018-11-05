@@ -1,26 +1,13 @@
-#define DEBUG 1   // regardless of build mode for now!
-
-//
-// "wxfwin.cpp                                   Copyright A C Norman 2015
+// wxfwin.cpp                                     Copyright A C Norman 2017
 //
 //
 // Window interface for old-fashioned C applications. Intended to
 // be better than just running them within rxvt/xterm, but some people will
 // always believe that running them under emacs is best!
 //
-// Note that although the graphical bits of wxfwin and coded in C++ the
-// parts needed for a text-only interface are in just C. This is so that
-// on limited platforms where graphics are not relevant the C++ libraries
-// do not have to be used.
-//
-// This starts off identical to an older version, fwin.c, but is kept
-// separate so that if I make changes during my wxWidgets project I will
-// not hurt things so badly. Well after not very long it has already diverged
-// a fair amount!
-//
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -49,9 +36,21 @@
  *************************************************************************/
 
 
-// $Id$
+// $Id: wxfwin.cpp 4617 2018-05-20 17:30:55Z arthurcnorman $
 
 #include "config.h"
+
+#ifndef __STDC_CONSTANT_MACROS
+#define __STDC_CONSTANT_MACROS 1
+#endif
+
+#include "wx/wxprec.h"
+
+#ifndef WX_PRECOMP
+#include "wx/wx.h"
+#endif
+
+#include "wx/fontenum.h"
 
 #ifdef WIN32
 #include <windows.h>
@@ -94,6 +93,17 @@ extern char *getcwd(char *s, size_t n);
 #endif // HAVE_DIRENT_H
 #endif
 
+#if !defined WIN32 && !defined MACINTOSH
+#ifdef HAVE_LIBXFT
+
+#include <X11/Xlib.h>
+#include <X11/Xft/Xft.h>
+
+#else   // HAVE_LIBXFT
+#error Other than on Windows you must have Xft installed.
+#endif  // HAVE_LIBXFT
+#endif
+
 #if defined MACINTOSH && defined MAC_FRAMEWORK
 //
 // The extent to which any code here pays attention to Mac-specific
@@ -120,8 +130,7 @@ extern char *getcwd(char *s, size_t n);
 #ifdef DEBUG
 
 //
-// This will be used as in FWIN_LOG((format,arg,...))
-// *NOT* using a variadic macro, hence doubled parentheses.
+// This will be used as in FWIN_LOG(format,arg,...)
 // If DEBUG was enabled it send log information
 // to a file with the name fwin-debug.log: I hope that will not (often)
 // clash with any file the user has or requires. if programDir has been
@@ -252,7 +261,7 @@ int lenAsUtf8(const char *s)
 #endif
 
 char about_box_title[40]       = "About XXX";
-char about_box_description[40] = "XXX version 1.1";
+char about_box_description[40] = "XXX version 1.2";
 // <icon appears here>
 char about_box_rights_1[40]    = "Author info";
 char about_box_rights_2[40]    = "Additional author";
@@ -277,6 +286,114 @@ static int programNameDotCom;
 static int macApp = 0;
 #endif
 
+
+static const char *fontNames[] =
+{
+// This adds the fonts that I expect to be used in my wxWidgets code. I
+// have to have ".ttf" not ".otf" for use on Windows. Well I *BELIEVE* that
+// maybe some of the .otf files behave, but latest experiments show
+// "CMU TYpewriter Text" as needing to be there in an explicitly .ttf format
+// for Windows use.
+#ifdef WIN32
+    "cmuntt.ttf",          // CMU Typewriter Text
+    "odokai.ttf",          // a successor to AR PL New Sung
+    "cslSTIX-Regular.ttf",
+    "cslSTIX-Bold.ttf",
+    "cslSTIX-Italic.ttf",
+    "cslSTIX-BoldItalic.ttf",
+    "cslSTIXMath-Regular.ttf"
+#else
+    "cmuntt.otf",          // CMU Typewriter Text
+    "odokai.ttf",          // a successor to AR PL New Sung
+    "cslSTIX-Regular.otf",
+    "cslSTIX-Bold.otf",
+    "cslSTIX-Italic.otf",
+    "cslSTIX-BoldItalic.otf",
+    "cslSTIXMath-Regular.otf"
+#endif
+};
+
+#ifndef fontsdir
+#define fontsdir reduce.wxfonts
+#endif
+
+#define toString(x) toString1(x)
+#define toString1(x) #x
+
+void add_custom_fonts()
+{
+#ifdef WIN32
+#ifdef DO_NOT_SUPPORT_GRAPHICSCONTEXT
+// This is expected to be the final version of the code -- but it does
+// not let you use custom fonts with a wxGraphicsContext.
+    for (int i=0; i<(int)(sizeof(fontNames)/sizeof(fontNames[0])); i++)
+    {   char nn[LONGEST_LEGAL_FILENAME];
+        sprintf(nn, "%s\\%s\\%s",
+                    programDir, toString(fontsdir), fontNames[i]);
+//      printf("Adding %s\n", nn); fflush(stdout);
+        if (AddFontResourceExA(nn, FR_PRIVATE, 0) == 0)
+        {   printf("AddFontResource failed\n");
+            fflush(stdout);
+        }
+    }
+    PostMessage(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
+#else
+// This version (default just for now) uses my extension to wxWidgets that
+// gives full support for private fonts.
+    for (int i=0; i<(int)(sizeof(fontNames)/sizeof(fontNames[0])); i++)
+    {   char nn[LONGEST_LEGAL_FILENAME];
+        sprintf(nn, "%s\\%s\\%s",
+                    programDir, toString(fontsdir), fontNames[i]);
+        FWIN_LOG("Adding %s\n", nn);
+        wxString nnn(nn);
+        if (!wxFont::AddPrivateFont(nnn))
+        {   FWIN_LOG("AddPrivateFont failed\n");
+        }
+    }
+// At one stage private fonts needed "activating"
+//  if (!wxFont::ActivatePrivateFonts())
+//  {   printf("ActivatePrivateFonts failed\n");
+//      fflush(stdout);
+//  }
+#endif
+#elif defined MACINTOSH
+// Note that on a Mac I put the required fonts in the Application Bundle,
+// and so I do not need to take run-time action to make them available.
+#elif defined UNIX
+    FcConfig *config = FcConfigGetCurrent();
+    if (config == NULL) config = FcConfigCreate();
+    for (int i=0; i<(int)(sizeof(fontNames)/sizeof(fontNames[0])); i++)
+    {   char nn[LONGEST_LEGAL_FILENAME];
+        sprintf(nn, "%s/%s/%s",
+                    programDir, toString(fontsdir), fontNames[i]);
+//      printf("Adding %s\n", nn); fflush(stdout);
+        if (!FcConfigAppFontAddFile(config, (const FcChar8 *)nn))
+        {   printf("FcConfigAppFontAddFile failed for %s\n", nn);
+            fflush(stdout);
+        }
+    }
+    FcConfigSetCurrent(config);
+//  printf("Activated\n"); fflush(stdout);
+#else
+#error Unknown platform so private fonts not supported.
+#endif
+}
+
+// The following may be useful while debugging...
+
+void display_font_information()
+{
+    wxArrayString flist(wxFontEnumerator::GetFacenames(wxFONTENCODING_SYSTEM));
+    int nfonts;
+    printf("There are %d fonts\n", nfonts=(int)flist.GetCount());
+    fflush(stdout);
+    for (int i=0; i<nfonts; i++)
+        printf("%d) <%s>\n", i, (const char *)flist[i].mb_str());
+    fflush(stdout);
+    printf("End of debug output\n");
+    fflush(stdout);
+}
+
 int windowed = 0;
 
 int texmacs_mode = 0;
@@ -298,7 +415,7 @@ void consoleWait()
     while (i > 0)
     {   char title[30];
         sprintf(title, "Exiting after %d seconds", i);
-        SetConsoleTitle(title);
+        SetConsoleTitleA(title);
         c0 = clock() + CLOCKS_PER_SEC;
         while (clock() < c0);
         i--;
@@ -436,28 +553,28 @@ int fwin_startup(int argc, const char *argv[], fwin_entrypoint *fwin_main)
 //
         const char *ssh = my_getenv("SSH_CLIENT");
         if (ssh != NULL && *ssh != 0)
-        {   FWIN_LOG(("SSH_CLIENT set on Windows, so treat as console app\n"));
+        {   FWIN_LOG("SSH_CLIENT set on Windows, so treat as console app\n");
             ssh_client = 1;
             windowed = 0;
         }
         else
         {   h = GetStdHandle(STD_INPUT_HANDLE);
             if (GetFileType(h) != FILE_TYPE_CHAR)
-            {   FWIN_LOG(("STD_INPUT_HANDLE not FILE_TYPE_CHAR\n"));
+            {   FWIN_LOG("STD_INPUT_HANDLE not FILE_TYPE_CHAR\n");
                 windowed = 0;
             }
             else if (!GetConsoleMode(h, &w))
-            {   FWIN_LOG(("!GetConsoleMode(STD_INPUT_HANDLE)\n"));
+            {   FWIN_LOG("!GetConsoleMode(STD_INPUT_HANDLE)\n");
                 windowed = 0;
             }
             else
             {   h = GetStdHandle(STD_OUTPUT_HANDLE);
                 if (GetFileType(h) != FILE_TYPE_CHAR)
-                {   FWIN_LOG(("STD_OUTPUT_HANDLE not FILE_TYPE_CHAR\n"));
+                {   FWIN_LOG("STD_OUTPUT_HANDLE not FILE_TYPE_CHAR\n");
                     windowed = 0;
                 }
                 else if (!GetConsoleScreenBufferInfo(h, &csb))
-                {   FWIN_LOG(("!GetConsoleMode(STD_OUTPUT_HANDLE)\n"));
+                {   FWIN_LOG("!GetConsoleMode(STD_OUTPUT_HANDLE)\n");
                     windowed = 0;
                 }
             }
@@ -491,12 +608,12 @@ int fwin_startup(int argc, const char *argv[], fwin_entrypoint *fwin_main)
 //
         const char *ssh = my_getenv("SSH_CLIENT");
         if (ssh != NULL && *ssh != 0)
-        {   FWIN_LOG(("SSH_CLIENT set\n"));
+        {   FWIN_LOG("SSH_CLIENT set\n");
             ssh_client = 1;
             windowed = 0;
         }
         else if (GetFileType(h) == FILE_TYPE_DISK)
-        {   FWIN_LOG(("STD_INPUT_HANDLE is FILE_TYPE_DISK\n"));
+        {   FWIN_LOG("STD_INPUT_HANDLE is FILE_TYPE_DISK\n");
             windowed = 0;
         }
     }
@@ -507,17 +624,17 @@ int fwin_startup(int argc, const char *argv[], fwin_entrypoint *fwin_main)
 // bundle.
 //
     {   CFBundleRef mainBundle = CFBundleGetMainBundle();
-        FWIN_LOG(("mainBundle = %p\n", mainBundle));
+        FWIN_LOG("mainBundle = %p\n", mainBundle);
         if (mainBundle == NULL) macApp = 0;
         else
         {   CFDictionaryRef d = CFBundleGetInfoDictionary(mainBundle);
-            FWIN_LOG(("d=%p\n", d));
+            FWIN_LOG("d=%p\n", d);
             if (d == NULL) macApp = 0;
             else
             {   CFStringRef s =
                     (CFStringRef)CFDictionaryGetValue(d,
                         CFSTR("ATSApplicationFontsPath"));
-                FWIN_LOG(("s=%p\n", s));
+                FWIN_LOG("s=%p\n", s);
                 macApp = (s != NULL);
             }
         }
@@ -533,7 +650,7 @@ int fwin_startup(int argc, const char *argv[], fwin_entrypoint *fwin_main)
         !macApp &&
 #endif
         (!isatty(fileno(stdin)) || !isatty(fileno(stdout))))
-    {   FWIN_LOG(("stdin or stdout is not a tty\n"));
+    {   FWIN_LOG("stdin or stdout is not a tty\n");
         windowed = 0;
     }
 
@@ -546,7 +663,7 @@ int fwin_startup(int argc, const char *argv[], fwin_entrypoint *fwin_main)
 //
     {   const char *ssh = my_getenv("SSH_CLIENT");
         if (ssh != NULL && *ssh != 0)
-        {   FWIN_LOG(("SSH_CLIENT set on MacOSX\n"));
+        {   FWIN_LOG("SSH_CLIENT set on MacOSX\n");
 //          ssh_client = 1;
             windowed = 0;
         }
@@ -561,7 +678,7 @@ int fwin_startup(int argc, const char *argv[], fwin_entrypoint *fwin_main)
 //
     disp = my_getenv("DISPLAY");
     if (disp == NULL || strchr(disp, ':')==NULL)
-    {   FWIN_LOG(("DISPLAY not set for an X11 version\n"));
+    {   FWIN_LOG("DISPLAY not set for an X11 version\n");
         windowed = 0;
     }
 #endif // MACINTOSH
@@ -628,7 +745,7 @@ int fwin_startup(int argc, const char *argv[], fwin_entrypoint *fwin_main)
 // The code I have here is based on empirical observation in cases that
 // most people will probably not trigger!
 //
-                FWIN_LOG(("Running windowed mode application via ssh.\n"));
+                FWIN_LOG("Running windowed mode application via ssh.\n");
             }
             else
             {
@@ -647,11 +764,11 @@ int fwin_startup(int argc, const char *argv[], fwin_entrypoint *fwin_main)
                 freopen("CONOUT$", "w+", stdout);
                 freopen("CONOUT$", "w+", stderr);
                 SetStdHandle(STD_INPUT_HANDLE,
-                             CreateFile("CONIN$",
+                             CreateFileA("CONIN$",
                                         GENERIC_READ|GENERIC_WRITE, FILE_SHARE_READ, NULL,
                                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
                 SetStdHandle(STD_OUTPUT_HANDLE,
-                             h = CreateFile("CONOUT$",
+                             h = CreateFileA("CONOUT$",
                                             GENERIC_READ|GENERIC_WRITE, FILE_SHARE_WRITE, NULL,
                                             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
                 SetStdHandle(STD_ERROR_HANDLE, h);
@@ -708,7 +825,7 @@ int fwin_startup(int argc, const char *argv[], fwin_entrypoint *fwin_main)
 // Well foo.app exists and is a directory, so I will try to use it
             const char **nargs = (const char **)malloc(sizeof(char *)*(argc+3));
             int i;
-            FWIN_LOG(("About to restart Mac from an application bundle\n"));
+            FWIN_LOG("About to restart Mac from an application bundle\n");
 #ifdef DEBUG
 //
 // Since I am about to restart the program I do not want the new version to
@@ -741,11 +858,18 @@ int fwin_startup(int argc, const char *argv[], fwin_entrypoint *fwin_main)
     return windowed_worker(argc, argv, fwin_main);
 }
 
-void sigint_handler(int code)
+#ifdef HAVE_SIGACTION
+void sigint_handler(int signo, siginfo_t *t, void *v)
+#else // !HAVE_SIGACTION
+void sigint_handler(int signo)
+#endif // !HAVE_SIGACTION
 {
-// For debugging I may want to see when signals get caught...
-    FWIN_LOG(("sigint_handler called %d %#x\n", code, code));
-    signal(SIGINT, sigint_handler);
+// For debugging I may want to see when signals get caught... Note that
+// doing anything such as printing to a log file represents undefined
+// behaviour in a signal handler, so this may be useful for debugging but
+// is not guaranteed safe in general. Well I could arrange to use "write"
+// rather than "fprintf" and then I would actually be safe!
+    FWIN_LOG("sigint_handler called %d %#x\n", signo, signo);
     if (interrupt_callback != NULL) (*interrupt_callback)(QUIET_INTERRUPT);
     return;
 }
@@ -791,12 +915,24 @@ static int direct_to_terminal(int argc, const char *argv[])
 
 int plain_worker(int argc, const char *argv[], fwin_entrypoint *main)
 {   int r;
+#ifdef HAVE_SIGACTION
+    struct sigaction sa;
+    sa.sa_sigaction = sigint_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART | SA_SIGINFO | SA_ONSTACK | SA_NODEFER;
+// (a) restart system calls after signal (if possible),
+// (b) use handler that gets more information,
+// (c) use alternative stack for the handler,
+// (d) leave the SIGINT unmasked while the handler is active. This
+//     will be vital if then handler "exits" using longjmp, because as
+//     far as the exception system is concerned that leaves us within the
+//     handler. But after the  exit is caught by setjmp I want the
+//     exception to remain trapped.
+    if (sigaction(SIGINT, &sa, NULL) == -1)
+        /* I can not thing of anything useful to do if I fail here! */;
+#else // !HAVE_SIGACTION
     signal(SIGINT, sigint_handler);
-//
-// At one time I trapped SIGBREAK. These days I just let it terminate
-// my program if I am on Linux, Unix or BSD (inc Mac), and under Windows
-// I sometimes trap it using alternative system-specific code,
-//
+#endif // !HAVE_SIGACTION
     if (!texmacs_mode && direct_to_terminal(argc, argv))
     {   input_history_init();
         term_setup(1, colour_spec);
@@ -897,7 +1033,7 @@ static char forProgramDir[LONGEST_LEGAL_FILENAME];
 
 int find_program_directory(const char *argv0)
 {   wchar_t *a0;
-    int i, len, ndir, npgm, j;
+    int i, len, ndir, npgm;
 // In older code I believed that I could rely on Windows giving me
 // the full path of my executable in argv[0]. With bits of mingw/cygwin
 // anywhere near me that may not be so, so I grab the information directly
@@ -920,7 +1056,6 @@ int find_program_directory(const char *argv0)
 // If the current program is called c:\aaa\xxx.exe, then the directory
 // is just c:\aaa and the simplified program name is just xxx
 //
-    j = len-1;
     if (len > 4 &&
         a0[len-4] == '.' &&
         ((towlower(a0[len-3]) == 'e' &&
@@ -1033,7 +1168,7 @@ int find_program_directory(const char *argv0)
     {   fullProgramName = argv0;
     }
     else
-    {   for (w=argv0; *w!=0 && *w!='/'; w++);   // seek a "/"
+    {   for (w=argv0; *w!=0 && *w!='/'; w++) {}   // seek a "/"
         if (*w == '/')      // treat as if relative to current dir
         {   // If the thing is actually written as "./abc/..." then
             // strip of the initial "./" here just to be tidy.
@@ -1209,8 +1344,8 @@ int find_program_directory(const char *argv0)
 #endif
 #endif
 
-extern "C" int get_home_directory(char *b, size_t len);
-extern "C" int get_users_home_directory(char *b, size_t len);
+extern int get_home_directory(char *b, size_t len);
+extern int get_users_home_directory(char *b, size_t len);
 
 static lookup_function *look_in_variable = NULL;
 
@@ -1503,12 +1638,6 @@ unsigned long int pack_date(int year, int mon, int day,
     return r*60 + sec;
 }
 
-typedef struct date_and_type_
-{   unsigned long int date;
-    unsigned long int type;
-} date_and_type;
-
-
 #ifdef WIN32
 
 #include "windows.h"
@@ -1518,7 +1647,7 @@ int Cmkdir(const char *name)
     s.nLength = sizeof(s);
     s.lpSecurityDescriptor = NULL;
     s.bInheritHandle = FALSE;
-    return CreateDirectory(name, &s);
+    return CreateDirectoryA(name, &s);
 }
 
 int truncate_file(FILE *f, long int where)
@@ -1533,7 +1662,7 @@ int truncate_file(FILE *f, long int where)
 
 void set_filedate(char *name, unsigned long int datestamp,
                   unsigned long int filetype)
-{   HANDLE h = CreateFile(name, GENERIC_WRITE, 0, NULL,
+{   HANDLE h = CreateFileA(name, GENERIC_WRITE, 0, NULL,
                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     SYSTEMTIME st;
     FILETIME ft;
@@ -1707,16 +1836,16 @@ void set_hostcase(int fg)
 // Hmm - buffer overflow worry with the next line!
 static char filename[LONGEST_LEGAL_FILENAME];
 
-static WIN32_FIND_DATA *found_files = NULL;
+static WIN32_FIND_DATAA *found_files = NULL;
 static int n_found_files = 0, max_found_files = 0;
 
 #define TABLE_INCREMENT 50
 
 static int more_files(void)
 {   if (n_found_files > max_found_files - 5)
-    {   WIN32_FIND_DATA *fnew = (WIN32_FIND_DATA *)
+    {   WIN32_FIND_DATAA *fnew = (WIN32_FIND_DATAA *)
                                 realloc((void *)found_files,
-                                        sizeof(WIN32_FIND_DATA)*
+                                        sizeof(WIN32_FIND_DATAA)*
                                         (max_found_files + TABLE_INCREMENT));
         if (fnew == NULL) return 1;  // failure flag
         found_files = fnew;
@@ -1726,8 +1855,8 @@ static int more_files(void)
 }
 
 int alphasort_files(const void *a, const void *b)
-{   const WIN32_FIND_DATA *fa = (const WIN32_FIND_DATA *)a,
-                               *fb = (const WIN32_FIND_DATA *)b;
+{   const WIN32_FIND_DATAA *fa = (const WIN32_FIND_DATAA *)a,
+                          *fb = (const WIN32_FIND_DATAA *)b;
     return strncmp(fb->cFileName, fa->cFileName, sizeof(fa->cFileName));
 }
 
@@ -1742,19 +1871,19 @@ static void exall(int namelength,
     printf("exall function called - but not implemented here\n");
     return; // Dummy version here
 #else
-    WIN32_FIND_DATA found;
+    WIN32_FIND_DATAA found;
     int rootlen = namelength, first = n_found_files;
-    HANDLE hSearch = FindFirstFile(filename, &found);
+    HANDLE hSearch = FindFirstFileA(filename, &found);
     if (hSearch == INVALID_HANDLE_VALUE) return;  // No files found at all
     for (;;)
     {   if (more_files()) break;
         found_files[n_found_files++] = found;
-        if (!FindNextFile(hSearch, &found)) break;
+        if (!FindNextFileA(hSearch, &found)) break;
     }
     FindClose(hSearch);
     qsort((void *)&found_files[first],
           n_found_files-first,
-          sizeof(WIN32_FIND_DATA),
+          sizeof(WIN32_FIND_DATAA),
           alphasort_files);
     while (rootlen>=0 && filename[rootlen]!='\\') rootlen--;
     while (n_found_files != first)
@@ -2089,12 +2218,12 @@ int delete_wildcard(char *filename, const char *old, size_t n)
     {
 #ifdef WIN32
         HANDLE h;
-        WIN32_FIND_DATA gg;
-        h = FindFirstFile(filename, &gg);
+        WIN32_FIND_DATAA gg;
+        h = FindFirstFileA(filename, &gg);
         if (h != INVALID_HANDLE_VALUE)
         {   for (;;)
             {   scan_directory(gg.cFileName, remove_files);
-                if (!FindNextFile(h, &gg)) break;
+                if (!FindNextFileA(h, &gg)) break;
             }
             FindClose(h);
         }
@@ -2194,11 +2323,11 @@ int file_exists(char *filename, const char *old, size_t n, char *tt)
     return 1;
 }
 
-int directoryp(char *filename, const char *old, size_t n)
+bool directoryp(char *filename, const char *old, size_t n)
 {   struct stat buf;
     process_file_name(filename, old, n);
-    if (*filename == 0) return 0;
-    if (stat(filename,&buf) == -1) return 0;
+    if (*filename == 0) return false;
+    if (stat(filename,&buf) == -1) return false;
     return ((buf.st_mode & S_IFMT) == S_IFDIR);
 }
 
@@ -2309,47 +2438,47 @@ char *get_truename(char *filename, const char *old, size_t n)
 // I do here will hold the fort for now.
 //
 
-int file_readable(char *filename, const char *old, size_t n)
+bool file_readable(char *filename, const char *old, size_t n)
 {   struct stat buf;
     process_file_name(filename, old, n);
-    if (*filename == 0) return 0;
+    if (*filename == 0) return false;
     if (stat(filename,&buf) == -1)
-        return 0; // File probably does not exist
+        return false; // File probably does not exist
 //
 // The #ifdef here is a cop-out and has surfaced while trying to build
 // using the Microsoft C compiler, where there will be a different API I
 // could use to get this information...
 //
 #ifndef S_IRUSR
-    return 1;
+    return true;
 #else
     return (buf.st_mode & S_IRUSR);
 #endif
 }
 
 
-int file_writeable(char *filename, const char *old, size_t n)
+bool file_writeable(char *filename, const char *old, size_t n)
 {   struct stat buf;
     process_file_name(filename, old, n);
-    if (*filename == 0) return 0;
+    if (*filename == 0) return false;
     if (stat(filename,&buf) == -1)
-        return 0; // Should we check to see if the directory is writeable?
+        return false; // Should we check to see if the directory is writeable?
 #ifndef S_IWUSR
-    return 1;
+    return true;
 #else
     return (buf.st_mode & S_IWUSR);
 #endif
 }
 
 
-int file_executable(char *filename, const char *old, size_t n)
+bool file_executable(char *filename, const char *old, size_t n)
 {   struct stat buf;
     process_file_name(filename, old, n);
-    if (*filename == 0) return 0;
+    if (*filename == 0) return false;
     if (stat(filename,&buf) == -1)
-        return 0; // Should we check to see if the directory is writeable?
+        return false; // Should we check to see if the directory is writeable?
 #ifndef S_IXUSR
-    return 1;
+    return true;
 #else
     return (buf.st_mode & S_IXUSR);
 #endif

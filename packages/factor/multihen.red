@@ -123,7 +123,18 @@ symbolic procedure find!-multivariate!-factors!-mod!-p(poly,
       if w=1 and not one!-prediction!-failed then <<
         putv(best!-factors,cdar unknowns!-count!-list,poly!-remaining);
         go to exit >>
-      else if w=0 and one!-prediction!-failed then <<
+% The following case has been effectively commented out by adding the
+% annotaion "nil and" to it. This is in March 2017 when following through
+% with the code that was here seemed to cause errors at times. By commenting
+% it out I believe I am removing a special-case optimisation, and so some
+% factorizations that will have been made to run faster by this will not
+% go slower. But with the age of the code I fiund it hard to remember or
+% reconstruct the exact logic! I SUSPECT that the next line needs one
+% more condition in the conjunction to guarantee its full validity, and
+% in an idea world I would hope that some kind person would check all the
+% old papers about EZGCD and factorization etc and propose a principled
+% fixup rather than my crude response. ACN, Match 2017.
+      else if nil and w=0 and one!-prediction!-failed then <<
         putv(best!-factors,one!-prediction!-failed,poly!-remaining);
         go to exit >>;
       solve!-count:=1;
@@ -200,6 +211,8 @@ temploop:
         if polyzerop(substres:=evaluate!-mod!-p(res,car v,cdr v))
          then <<
           k:=iadd1 k;
+% It is important here that k doe snot divide into the current modulus, and
+% I hope I arrange that by keeping my prime greater than the degree bound...
           res:=diff!-over!-k!-mod!-p(res,k,car v);
           correction!-factor:=
             times!-mod!-p(correction!-factor,growth!-factor) >>
@@ -399,14 +412,14 @@ symbolic procedure find!-msg3(best!-factors,v);
       printstr "factors so far as:";
       ezgcd_printvec("  f(",number!-of!-factors,") = ",best!-factors);
       printstr "Subtracting the product of these from the polynomial";
-      prin2!* "and differentiating wrt "; prinvar car v;
+      prin2!* " and differentiating wrt "; prinvar car v;
       printstr " gives a residue:"
     >>;
 
 symbolic procedure find!-msg4(predicted!-forms,v);
       factor!-trace <<
         printstr "To help reduce the number of Hensel steps we try";
-        prin2!* "predicting how many terms each factor will have wrt ";
+        prin2!* " predicting how many terms each factor will have wrt ";
         prinvar car v; printstr ".";
         printstr
           "Predictions are based on the bivariate factors :";

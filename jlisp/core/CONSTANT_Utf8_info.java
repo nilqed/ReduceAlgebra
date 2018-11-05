@@ -1,7 +1,7 @@
 package uk.co.codemist.jlisp.core;
 
 
-// $Id$
+// $Id: CONSTANT_Utf8_info.java 3142 2015-06-21 22:27:59Z arthurcnorman $
 
 
 //created 02/02/02

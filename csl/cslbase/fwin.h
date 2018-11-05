@@ -1,5 +1,4 @@
-//
-// "fwin.h"                                       2003-2016, A C Norman
+// "fwin.h"                                           2003-2018, A C Norman
 //
 // This defines the public interface supported by the "fwin" window
 // interface.
@@ -8,7 +7,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2018, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -36,7 +35,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: fwin.h 4617 2018-05-20 17:30:55Z arthurcnorman $
 
 
 //
@@ -60,10 +59,10 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <signal.h>
 
 //
-// Logging support. This will give a no-op unless the preprocessor symbol
-// DEBUG is defined at compile time.
+// Logging support, only enabled in debug mode.
 //
 // Usage (eg):  FWIN_LOG("I reached %d of %s\n", __LINE__, __FILE__);
 //
@@ -77,13 +76,10 @@ extern void fwin_write_log(const char *s, ...);
 
 
 //
-// The C code will eventually be entered at fwin_main() in what looks like a
-// normal way. This is a type for it.
+// The C++ code will eventually be entered at fwin_main() in what looks like
+// a normal way. This is a type for it.
 //
 typedef int fwin_entrypoint(int argc, const char *argv[]);
-
-// I make these things "C" linkage to avoid having to worry about namespaces.
-
 
 //
 // To start things going you call the following. It sets up the windowed-style
@@ -91,7 +87,7 @@ typedef int fwin_entrypoint(int argc, const char *argv[]);
 // main application.
 //
 
-extern "C" int fwin_startup(int argc, const char *argv[], fwin_entrypoint *fwin_main);
+extern int fwin_startup(int argc, const char *argv[], fwin_entrypoint *fwin_main);
 
 //
 // fullProgramName is a string like "d:\xxx\yyy\something.exe"  This is
@@ -100,14 +96,14 @@ extern "C" int fwin_startup(int argc, const char *argv[], fwin_entrypoint *fwin_
 // other suffix. I will try to find a full path for the executable on
 // Unix too.
 //
-extern "C" const char *fullProgramName;
+extern const char *fullProgramName;
 
 //
 // programName holds just the "something" out of fullProgramName.
 // Note that I impose an arbitrary limit on the length of the name of the
 // executable.
 //
-extern "C" const char *programName;
+extern const char *programName;
 
 //
 // programDir gives the directory from which this application was launched.
@@ -115,7 +111,7 @@ extern "C" const char *programName;
 // or possibly in a path that has really funny characters in in, you do so
 // at your own risk!
 //
-extern "C" const char *programDir;
+extern const char *programDir;
 
 //
 // This returns bits that indicates what options fwin is running with:
@@ -136,7 +132,7 @@ extern "C" const char *programDir;
 #define FWIN_WITH_TERMED  1
 #define FWIN_IN_WINDOW    2
 
-extern "C" int fwin_windowmode();
+extern int fwin_windowmode();
 
 //
 // To finish off you can either return from fwin_main(), or you can go
@@ -146,7 +142,7 @@ extern "C" int fwin_windowmode();
 // direct use of the C function "exit()" is not considered proper.
 //
 
-extern "C" void fwin_exit(int return_code);
+extern void fwin_exit(int return_code);
 
 //
 // If, when the program is stopping, fwin_pause_at_end has been set to
@@ -159,7 +155,7 @@ extern "C" void fwin_exit(int return_code);
 // cases the user has taken explicit interactive action to terminate the
 // program so an extra prompt seems unnecessary.
 //
-extern "C" int fwin_pause_at_end;
+extern int fwin_pause_at_end;
 
 
 //
@@ -173,13 +169,13 @@ extern "C" int fwin_pause_at_end;
 // so letting my code begin and then calling fwin_minimize would not be
 // so good.
 //
-extern "C" void fwin_minimize(void);
+extern void fwin_minimize(void);
 
 //
 // fwin_restore() indicates that the window should be restored to
 // regular size.
 //
-extern "C" void fwin_restore(void);
+extern void fwin_restore(void);
 
 //
 // Rather than using putchar() and printf(), here are the calls
@@ -190,13 +186,13 @@ extern "C" void fwin_restore(void);
 // These functions support printable ASCII characters.
 // I have not thought too hard about TAB and FormFeed here... yet.
 //
-extern "C" void fwin_putchar(int c);
-extern "C" void fwin_puts(const char *s);
+extern void fwin_putchar(int c);
+extern void fwin_puts(const char *s);
 
-extern "C" void fwin_showmath(const char *s);
+extern void fwin_showmath(const char *s);
 
-extern "C" void fwin_printf(const char *fmt, ...);
-extern "C" void fwin_vfprintf(const char *fmt, va_list a);
+extern void fwin_printf(const char *fmt, ...);
+extern void fwin_vfprintf(const char *fmt, va_list a);
 
 //
 // fwin_linelength holds the number of normal-sized (ie the basic
@@ -207,19 +203,19 @@ extern "C" void fwin_vfprintf(const char *fmt, va_list a);
 // have the value 80. Actually just at preesent fwin insists on keeping
 // its window at a width of 80 so this value will never change!
 //
-extern "C" int fwin_linelength;
+extern int fwin_linelength;
 
 //
 // ensure_screen() causes the display to catch up with whatever else has
 // been going on.
 //
-extern "C" void fwin_ensure_screen(void);
+extern void fwin_ensure_screen(void);
 
 //
 // fwin_getchar() behaves rather as one might expect getchar() to - it
 // grabs a character from the keyboard input buffer.
 //
-extern "C" int fwin_getchar(void);
+extern int fwin_getchar(void);
 
 //
 // fwin_set_prompt() tells fwin what string (of up to some limited
@@ -228,18 +224,18 @@ extern "C" int fwin_getchar(void);
 
 #define MAX_PROMPT_LENGTH 80
 
-extern "C" void fwin_set_prompt(const char *s);
+extern void fwin_set_prompt(const char *s);
 
 //
 // Clears screen.
 //
-extern "C" void fwin_clear_screen();
+extern void fwin_clear_screen();
 
 //
 // Returns window size (measured in character positions) packed as
 //    (width << 16) + height
 //
-extern "C" int fwin_screen_size();
+extern int fwin_screen_size();
 
 //
 // The following function can be used to register a callback that is
@@ -252,7 +248,7 @@ extern "C" int fwin_screen_size();
 //
 typedef char *lookup_function(char *s, int ch);
 
-extern "C" void fwin_set_lookup(lookup_function *f);
+extern void fwin_set_lookup(lookup_function *f);
 
 
 //
@@ -264,7 +260,7 @@ extern "C" void fwin_set_lookup(lookup_function *f);
 //
 typedef void delay_callback_t(int);
 
-extern "C" void fwin_callback_on_delay(delay_callback_t *f);
+extern void fwin_callback_on_delay(delay_callback_t *f);
 
 //
 // fwin will call the function passed here to try to signal an
@@ -303,13 +299,13 @@ extern "C" void fwin_callback_on_delay(delay_callback_t *f);
 
 typedef int interrupt_callback_t(int);
 
-extern "C" void fwin_callback_to_interrupt(interrupt_callback_t *f);
+extern void fwin_callback_to_interrupt(interrupt_callback_t *f);
 
 //
 // When a TICK is handed to the user the following should be called
 // to confirm that it has been seen.
 //
-extern "C" void fwin_acknowledge_tick();
+extern void fwin_acknowledge_tick();
 
 
 //
@@ -320,14 +316,14 @@ extern "C" void fwin_acknowledge_tick();
 //
 typedef void review_switch_settings_function();
 
-extern "C" void fwin_menus(char **modules, char **switches,
+extern void fwin_menus(char **modules, char **switches,
                        review_switch_settings_function *f);
 
 //
 // The next is used when the application has re-set some switches without the
 // GUI's help, and it updates the menu
 //
-extern "C" void fwin_refresh_switches(char **switches, char **packages);
+extern void fwin_refresh_switches(char **switches, char **packages);
 
 
 //
@@ -342,9 +338,9 @@ extern "C" void fwin_refresh_switches(char **switches, char **packages);
 // re-instate the default display. Use fwin_report_left("") is a yet clearer
 // way of indicating that blank info to the left is required.
 //
-extern "C" void fwin_report_left(const char *msg);
-extern "C" void fwin_report_mid(const char *msg);
-extern "C" void fwin_report_right(const char *msg);
+extern void fwin_report_left(const char *msg);
+extern void fwin_report_mid(const char *msg);
+extern void fwin_report_right(const char *msg);
 
 //
 // The following four strings may be updated (but PLEASE keep within the
@@ -355,11 +351,11 @@ extern "C" void fwin_report_right(const char *msg);
 // since if you do you are then obliged to extent them to include full
 // copyright notices for any LGPL code you use anywhere.
 //
-extern "C" char about_box_title[40];       // "About XXX";
-extern "C" char about_box_description[40]; // "XXX version 1.1";
+extern char about_box_title[40];       // "About XXX";
+extern char about_box_description[40]; // "XXX version 1.1";
 // <icon appears here>
-extern "C" char about_box_rights_1[40];    // "Author";
-extern "C" char about_box_rights_2[40];    // "additional author";
+extern char about_box_rights_1[40];    // "Author";
+extern char about_box_rights_2[40];    // "additional author";
 //
 // The next 2 lines will contain the text
 //    "This software uses the FOX Toolkit"
@@ -367,8 +363,8 @@ extern "C" char about_box_rights_2[40];    // "additional author";
 // as requested by the authors of FOX
 //
 
-extern "C" char about_box_rights_3[40];    // "Credit to FOX";
-extern "C" char about_box_rights_4[40];    // "ditto";
+extern char about_box_rights_3[40];    // "Credit to FOX";
+extern char about_box_rights_4[40];    // "ditto";
 
 //
 // The HELP drop-down menu in fwin always has some basic items on it, but
@@ -379,15 +375,15 @@ extern "C" char about_box_rights_4[40];    // "ditto";
 // not in any file that CSL has direct access to, and the new help items may
 // not be visible until the user exits from CSL and re-starts it.
 //
-extern "C" void fwin_set_help_file(const char *key, const char *path);
+extern void fwin_set_help_file(const char *key, const char *path);
 
 //
 // The declarations below here are to be treated as private and should
 // not be touched by users.
 //
-extern "C" int plain_worker(int argc, const char *argv[], fwin_entrypoint *fwin_main);
-extern "C" delay_callback_t *delay_callback;
-extern "C" interrupt_callback_t *interrupt_callback;
+extern int plain_worker(int argc, const char *argv[], fwin_entrypoint *fwin_main);
+extern delay_callback_t *delay_callback;
+extern interrupt_callback_t *interrupt_callback;
 
 //
 // The following three functions (putchar_overwrite, move_cursor_vertically
@@ -400,19 +396,19 @@ extern "C" interrupt_callback_t *interrupt_callback;
 // like fwin_putchar(), but overwrites what exists on the screen rather
 // than inserting.
 //
-extern "C" void fwin_putchar_overwrite(int c);
+extern void fwin_putchar_overwrite(int c);
 
 //
 // Move the cursor up or down n lines. n is positive for movement
 // down the screen.
 //
-extern "C" void fwin_move_cursor_vertically(int n);
+extern void fwin_move_cursor_vertically(int n);
 
 //
 // Move the cursor directly to the indicated column. "0" indicates
 // the first position in the row.
 //
-extern "C" void fwin_move_to_column(int column);
+extern void fwin_move_to_column(int column);
 
 //
 // What follows is to do with a history mechanism... and again is not
@@ -421,16 +417,16 @@ extern "C" void fwin_move_to_column(int column);
 
 #define INPUT_HISTORY_SIZE 100
 
-extern "C" wchar_t *input_history[INPUT_HISTORY_SIZE];
-extern "C" int input_history_next;
+extern wchar_t *input_history[INPUT_HISTORY_SIZE];
+extern int input_history_next;
 
-extern "C" void input_history_init();
+extern void input_history_init();
 
-extern "C" void input_history_end();
+extern void input_history_end();
 
-extern "C" void input_history_add(const wchar_t *s);
+extern void input_history_add(const wchar_t *s);
 
-extern "C" const wchar_t *input_history_get(int n);
+extern const wchar_t *input_history_get(int n);
 
 //
 // This is for version-specific control
@@ -448,7 +444,21 @@ extern "C" const wchar_t *input_history_get(int n);
 // link then that will be followed so that the path delivered is that of the
 // true file.
 //
-extern "C" int find_program_directory(const char *argv0);
+extern int find_program_directory(const char *argv0);
+
+// Support for file date manipulation
+
+typedef struct date_and_type_
+{   unsigned long int date;
+    unsigned long int type;
+} date_and_type;
+
+// Reinstate date and filetype...
+
+extern void set_filedate(const char *name, unsigned long int datestamp,
+                         unsigned long int ftype);
+
+extern void put_fileinfo(date_and_type *p, const char *name);
 
 //
 // Some things that are really intended to be private to the implementation
@@ -456,38 +466,40 @@ extern "C" int find_program_directory(const char *argv0);
 // than inventing a new header file.
 //
 
-extern "C" int windowed;
+extern int windowed;
 
-extern "C" int windowed_worker(int argc, const char *argv[], fwin_entrypoint *fwin_main);
+extern int windowed_worker(int argc, const char *argv[], fwin_entrypoint *fwin_main);
 
-extern "C" int fwin_use_xft;
+extern int fwin_use_xft;
 
-extern "C" int directoryp(char *f, const char *o, size_t n);
+extern bool directoryp(char *f, const char *o, size_t n);
 
-extern "C" int file_readable(char *f, const char *o, size_t n);
+extern int using_termed;
 
-extern "C" int using_termed;
+extern int fwin_plain_getchar();
 
-extern "C" int fwin_plain_getchar();
+extern int texmacs_mode;
 
-extern "C" int texmacs_mode;
+#ifdef HAVE_SIGACTION
+extern void sigint_handler(int signo, siginfo_t *t, void *v);
+#else // !HAVE_SIGACTION
+extern void sigint_handler(int signo);
+#endif // !HAVE_SIGACTION
 
-extern "C" void sigint_handler(int code);
-extern "C" void sigbreak_handler(int code);
+extern int plain_worker(int argc, const char *argv[], fwin_entrypoint *fwin_main);
+extern char fwin_prompt_string[MAX_PROMPT_LENGTH];
 
-extern "C" int plain_worker(int argc, const char *argv[], fwin_entrypoint *fwin_main);
-extern "C" char fwin_prompt_string[MAX_PROMPT_LENGTH];
-
-extern "C" int get_current_directory(char *s, size_t n);
-extern "C" int file_readable(char *filename, const char *old, size_t n);
-extern "C" int file_writeable(char *filename, const char *old, size_t n);
-extern "C" int file_executable(char *filename, const char *old, size_t n);
-extern "C" int rename_file(char *from_name, const char *from_old, size_t from_size,
+extern int get_current_directory(char *s, size_t n);
+extern bool file_readable(char *filename, const char *old, size_t n);
+extern bool file_writeable(char *filename, const char *old, size_t n);
+extern bool file_executable(char *filename, const char *old, size_t n);
+extern int rename_file(char *from_name, const char *from_old, size_t from_size,
                 char *to_name, const char *to_old, size_t to_size);
-extern "C" int get_home_directory(char *b, size_t len);
-extern "C" int get_users_home_directory(char *b, size_t len);
-extern "C" int my_system(const char *s);
-extern "C" int truncate_file(FILE *f, long int where);
+extern int get_home_directory(char *b, size_t len);
+extern int get_users_home_directory(char *b, size_t len);
+extern int my_system(const char *s);
+extern int truncate_file(FILE *f, long int where);
+
 
 #endif // header_fwin_h
 

@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2011 T. Sturm
-% ----------------------------------------------------------------------
+module clnf;  % Common logic normal forms. Submodule of [cl].
+
+revision('clnf, "$Id: clnf.red 4058 2017-05-23 17:12:59Z thomas-sturm $");
+
+copyright('clnf, "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2011 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -27,15 +28,6 @@
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
-
-lisp <<
-   fluid '(cl_nf_rcsid!* cl_nf_copyright!*);
-   cl_nf_rcsid!* := "$Id$";
-   cl_nf_copyright!* := "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2011 T. Sturm"
->>;
-
-module clnf;
-% Common logic normal forms. Submodule of [cl].
 
 procedure cl_expand!-extbool(f);
    % Common logic expand extended boolean operators. [f] is a formula.
@@ -63,7 +55,7 @@ procedure cl_expand!-extbool(f);
       return f;
    end;
 
-procedure cl_nnf(f);
+asserted procedure cl_nnf(f: Formula): Formula;
    % Common logic negation normal form. [f] is a formula. Returns a
    % formula equivalent to [f] that does not contain the operator
    % [not].
@@ -380,11 +372,14 @@ asserted procedure cl_qvarl1(f: Formula): KernelL;
       return nil
    end;
 
-procedure cl_apnf(phi);
-   % Common logic anti-prenex normal form. [phi] is a positive
-   % formula. Returns a positive formula equivalent to [phi], where
-   % all quantifiers are moved to the inside as far as possible.
+rl_provideService rl_miniscope = cl_apnf using rl_varlat;
+
+asserted procedure cl_apnf(phi: Formula): Formula;
+   % Common logic anti-prenex normal form. [phi] is a formula. Returns a
+   % positive formula equivalent to [phi], where all quantifiers are moved to
+   % the inside as far as possible.
    begin scalar op;
+      phi := rl_nnf phi;
       op := rl_op phi;
       if op eq 'ex then
          return cl_apnf1(rl_var phi,cl_apnf rl_mat phi);
@@ -458,6 +453,8 @@ procedure cl_freevp(var,phi);
 	    argl := cdr argl;
       return flag
    end;
+
+rl_provideService rl_tnf = cl_tnf using rl_t2cdl;
 
 procedure cl_tnf(f,terml);
    % Common logic tree normal form. [f] is a formula, [terml] is a

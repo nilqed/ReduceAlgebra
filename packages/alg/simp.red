@@ -151,7 +151,11 @@ symbolic procedure subs2 u;
 % also cause pain! To help me understand this I will make all access to this
 % table abstract via small procedures here.
 
-#if (and (memq 'csl lispsystem!*) (not (memq 'vsl lispsystem!*)))
+% Elsewhere I may define stand-in versions of mkhash etc that will work
+% (albeit slowly) on platforms where hash tables are not built in. In such
+% cases mkhash will have ended up flagged 'rlisp.
+
+#if (and (getd 'mkhash) (not (flagp 'mkhash 'rlisp)))
 
 % With CSL I have hash tables and I am fairly confident both that for
 % cases where alglist!* becomes long they are a significant win and that
@@ -197,8 +201,8 @@ symbolic procedure delete_from_alglist(key, l);
 
 #else
 
-% With PSL I maintain the previous association-list model, albeit now
-% lifted by a level of abstraction.
+% If genuine hash tables are not available I maintain the previous
+% association-list model, albeit now lifted by a level of abstraction.
 
 inline procedure add_to_alglist(key, val, l);
   (key . val) . l;
@@ -1468,6 +1472,23 @@ symbolic procedure simpset u;
   end;
 
 put ('set, 'simpfn, 'simpset);
+
+symbolic procedure unset u;
+  for each j in u do unset1 j;
+
+rlistat '(unset);
+
+symbolic procedure unset1 u;
+  begin scalar x;
+    x := if atom u then get(u,'avalue)
+          else assoc(u,get(car u,'kvalue));
+    if null x or null kernp (x := cadadr x) then return;
+    x := numr mvar x;
+    if (atom x and null get(x,'avalue)) or
+       (null atom x and null assoc(x,get(car x,'kvalue)))
+       then clear u
+     else clear x
+  end; 
 
 % sqrt should now have a fixed simpfn - this one - which diverts to
 % whatever is actually needed.

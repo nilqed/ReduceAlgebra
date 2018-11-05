@@ -28,9 +28,9 @@ module io; % Functions for handling input and output of files.
 %
 
 
-fluid '(!*echo !*int !*reduce4 semic!*);
+fluid '(!*echo !*int !*reduce4 semic!* ifl!* curline!*);
 
-global '(contl!* curline!* ifl!* ipl!* linelist!* ofl!* opl!* techo!*);
+global '(contl!* ipl!* linelist!* ofl!* opl!* techo!*);
 
 symbolic procedure file!-transform(u,v);
    % Performs a transformation on the file u.  V is name of function
@@ -49,8 +49,10 @@ symbolic procedure file!-transform(u,v);
 
 symbolic procedure infile u;
    % Loads the single file u into REDUCE without echoing.
-   begin scalar !*int;
-   return file!-transform(u,function begin1)
+   begin scalar !*int, ifl!*, curline!*;
+     ifl!* := list u;
+     curline!* := 1;
+     return file!-transform(u,function begin1)
    end;
 
 symbolic procedure in u; in_non_empty_list u;  % REDUCE 3 hook.
@@ -63,7 +65,7 @@ symbolic procedure in_non_empty_list u; in_non_empty_list1(u, nil);
 
 symbolic procedure in_non_empty_list1(u, prefixchars);
    begin scalar echop;
-      echop := null(semic!* eq '!$); % Record echo character from input.
+      echop := null(semic!* = '!$); % Record echo character from input.
       if null ifl!* then techo!* := !*echo;   % Terminal echo status.
       if !*reduce4 then u := value u;
       for each fl in u do in_list1a(fl,echop,prefixchars);
@@ -129,7 +131,7 @@ symbolic procedure in_list1a(fl,echop,prefixchars);
        else ipl!* := cdr ipl!*
    end;
 
-symbolic procedure out u; out_non_empty_list u;  % REDUCE 3 hook.
+symbolic procedure out u; out_non_empty_list u;
 
 symbolic procedure out_non_empty_list u;
    % U is a list of one file.
@@ -140,7 +142,7 @@ symbolic procedure out_non_empty_list u;
       u := car u;
       if !*reduce4 then if type u neq 'string then typerr(u,'string)
                          else u := value u;
-      if u eq 't then return <<wrs(ofl!* := nil); nil>>;
+      if u = 't then return <<wrs(ofl!* := nil); nil>>;
       fl := mkfil u;
       if not (x := assoc(fl,opl!*))
         then <<chan := open(fl,'output);
@@ -152,7 +154,7 @@ symbolic procedure out_non_empty_list u;
       if !*reduce4 then return mkobject(nil,'noval)
    end;
 
-symbolic procedure shut u; shut_non_empty_list u;  % REDUCE 3 hook.
+symbolic procedure shut u; shut_non_empty_list u;
 
 symbolic procedure shut_non_empty_list u;
    % U is a list of names of files to be shut.
@@ -175,7 +177,7 @@ symbolic procedure shut_non_empty_list u;
       if !*reduce4 then return mkobject(nil,'noval)
    end;
 
-deflist ('((in rlis) (in_tex rlis) (out rlis) (shut rlis)),'stat);  % REDUCE 3 only.
+deflist ('((in rlis) (in_tex rlis) (out rlis) (shut rlis)),'stat);
 
 flag ('(in in_tex out shut),'eval);
 

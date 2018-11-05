@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: svdp.red 84 2009-02-07 07:53:22Z thomas-sturm $
 % ----------------------------------------------------------------------
 % Copyright (c) 1999-2009 Andreas Dolzmann and Thomas Sturm
 % ----------------------------------------------------------------------
@@ -30,7 +30,7 @@
 
 lisp <<
    fluid '(svdp_rcsid!* svdp_copyright!*);
-   svdp_rcsid!* := "$Id$";
+   svdp_rcsid!* := "$Id: svdp.red 84 2009-02-07 07:53:22Z thomas-sturm $";
    svdp_copyright!* := "Copyright (c) 1999-2009 A. Dolzmann and T. Sturm"
 >>;
 

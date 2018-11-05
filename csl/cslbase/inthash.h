@@ -1,4 +1,4 @@
-// inthash.h                                      Copyright A C Norman 2016
+// inthash.h                                      Copyright A C Norman 2017
 
 // The code here provides an implementation of hash tables that use
 // integer keys (uintptr_t) and can optionally associate similar width
@@ -36,7 +36,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -60,31 +60,14 @@
  * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND *
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR  *
  * TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF     *
- * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE * POSSIBILITY OF SUCH *
+ * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH   *
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: inthash.h 3993 2017-04-11 16:48:04Z arthurcnorman $
 
 #ifndef __inthash_h
 #define __inthash_h 1
-
-#include <stdlib.h>
-
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS 1
-#endif
-#ifndef __STDC_CONSTANT_MACROS
-#define __STDC_CONSTANT_MACROS 1
-#endif
-#include <stdint.h>
-
-#ifndef DEBUG
-#define NDEBUG 1
-#endif
-
-#include <assert.h>
-
 
 // The structure "inthash" is used to encapsulate a table. In almost
 // all cases I hope that people will neither need nor want to inspect the
@@ -94,15 +77,33 @@
 // main table are recorded with the numeric value 0 in them, because 0
 // will not be a valid key.
 
+#ifdef CHECK_INTHASH
+
+typedef struct _hash_alist
+{
+    uintptr_t key;
+    uintptr_t value;
+    struct _hash_alist *next;
+} hash_alist;
+
+#endif
+
 typedef struct _inthash
 {
     size_t size;
     size_t count;
-    uintptr_t *hash;
-    uintptr_t *value;
+    uintptr_t *keys;
+    uintptr_t *values;
     int shift;
     size_t mult1;
     size_t mult2;
+#ifdef CHECK_INTHASH
+// If I am debugging I will run a simple association-list style table
+// alongside the hash table and compare results. This will be really bad
+// for performance but should allow me to verify proper behaviour of
+// everything.
+    hash_alist *chain;
+#endif
 } inthash;
 
 // Before any use the hash one must initialize the structure. The argument

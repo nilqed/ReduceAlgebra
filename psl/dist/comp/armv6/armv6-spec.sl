@@ -1,12 +1,34 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% File:           pxc/sun-spec.SL
+% File:           pxc/armv6-spec.SL
 % Title:          Some special things for sun PSL compiler
 % Author:         Winfried Neun , ZIB Berlin
-% Created:        9 Feb 1989
-% Status:         Experimental
+% Created:        6 May 2018
+% Status:         Open Source: BSD License
 % Mode:           Lisp
 % Package:        Compiler
+%
+% Redistribution and use in source and binary forms, with or without
+% modification, are permitted provided that the following conditions are met:
+%
+%    * Redistributions of source code must retain the relevant copyright
+%      notice, this list of conditions and the following disclaimer.
+%    * Redistributions in binary form must reproduce the above copyright
+%      notice, this list of conditions and the following disclaimer in the
+%      documentation and/or other materials provided with the distribution.
+%
+% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+% THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+% PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNERS OR
+% CONTRIBUTORS
+% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+% INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+% POSSIBILITY OF SUCH DAMAGE.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -17,7 +39,7 @@
 %                     (t (prog (a b c) ....))
 %
 % a frame of length 4 will be allocated, but it will not be preset (by nil)
-% completely at entering the functiont but the frmae elements for a b and c
+% completely at entering the functiont but the frame elements for a b and c
 % will be set (to nil) if the prog is entered.
 % So if the (null x) case is taken we have 3 unset frame elements on the stack
 % which contain random information and this is dangerous for gc.
@@ -25,6 +47,8 @@
 % to pass-1-lap and insert nil settings where needed.
 
 (fluid '(&fillframeholes &frame-numbers))
+
+(global '(*writingasmfile))
 
 (compiletime (flag '(findcmacro lookatinstruction) 'internalfunction)) 
  
@@ -43,7 +67,7 @@
  
             % so we have to work, starting at the *alloc 
  
-      (setq nn (cadar allo))  %the frmae size              
+      (setq nn (cadar allo))  %the frame size              
       (setq linearcode t)
       (setq restcode (cdr allo))       
  
@@ -62,7 +86,7 @@
  
       (for (from i 1 nn 1) (do
             (unless (memq i &frame-numbers)
-                  (rplaca ll `(*move (reg t1) (frame ,i)))
+                  (rplaca ll `(*move (reg nil) (frame ,i)))
                   (when (eq &fillframeholes 'verbose) 
                     (prin2 "++ in ") (prin2 name&)
                     (prin2 " presetting frame ")
@@ -72,8 +96,7 @@
       (when (eq lll ll) (return code))
       (rplacd lll (cdr allo))
  
-      (rplaca ll `(*move (quote nil) (reg t1)))
-      (rplacd allo ll)
+      (rplacd allo (cdr ll))
       (return code))) 
          
 (de lookatinstruction (instr)
@@ -103,6 +126,8 @@
 (de asmoutlap (u)
   (prog (locallabels* oldout)
         (setq u (pass1lap (&fillframeholes u)))
+	(setq U (LapoptFrame u))
+	(setq U (LapoptPeep u)) 
         % Expand cmacros, quoted expressions
         (codeblockheader)
         (setq oldout (wrs codeout*))
@@ -114,17 +139,31 @@
 
 % fix for nbig30 bignums in faslout
 
+%(de AddString (Expression)
+%  (if *writingasmfile
+%      (progn (AddRoFullWord (Size Expression))
+%	     (RoDataPrintString Expression))
+%    (progn (AddFullWord (Size Expression))
+%	   (AddCode (list 'STRING Expression)))
+%    )
+%  )
+
 (de AppendContents (ExpressionLabelPair)
   (prog (Expression UpperBound I)
-        (AddCodeLabel (cdr ExpressionLabelPair))
+%	(if (and *writingasmfile (StringP (car ExpressionLabelPair)))
+%	    (AddRoDataLabel (cdr ExpressionLabelPair))
+	  (AddCodeLabel (cdr ExpressionLabelPair))
+%	  )
         (setq Expression (car ExpressionLabelPair))
         (cond ((PairP Expression)
                (progn (AppendItem (car Expression))
                       (AppendItem (cdr Expression))))
               ((StringP Expression)
-               (progn (AddFullWord (Size Expression))
-                      (AddCode (list 'STRING Expression))))
-              ((VectorP Expression)
+	       (AddFullWord (Size Expression))
+	       (AddCode (list 'STRING Expression))
+%	       (AddString Expression)
+	       )
+              ((or (VectorP Expression) (EVectorP Expression))
                (progn (setq UpperBound (ISizeV Expression))
                       (AddFullWord UpperBound)
                       (setq I 0)
@@ -162,4 +201,46 @@
                ',(minus (powerof2p (constant-value arg2)))))
      (t form))))
 
+(put 'cons 'opencode
+      '((STR (reg 1) (displacement (reg heaplast) 0))
+        (*move 9 (reg 1))
+        (*wshift (reg 1) 27)
+        (*wplus2 (reg 1) (reg heaplast))
+        (STR (reg 2) (displacement (reg heaplast) 8))
+        (*wplus2 (reg heaplast) 16)
+        (*jumpwlessp (labelgen templabel) (reg heaplast) (reg heaptrapbound))
+        (*push (reg 1))
+        (*link !%reclaim expr 0)
+        (*pop (reg 1))
 
+        (labelref templabel)))
+
+(put 'ncons 'opencode
+      '((STR (reg 1) (displacement (reg heaplast) 0))
+        (*move 9 (reg 1))
+        (*wshift (reg 1) 27)
+        (*wplus2 (reg 1) (reg heaplast))
+        (STR (reg nil) (displacement (reg heaplast) 8))
+        (*wplus2 (reg heaplast) 16)
+        (*jumpwlessp (labelgen templabel) (reg heaplast) (reg heaptrapbound))
+        (*push (reg 1))
+        (*link !%reclaim expr 0)
+        (*pop (reg 1))
+
+        (labelref templabel))
+)
+
+(put 'xcons 'opencode
+      '((STR (reg 1) (displacement (reg heaplast) 8))
+        (*move 9 (reg 1))
+        (*wshift (reg 1) 27)
+        (*wplus2 (reg 1) (reg heaplast))
+        (STR (reg 2) (displacement (reg heaplast) 0))
+        (*wplus2 (reg heaplast) 16)
+        (*jumpwlessp (labelgen templabel) (reg heaplast) (reg heaptrapbound))
+        (*push (reg 1))
+        (*link !%reclaim expr 0)
+        (*pop (reg 1))
+
+        (labelref templabel))
+)

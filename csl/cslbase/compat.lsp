@@ -1,3 +1,5 @@
+% compat.lsp                               Copyright (C) Codemist 2016-2017
+
 % This file defines functions and variables needed to make REDUCE
 % and the underlying CSL system compatible. it should
 % be loaded as the first file whenever REDUCE services are required.
@@ -34,10 +36,10 @@
 % variables (the one to !!fleps1 bit me!) that ought not to be done
 % more than once. 
 
-% $Id$
+% $Id: compat.lsp 4188 2017-09-08 07:44:29Z arthurcnorman $
 
 (cond
-  ((not (fluidp '!!fleps1)) (progn
+  ((not (globalp '!!fleps1)) (progn
 
 %%!!! csl
 
@@ -73,7 +75,8 @@
 % only do this once
 
 (cond
-   ((null (symbol!-env 'logand))
+   ((or (null (symbol!-env 'logand))
+        (eq (symbol!-env 'logand) 'logand))
      (symbol!-set!-env 'logand 1)
      (symbol!-set!-env 'logxor 6)
      (symbol!-set!-env 'logor 7)
@@ -84,7 +87,7 @@
      (symbol!-set!-env 'leqv 9))
 )
 
-(make!-special '!!fleps1)
+(make!-global '!!fleps1)
 
 %%! predef [!fleps] \item [{\ttfamily !!fleps1}] \index{{\ttfamily "!fleps}} ~\newline
 %% There is a function safe!-fp!-plus that performs floating point
@@ -93,10 +96,10 @@
 %% but the current code does not use the Lisp variable at all and instead does
 %% things based on the bitwise representation of the numbers.
 
-(make!-special '!!plumax)
-(make!-special '!!plumin)
-(make!-special '!!timmax)
-(make!-special '!!timmin)
+(make!-global '!!plumax)
+(make!-global '!!plumin)
+(make!-global '!!timmax)
+(make!-global '!!timmin)
 % The following values for !!fleps etc appear to be what Reduce expects
 % when using IEEE double-precision arithmetic.
 (setq !!fleps1 5.6843418860808e-14)
@@ -104,11 +107,6 @@
 (setq !!plumin 4.4501477170144e-296)
 (setq !!timmax 4.74037595405459e+153)
 (setq !!timmin 2.1095373229726e-154)
-
-%(symbol!-set!-env 'safe!-fp!-plus '(!!fleps1 !!plumax . !!plumin))
-%(symbol!-set!-env 'safe!-fp!-pl '(!!plumax . !!plumin))
-%(symbol!-set!-env 'safe!-fp!-times '(!!timmax . !!timmin))
-%(symbol!-set!-env 'safe!-fp!-quot '(!!timmax . !!timmin))
 
 (cond ((null (flagp 'printprompt 'lose))
        (de printprompt (u) nil)))
@@ -119,11 +117,13 @@
 
 (make!-global 'crbuf!*)
 
-(make!-global 'blank)
-(make!-global '!$eol!$)
-(make!-global 'tab)
-(make!-global '!$eof!$)
-(make!-global 'esc!*)
+(make!-global 'blank)              % blank, space
+(make!-global '!$eol!$)            % end-of-line, linefeed
+(make!-global '!$ff!$)             % form-feed
+(make!-global 'tab)                % (horizontal) tab
+(make!-global 'carriage!-return)   % carriage return
+(make!-global '!$eof!$)            % end-of-file
+(make!-global 'esc!*)              % escape character
 
 (make!-special '!*notailcall)
 (make!-special '!*carcheckflag)
@@ -160,7 +160,7 @@
 %%! predef [$ff$] \item [{\ttfamily !\$ff!\$}] \index{{\ttfamily !\$ff!\$}} ~\newline
 %% The value of this variable is a form-feed character.
 
-%%! predef [carriage-return] \item [{\ttfamily carriage\!-return}] \index{{\ttfamily carriage"!-return}} ~\newline
+%%! predef [carriage-return] \item [{\ttfamily carriage!-return}] \index{{\ttfamily carriage"!-return}} ~\newline
 %% The value of this variable is a carriage-return character that could arise
 %% in DOS-format files.
 
@@ -181,13 +181,6 @@
 
 (setq crbuf!* (list !$eol!$))    % may not be necessary
 
-% Since this should never get called I will just not define it here!
-
-%(de symerr (u v)
-%  (progn (terpri)
-%     (print (list 'symerr u v))
-%     (error 'failure)))
-
 (make!-global '!*full!-oblist)
 
 (setq !*full!-oblist nil)
@@ -198,9 +191,9 @@
 
 
 (remflag '(geq leq neq logand logor logxor leftshift princ printc
-	evenp reversip seprp atsoc eqcar flagp!*!* flagpcar get!*
-	prin1 prin2 apply0 apply1 apply2 apply3 smemq spaces
-	subla gcdn lcmn printprompt pair putc) 'lose)
+   evenp reversip seprp atsoc eqcar flagp!*!* flagpcar get!*
+   prin1 prin2 apply0 apply1 apply2 apply3 smemq spaces
+   subla gcdn lcmn printprompt pair putc) 'lose)
 
 (de rplacw (a b) (progn (rplaca a (car b)) (rplacd a (cdr b))))
 
@@ -209,11 +202,11 @@
       ((null (cdr l)) (car l))
       (t (list fn (car l) (expand (cdr l) fn)))))
 
-% (dm plus (a)
+% (dm plus (a !&optional env)
 %    (cond ((null (cdr a)) 0)
 %          (t (expand (cdr a) 'plus2))))
 %
-% (dm times (a)
+% (dm times (a !&optional env)
 %    (cond ((null (cdr a)) 1)
 %          (t (expand (cdr a) 'times2))))
 
@@ -233,11 +226,11 @@
 
 (de mapcan (l fn)
   (cond ((null l) nil)
-	(t (nconc (funcall fn (car l)) (mapcan (cdr l) fn)))))
+        (t (nconc (funcall fn (car l)) (mapcan (cdr l) fn)))))
 
 (de mapcon (l fn)
   (cond ((null l) nil)
-	(t (nconc (funcall fn l) (mapcon (cdr l) fn)))))
+        (t (nconc (funcall fn l) (mapcon (cdr l) fn)))))
 
 (de mapc (l fn)
   (prog ()
@@ -267,8 +260,8 @@
 (de rassoc (x l)        % Not in Standard Lisp
    (prog ()
 loop  (cond ((atom l) (return nil))
-	    ((equal x (cdar l)) (return (car l)))
-	    (t (setq l (cdr l)) (go loop))) ))
+            ((equal x (cdar l)) (return (car l)))
+            (t (setq l (cdr l)) (go loop))) ))
 
 (de lastcar (x)         % Not in Standard Lisp
    (cond
@@ -308,7 +301,7 @@ loop  (cond ((atom l) (return nil))
 (de putd (a type b)
   (progn
      (cond
-	((eqcar b 'funarg) (setq b (cons 'lambda (cddr b)))))
+        ((eqcar b 'funarg) (setq b (cons 'lambda (cddr b)))))
      (cond
         ((flagp a 'lose) (progn
            (terpri) (princ "+++ ") (prin a)
@@ -320,7 +313,7 @@ loop  (cond ((atom l) (return nil))
                    (terpri) (princ "+++ ") (prin a) (printc " redefined"))))
              (cond
                 ((eq type 'expr) (symbol!-set!-definition a b))
-		((eq type 'subr) (symbol!-set!-definition a b))
+                ((eq type 'subr) (symbol!-set!-definition a b))
                 ((and (eq type 'macro) (eqcar b 'lambda))
                    (eval (list!* 'dm a (cdr b))))
 % CSL does not really support user-defined special forms and so at some
@@ -393,6 +386,14 @@ top (cond ((null a) (return (reversip r))))
       (setq l (cdr l))
       (go top)))
 
+(de keyword (l)
+   (prog nil
+ top  (cond ((null l) (return nil)))
+      (make!-keyword (car l))
+      (cond ((not (boundp (car l))) (set (car l) nil)))
+      (setq l (cdr l))
+      (go top)))
+
 (de unglobal (l)
    (prog ()
  top  (cond ((null l) (return nil)))
@@ -407,6 +408,13 @@ top (cond ((null a) (return (reversip r))))
       (setq l (cdr l))
       (go top)))
 
+(de unkeyword (l)
+   (prog ()
+ top  (cond ((null l) (return nil)))
+      (unmake!-keyword (car l))
+      (setq l (cdr l))
+      (go top)))
+
 (global '(ofl!*))
 
 (de carcheck (n)
@@ -416,13 +424,6 @@ top (cond ((null a) (return (reversip r))))
       (setq !*carcheckflag n)
       (return old)))
 
-(de s!:oblist (v r)
-   (prog (n a)
-      (setq n (upbv v))
-top   (cond ((minusp n) (return r)))
-      (setq a (getv v n))
-      (cond
-	 ((and (idp a)
 % I list things that have a function value of some sort or that have
 % a non-empty property-list.  Symbols that have been mentioned but which do
 % not have properties or values are missed out since they are dull and
@@ -433,37 +434,63 @@ top   (cond ((minusp n) (return r)))
 %
 % Well, the flag !*full!-oblist can be set to force inclusion of
 % everything!
-	       (or !*full!-oblist
-                   (symbol!-function a)
-		   (macro!-function a)
-		   (special!-form!-p a)
-		   (fluidp a)
-		   (globalp a)
-		   (not (null (plist a)))))
-	  (setq r (cons a r))))
-      (setq n (sub1 n))
-      (go top)))
 
-(de s!:oblist1 (v r)
-   (cond
-      ((null v) r)
-      ((vectorp v) (s!:oblist v r))
+(cond
+   ((getd 'all!-symbols)
+
+    (de oblist ()
+       (sort
+          (cond
+             (!*full!-oblist (all!-symbols t))
+             (t (all!-symbols)))
+          (function orderp)))
+
+    (de mapobl (fn)
+       (prog (u)
+          (setq u (all!-symbols))
+       top(cond
+             ((null u) (return nil)))
+          (funcall fn (car u))
+          (setq u (cdr u))
+          (go top)))  )
+   (t
+    (de s!:oblist (v r)
+       (prog (n a)
+          (setq n (upbv v))
+    top   (cond ((minusp n) (return r)))
+          (setq a (getv v n))
+          (cond
+             ((and (idp a)
+                (or !*full!-oblist
+                       (symbol!-function a)
+                   (macro!-function a)
+    	           (special!-form!-p a)
+    	           (fluidp a)
+    	           (globalp a)
+    	           (not (null (plist a)))))
+          (setq r (cons a r))))
+          (setq n (sub1 n))
+          (go top)))
+
+    (de s!:oblist1 (v r)
+       (cond
+          ((null v) r)
+          ((vectorp v) (s!:oblist v r))
 % This allows for segmented object-vectors
-      (t (s!:oblist (car v) (s!:oblist1 (cdr v) r)))))
+          (t (s!:oblist (car v) (s!:oblist1 (cdr v) r)))))
 
-(de oblist ()
-   (sort (s!:oblist1 (getv !*package!* 1) nil)
-	 (function orderp)))
+    (de oblist ()
+       (sort (s!:oblist1 (getv !*package!* 1) nil)
+             (function orderp)))
 
-
-(de mapobl (fn)
-   (prog (u)
-      (setq u (s!:oblist1 (getv !*package!* 1) nil))
-   top(cond
-         ((null u) (return nil)))
-      (funcall fn (car u))
-      (setq u (cdr u))
-      (go top)))
+    (de mapobl (fn)
+       (prog (u)
+          (setq u (s!:oblist1 (getv !*package!* 1) nil))
+       top(cond
+             ((null u) (return nil)))
+          (funcall fn (car u))
+          (setq u (cdr u))
+          (go top)))   ))
 
 % Now a few things not needed by Standard Lisp but maybe helpful
 % when using Lisp directly.
@@ -489,7 +516,7 @@ top   (cond ((minusp n) (return r)))
           (list 'setq (car u) (car vars))
           (s!:make!-psetq!-assignments (cdr vars) (cddr u)))))
 
-(dm psetq (x)
+(dm psetq (x !&optional env)
    (!~let ((vars (s!:make!-psetq!-vars (cdr x))))
       `(let!* ,(s!:make!-psetq!-bindings vars (cdr x))
          ,@(s!:make!-psetq!-assignments vars (cdr x)))))
@@ -557,9 +584,9 @@ top   (cond ((minusp n) (return r)))
                ,@upd
                (go ,g)))))
 
-(dm do (u) (s!:expand!-do (cdr u) '!~let 'psetq))
+(dm do (u !&optional env) (s!:expand!-do (cdr u) '!~let 'psetq))
 
-(dm do!* (u) (s!:expand!-do (cdr u) 'let!* 'setq))
+(dm do!* (u !&optional env) (s!:expand!-do (cdr u) 'let!* 'setq))
 
 (de s!:expand!-dolist (vir b)
    (prog (l v var init res)
@@ -576,7 +603,7 @@ top   (cond ((minusp n) (return r)))
                 (setq ,v (cdr ,v))
                 (go ,l)))))
 
-(dm dolist (u) (s!:expand!-dolist (cadr u) (cddr u)))
+(dm dolist (u !&optional env) (s!:expand!-dolist (cadr u) (cddr u)))
 
 (de s!:expand!-dotimes (vnr b)
    (prog (l v var count res)
@@ -593,12 +620,12 @@ top   (cond ((minusp n) (return r)))
                 (setq ,var (add1 ,var))
                 (go ,l)))))
 
-(dm dotimes (u) (s!:expand!-dotimes (cadr u) (cddr u)))
+(dm dotimes (u !&optional env) (s!:expand!-dotimes (cadr u) (cddr u)))
 
 (flag '(geq leq neq logand logor logxor leftshift princ printc
-	evenp reversip seprp atsoc eqcar flagp!*!* flagpcar get!*
-	prin1 prin2 apply0 apply1 apply2 apply3 smemq spaces
-	subla gcdn lcmn printprompt pair putc) 'lose)
+        evenp reversip seprp atsoc eqcar flagp!*!* flagpcar get!*
+        prin1 prin2 apply0 apply1 apply2 apply3 smemq spaces
+        subla gcdn lcmn printprompt pair putc) 'lose)
 
 
 % end of compat.lsp

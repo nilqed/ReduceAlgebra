@@ -1,4 +1,4 @@
-// utfcheck.cpp                           Copyright (C) 2016 Codemist    
+// utfcheck.cpp                            Copyright (C) 2016-2017 Codemist    
 
 //
 // This is a pretty silly program! It looks at Unicode characters and tests
@@ -20,7 +20,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -48,8 +48,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
-
+// $Id: utf8check.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
 
 
 #include <stdio.h>
@@ -137,4 +136,4 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-// end of utf8check.cpppp
+// end of utf8check.cpp

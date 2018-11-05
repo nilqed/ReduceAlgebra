@@ -91,7 +91,7 @@ module smacro;  % Support for SMACRO expansion
 %    ... f(v, v+3) ...
 % Oh dear: v+3 is probably not tagged as side-effect free and both a and b
 % are used twice in the function body. But there seems to be a clear
-% expectation that the firts argument will be textually substituted so that
+% expectation that the first argument will be textually substituted so that
 % the assignments take full effect.
 %
 %    smacro procedure f a; ... a ... (lambda (a) ...) ...;
@@ -109,7 +109,7 @@ module smacro;  % Support for SMACRO expansion
 %   smacro procedure increment a; a := a + 1;
 % This illustrates a case where it is clear that a direct textual expansion
 % is expected. However despite "car x := car x + 1" being accepted syntax the
-% order in which things are dons means that "increment (car x)" expands to
+% order in which things are done means that "increment (car x)" expands to
 % and illegal (setq (car x) (plus (car x) 1)) in Reduce 3.8. And
 % increment (getv(x, 2)) becomes ((lambda (a) (setq a (plus a 1))) (getv x 2)).
 % because while CAR is tagged as side-effect free GETV is not.
@@ -262,7 +262,7 @@ symbolic procedure log_freevars_list(varlist, u, isprog);
 
 symbolic procedure no!-side!-effectp u;
    if atom u then numberp u or (idp u and not(fluidp u or globalp u))
-    else if car u eq 'quote then t
+    else if car u = 'quote then t
     else if flagp(car u,'nosideeffects)
      then no!-side!-effect!-listp cdr u
     else nil;
@@ -320,7 +320,7 @@ symbolic procedure subla!-q(u,v);
         if null u or null v then return v
          else if atom v
                  then return if x:= atsoc(v,u) then cdr x else v
-         else if car v eq 'quote or car v eq 'go then return v
+         else if car v = 'quote or car v = 'go then return v
          else if (eqcar(v, 'lambda) or eqcar(v, 'prog)) and
                  not atom cdr v then <<
             x := cadr v;  % (LAMBDA x . body) or (PROG x . body)

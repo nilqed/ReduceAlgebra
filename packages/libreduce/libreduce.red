@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: libreduce.red 4088 2017-06-21 21:41:58Z arthurcnorman $
 % ----------------------------------------------------------------------
 % Copyright (c) 2008-2013 Thomas Sturm
 % ----------------------------------------------------------------------
@@ -30,7 +30,7 @@
 
 lisp <<
    fluid '(lr_rcsid!* lr_copyright!*);
-   lr_rcsid!* := "$Id$";
+   lr_rcsid!* := "$Id: libreduce.red 4088 2017-06-21 21:41:58Z arthurcnorman $";
    lr_copyright!* := "(c) 2008-2013 T. Sturm"
 >>;
 
@@ -38,7 +38,8 @@ module coloutput;
 
 fluid '(!*mode);
 
-global '(statcounter !*libreduce_active);
+fluid '(!*libreduce_active);
+global '(statcounter);
 
 % Having this variable set to true will cause the main function add2resultbuf
 % to do extra work that is as required here... And if you then set this
@@ -193,7 +194,9 @@ if lr_pslp() then <<
    flag('(yesp),'lose)
 >>;
 
-% Color PSL prompts, in case user falls through:
+% Color PSL prompts, in case user falls through. The issue of
+% whether this matters at all in the CVS case or with any other Lisp
+% systems is unresolved.
 
 #if (memq 'psl lispsystem!*)
 

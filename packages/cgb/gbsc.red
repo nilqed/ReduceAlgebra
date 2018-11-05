@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: gbsc.red 84 2009-02-07 07:53:22Z thomas-sturm $
 % ----------------------------------------------------------------------
 % Copyright (c) 2003-2009 Andreas Dolzmann and Lorenz Gilch
 % ----------------------------------------------------------------------
@@ -30,7 +30,7 @@
 
 lisp <<
    fluid '(gbsc_rcsid!* gbsc_copyright!*);
-   gbsc_rcsid!* := "$Id$";
+   gbsc_rcsid!* := "$Id: gbsc.red 84 2009-02-07 07:53:22Z thomas-sturm $";
    gbsc_copyright!* := "Copyright (c) 2003-2009 A. Dolzmann and L. Gilch"
 >>;
 

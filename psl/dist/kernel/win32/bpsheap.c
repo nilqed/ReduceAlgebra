@@ -8,6 +8,7 @@
 % Modified:
 % Mode:         Text
 % Package:
+% Status:       Open Source: BSD License
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -62,7 +63,7 @@
 
 #define NUMBEROFHEAPS 1
 
-#define MINSIZE        8000000  /* Default total in number of bytes. */
+#define MINSIZE        16000000  /* Default total in number of bytes. */
 #define MALLOCSIZE     500000   /* Default size for OS support functions. */
 #define EXTRABPSSIZE   300000   /* Minimum amount to increase bps by. */
 #define MINIMUMHEAPADD 20000    /* Minimum amount to increase heap by */
@@ -121,6 +122,7 @@ char * external_getenv(char *);
 
 void setupbps();
 void getheap(int,int);
+char * cygpath2winpath(char * cygpath);
 
 /* Write this ourselves to keep from including half the math library */
 static power(x, n)
@@ -327,8 +329,8 @@ setupbpsandheap(argc,argv)
          s1 = imagefile;
          while(*s1) *s2++ = *s1++;
          *s2 = 0;
-     
-         imago = fopen (tempname,"rb");
+
+         imago = fopen (cygpath2winpath(tempname),"rb");
          if (imago == NULL) { 
 		   perror (tempname); 
 		   exit (-1);

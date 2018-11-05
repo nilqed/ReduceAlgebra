@@ -9,7 +9,7 @@
 % Modified:     17-Jul-84 22:49:12 (RAM)
 % Mode:         Text
 % Package:
-% Status:       Experimental (Do Not Distribute)
+% Status:       Open Source: BSD License
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -99,6 +99,8 @@ extern LONG unixnull, unixeof;
 extern my_pwrite(char *buf, int len);
 extern my_pread(char *buf, int len);
 extern long pipe_write(HANDLE, LPSTR, long);
+
+extern char * cygpath2winpath(char * cygpath);
 
 unixinitio()
 {
@@ -327,7 +329,7 @@ char *fname;
       ;
       *c = '\0';
   }
-  return (collect);
+  return (cygpath2winpath(collect));
 }
 
 FILE * unixopen(filename, type)

@@ -1,11 +1,11 @@
-//  arith10.cpp                       Copyright (C) 1990-2016 Codemist    
+//  arith10.cpp                            Copyright (C) 1990-2017 Codemist
 
 //
 // Arithmetic functions.
 //
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -34,7 +34,7 @@
  *************************************************************************/
 
 
-// $Id$
+// $Id: arith10.cpp 4188 2017-09-08 07:44:29Z arthurcnorman $
 
 
 #include "headers.h"
@@ -387,30 +387,22 @@ static LispObject make_complex_float(Complex v, LispObject a)
 // components of a will have the same type so only one needs testing.
 // I do the 'onevalue' here.
 //
+// Note that regardless of their input type the elementary functions deliver
+// at most double precision results.
 {   int32_t type;
-    LispObject a1, a2, nil;
+    LispObject a1, a2;
     a = real_part(a);
-#ifdef SHORT_FLOAT
     if (is_sfloat(a))
-    {   Float_union r, i;
-        r.f = (float)v.real;
-        i.f = (float)v.imag;
-        a1 = make_complex((r.i & ~(int32_t)0xf) + TAG_SFLOAT,
-                          (i.i & ~(int32_t)0xf) + TAG_SFLOAT);
-        errexit();
-        return onevalue(a1);
-    }
-#endif
+        return onevalue(make_complex(pack_immediate_float(v.real, a),
+                                     pack_immediate_float(v.imag, a)));
     if (is_bfloat(a)) type = type_of_header(flthdr(a));
     else type = TYPE_SINGLE_FLOAT;
+    if (type == TYPE_LONG_FLOAT) type = TYPE_DOUBLE_FLOAT;
 // There are MANY uses of make_boxfloat here. In pretty well all cases I let
 // make_boxfloat do any overflow checks, and I do not support 128-bit floats.
     a1 = make_boxfloat(v.real, type);
-    errexit();
     a2 = make_boxfloat(v.imag, type);
-    errexit();
     a1 = make_complex(a1, a2);
-    errexit();
     return onevalue(a1);
 }
 
@@ -716,10 +708,13 @@ static double rcbrt(double a)
 //
 // b is now in the range 0.5 to 1.  The next line produces an
 // approximately minimax linear approximation to the cube root
-//% function over the range concerned.
+// function over the range concerned.
 //
     b = 0.5996 + 0.4081*b;
-    while (x % 3 != 0) x--; b *= 1.26;
+    while (x % 3 != 0)
+    {   x--;
+        b *= 1.26;
+    }
     b = ldexp(b, x/3);
 //
 // Experiment shows that there are values of the input variable
@@ -1172,56 +1167,57 @@ typedef struct trigfn
 {   double (*real)(double);
     double (*imag)(double);
     Complex (*complex)(Complex);
+    const char *name;
 } trigfn_record;
 
 static trigfn_record const trig_functions[] =
-{   {racos,  iacos,  CSLcacos},  // acos   0  inverse cos, rads, [0, pi)
-    {racosd, iacosd, CSLcacosd}, // acosd  1  inverse cos, degs, [0, 180)
-    {racosh, iacosh, CSLcacosh}, // acosh  2  inverse hyperbolic cosine
-    {racot,  NULL,   CSLcacot},  // acot   3  inverse cot, rads, (0, pi)
-    {racotd, NULL,   CSLcacotd}, // acotd  4  inverse cot, degs, (0, 180)
-    {racoth, iacoth, CSLcacoth}, // acoth  5  inverse hyperbolic cotangent
-    {racsc,  iacsc,  CSLcacsc},  // acsc   6  inverse cosec, [-pi/2, pi/2]
-    {racscd, iacscd, CSLcacscd}, // acscd  7  inverse cosec, degs, [-90, 90]
-    {racsch, NULL,   CSLcacsch}, // acsch  8  inverse hyperbolic coseCSLcant
-    {rasec,  iasec,  CSLcasec},  // asec   9  inverse sec, rads, [0, pi)
-    {rasecd, iasecd, CSLcasecd}, // asecd  10 inverse sec, degs, [0, 180)
-    {rasech, iasech, CSLcasech}, // asech  11 inverse hyperbolic seCSLcant
-    {rasin,  iasin,  CSLcasin},  // asin   12 inverse sin, rads, [-pi/2, pi/2]
-    {rasind, iasind, CSLcasind}, // asind  13 inverse sin, degs, [-90, 90]
-    {CSLasinh, NULL, CSLcasinh}, // asinh  14 inverse hyperbolic sin
-    {atan,   NULL,   CSLcatan},  // atan   15 1-arg inverse tan, (-pi/2, pi/2)
-    {ratand, NULL,   CSLcatand}, // atand  16 inverse tan, degs, (-90, 90)
-    {NULL,   NULL,   NULL},   // atan2  17 2-arg inverse tan, [0, 2pi)
-    {NULL,   NULL,   NULL},   // atan2d 18 2-arg inverse tan, degs, [0, 360)
-    {ratanh, iatanh, CSLcatanh}, // atanh  19 inverse hyperbolic tan
-    {rcbrt,  NULL,   ccbrt},  // cbrt   20 cube root
-    {my_cos, NULL,   Ccos},   // cos    21 cosine, rads
-    {rcosd,  NULL,   CSLccosd},  // cosd   22 cosine, degs
-    {cosh,   NULL,   CSLccosh},  // cosh   23 hyperbolic cosine
-    {rcot,   NULL,   CSLccot},   // cot    24 cotangent, rads
-    {rcotd,  NULL,   CSLccotd},  // cotd   25 cotangent, degs
-    {rcoth,  NULL,   CSLccoth},  // coth   26 hyperbolic cotangent
-    {rcsc,   NULL,   CSLccsc},   // csc    27 cosecant, rads
-    {rcscd,  NULL,   CSLccscd},  // cscd   28 cosecant, degs
-    {rcsch,  NULL,   CSLccsch},  // csch   29 hyperbolic cosecant
-    {exp,    NULL,   Cexp},   // exp    30 exp(x) = e^z, e approx 2.71828
-    {NULL,   NULL,   NULL},   // expt   31 expt(a,b) = a^b
-    {NULL,   NULL,   NULL},   // hypot  32 hypot(a,b) = sqrt(a^2+b^2)
-    {rln,    iln,    Cln},    // ln     33 log base e, e approx 2.71828
-    {NULL,   NULL,   NULL},   // log    34 2-arg log
-    {rlog10, ilog10, CSLclog10}, // log10  35 log to base 10
-    {rsec,   NULL,   CSLcsec},   // sec    36 secant, rads
-    {rsecd,  NULL,   CSLcsecd},  // secd   37 secant, degs
-    {rsech,  NULL,   CSLcsech},  // sech   38 hyperbolic secant
-    {my_sin, NULL,   CSLcsin},   // sin    39 sine, rads
-    {rsind,  NULL,   CSLcsind},  // sind   40 sine, degs
-    {sinh,   NULL,   CSLcsinh},  // sinh   41 hyperbolic sine
-    {rsqrt,  isqrt,  CSLcsqrt},  // sqrt   42 square root
-    {tan,    NULL,   CSLctan},   // tan    43 tangent, rads
-    {rtand,  NULL,   CSLctand},  // tand   44 tangent, degs
-    {tanh,   NULL,   CSLctanh},  // tanh   45 hyperbolic tangent
-    {rlog2,  ilog2,  CSLclog2}   // log2   46 log to base 2
+{   {racos,  iacos,  CSLcacos,  "acos"},  // acos   0  inverse cos, rads, [0, pi)
+    {racosd, iacosd, CSLcacosd, "acosd"}, // acosd  1  inverse cos, degs, [0, 180)
+    {racosh, iacosh, CSLcacosh, "acosh"}, // acosh  2  inverse hyperbolic cosine
+    {racot,  NULL,   CSLcacot,  "acot"},  // acot   3  inverse cot, rads, (0, pi)
+    {racotd, NULL,   CSLcacotd, "acotd"}, // acotd  4  inverse cot, degs, (0, 180)
+    {racoth, iacoth, CSLcacoth, "acoth"}, // acoth  5  inverse hyperbolic cotangent
+    {racsc,  iacsc,  CSLcacsc,  "acsc"},  // acsc   6  inverse cosec, [-pi/2, pi/2]
+    {racscd, iacscd, CSLcacscd, "acscd"}, // acscd  7  inverse cosec, degs, [-90, 90]
+    {racsch, NULL,   CSLcacsch, "acsch"}, // acsch  8  inverse hyperbolic coseCSLcant
+    {rasec,  iasec,  CSLcasec,  "asec"},  // asec   9  inverse sec, rads, [0, pi)
+    {rasecd, iasecd, CSLcasecd, "asecd"}, // asecd  10 inverse sec, degs, [0, 180)
+    {rasech, iasech, CSLcasech, "asech"}, // asech  11 inverse hyperbolic seCSLcant
+    {rasin,  iasin,  CSLcasin,  "asin"},  // asin   12 inverse sin, rads, [-pi/2, pi/2]
+    {rasind, iasind, CSLcasind, "asind"}, // asind  13 inverse sin, degs, [-90, 90]
+    {CSLasinh, NULL, CSLcasinh, "asinh"}, // asinh  14 inverse hyperbolic sin
+    {atan,   NULL,   CSLcatan,  "atan"},  // atan   15 1-arg inverse tan, (-pi/2, pi/2)
+    {ratand, NULL,   CSLcatand, "atand"}, // atand  16 inverse tan, degs, (-90, 90)
+    {NULL,   NULL,   NULL,      "atan2"}, // atan2  17 2-arg inverse tan, [0, 2pi)
+    {NULL,   NULL,   NULL,      "atan2d"},// atan2d 18 2-arg inverse tan, degs, [0, 360)
+    {ratanh, iatanh, CSLcatanh, "atanh"}, // atanh  19 inverse hyperbolic tan
+    {rcbrt,  NULL,   ccbrt,     "cbrt"},  // cbrt   20 cube root
+    {my_cos, NULL,   Ccos,      "cos"},   // cos    21 cosine, rads
+    {rcosd,  NULL,   CSLccosd,  "cosd"},  // cosd   22 cosine, degs
+    {cosh,   NULL,   CSLccosh,  "cosh"},  // cosh   23 hyperbolic cosine
+    {rcot,   NULL,   CSLccot,   "cot"},   // cot    24 cotangent, rads
+    {rcotd,  NULL,   CSLccotd,  "cotd"},  // cotd   25 cotangent, degs
+    {rcoth,  NULL,   CSLccoth,  "coth"},  // coth   26 hyperbolic cotangent
+    {rcsc,   NULL,   CSLccsc,   "csc"},   // csc    27 cosecant, rads
+    {rcscd,  NULL,   CSLccscd,  "cscd"},  // cscd   28 cosecant, degs
+    {rcsch,  NULL,   CSLccsch,  "csch"},  // csch   29 hyperbolic cosecant
+    {exp,    NULL,   Cexp,      "exp"},   // exp    30 exp(x) = e^z, e approx 2.71828
+    {NULL,   NULL,   NULL,      "expt"},  // expt   31 expt(a,b) = a^b
+    {NULL,   NULL,   NULL,      "hypot"}, // hypot  32 hypot(a,b) = sqrt(a^2+b^2)
+    {rln,    iln,    Cln,       "ln"},    // ln     33 log base e, e approx 2.71828
+    {NULL,   NULL,   NULL,      "log"},   // log    34 2-arg log
+    {rlog10, ilog10, CSLclog10, "log10"}, // log10  35 log to base 10
+    {rsec,   NULL,   CSLcsec,   "sec"},   // sec    36 secant, rads
+    {rsecd,  NULL,   CSLcsecd,  "secd"},  // secd   37 secant, degs
+    {rsech,  NULL,   CSLcsech,  "sech"},  // sech   38 hyperbolic secant
+    {my_sin, NULL,   CSLcsin,   "sin"},   // sin    39 sine, rads
+    {rsind,  NULL,   CSLcsind,  "sind"},  // sind   40 sine, degs
+    {sinh,   NULL,   CSLcsinh,  "sinh"},  // sinh   41 hyperbolic sine
+    {rsqrt,  isqrt,  CSLcsqrt,  "sqrt"},  // sqrt   42 square root
+    {tan,    NULL,   CSLctan,   "tan"},   // tan    43 tangent, rads
+    {rtand,  NULL,   CSLctand,  "tand"},  // tand   44 tangent, degs
+    {tanh,   NULL,   CSLctanh,  "tanh"},  // tanh   45 hyperbolic tangent
+    {rlog2,  ilog2,  CSLclog2,  "log2"}   // log2   46 log to base 2
 };
 
 static LispObject Ltrigfn(unsigned int which_one, LispObject a)
@@ -1230,29 +1226,23 @@ static LispObject Ltrigfn(unsigned int which_one, LispObject a)
 // of elementary functions.
 //
 {   double d;
-    LispObject nil = C_nil;
 #ifndef COMMON
     int32_t restype = TYPE_DOUBLE_FLOAT;
 #else
-//
-// single floats seem to me to be a bad idea!
-//
+// single floats seem to me to be a bad idea! But they are the default
+// for Common Lisp. Boo Hiss.
     int32_t restype = TYPE_SINGLE_FLOAT;
 #endif
-    if (which_one > 46) return aerror("trigfn internal error");
+    if (which_one > 46) aerror("trigfn internal error");
     switch ((int)a & TAG_BITS)
     {   case TAG_FIXNUM:
-            d = (double)int_of_fixnum(a);
+            if (is_sfloat(a))
+            {   d = value_of_immediate_float(a);
+                restype = 0;
+                break;
+            }
+            else d = (double)int_of_fixnum(a);
             break;
-#ifdef SHORT_FLOAT
-        case TAG_SFLOAT:
-        {   Float_union aa;
-            aa.i = a - TAG_SFLOAT;
-            d = (double)aa.f;
-            restype = 0;
-            break;
-        }
-#endif
         case TAG_NUMBERS:
         {   int32_t ha = type_of_header(numhdr(a));
             switch (ha)
@@ -1269,7 +1259,7 @@ static LispObject Ltrigfn(unsigned int which_one, LispObject a)
                     return make_complex_float(c2, a);
                 }
                 default:
-                    return aerror1("bad arg for trig function",  a);
+                    aerror1("bad arg for trig function",  a);
             }
             break;
         }
@@ -1278,7 +1268,7 @@ static LispObject Ltrigfn(unsigned int which_one, LispObject a)
             d = float_of_number(a);
             break;
         default:
-            return aerror1("bad arg for trig function",  a);
+            aerror1("bad arg for trig function",  a);
     }
     {       double (*im)(double) = trig_functions[which_one].imag;
         if (im == NULL)
@@ -1293,82 +1283,50 @@ static LispObject Ltrigfn(unsigned int which_one, LispObject a)
 // Lisp if an elementary function leads to overflow.
 //
         {   double (*rl)(double) = trig_functions[which_one].real;
-            if (rl == NULL) return aerror("unimplemented trig function");
-            d = (*rl)(d);
-            if (trap_floating_overflow &&
-                floating_edge_case(d))
-            {   floating_clear_flags();
-                return aerror("error in floating point elementary function");
-            }
-            a = make_boxfloat(d, restype);
-            errexit();
-            return onevalue(a);
+            if (rl == NULL) aerror("unimplemented trig function");
+            return onevalue(make_boxfloat((*rl)(d), restype));
         }
         else
         {   double c1r, c1i;
-            LispObject nil;
             LispObject rp, ip;
             double (*rl)(double) = trig_functions[which_one].real;
-            if (rl == 0) return aerror("unimplemented trig function");
+            if (rl == 0) aerror("unimplemented trig function");
             c1r = (*rl)(d);
             c1i = (*im)(d);
-            if (trap_floating_overflow &&
-                (floating_edge_case(c1r) ||
-                 floating_edge_case(c1i)))
-            {   floating_clear_flags();
-                return aerror("error in floating point elementary function");
-            }
-            a = make_boxfloat(d, restype);
-//
 // if the imaginary part of the value is zero then I will return a real
 // answer - this is correct since the original argument was real, but
 // it has to be done by hand here because normally complex values with
 // zero imaginary part remain complex.
-//
-            if (c1i == 0.0)
-            {   a = make_boxfloat(c1r, restype);
-                errexit();
-                return onevalue(a);
-            }
+            if (c1i == 0.0) return onevalue(make_boxfloat(c1r, restype));
 #ifndef COMMON
 // For now at least I will keep raising an error in cases where the
 // result would not be real
 //
-            return aerror("Elementary function argument out of range");
+            const char *name = trig_functions[which_one].name;
+            char errbuff[64];
+            sprintf(errbuff, "Arg for %s out of range", name);
+            aerror1(errbuff, a);
 #endif
             rp = make_boxfloat(c1r, restype);
-            errexit();
             ip = make_boxfloat(c1i, restype);
-            errexit();
-            a = make_complex(rp, ip);
-            errexit();
-            return onevalue(a);
+            return onevalue(make_complex(rp, ip));
         }
     }
 }
 
 static LispObject makenum(LispObject a, int32_t n)
-//
 // Make the value n, but type-consistent with the object a.  Usually
 // used with n=0 or n=1
-//
 {
 #ifndef COMMON
     int32_t restype = TYPE_DOUBLE_FLOAT;
 #else
     int32_t restype = TYPE_SINGLE_FLOAT;
 #endif
-    LispObject nil = C_nil;
     switch ((int)a & TAG_BITS)
     {   case TAG_FIXNUM:
-            return fixnum_of_int(n);
-#ifdef SHORT_FLOAT
-        case TAG_SFLOAT:
-        {   Float_union aa;
-            aa.f = (float)n;
-            return (aa.i & ~(int32_t)0xf) + TAG_SFLOAT;
-        }
-#endif
+            if (is_sfloat(a)) return pack_immediate_float((double)n, a);
+            else return fixnum_of_int(n);
         case TAG_NUMBERS:
         {   int32_t ha = type_of_header(numhdr(a));
             switch (ha)
@@ -1379,23 +1337,21 @@ static LispObject makenum(LispObject a, int32_t n)
                 {   LispObject rr, ii;
                     a = real_part(a);
                     rr = makenum(a, 1);
-                    errexit();
                     ii = makenum(a, 0);
-                    errexit();
                     a = make_complex(rr, ii);
-                    errexit();
                     return onevalue(a);
                 }
             }
-            return aerror1("bad arg for makenumber",  a);
+            aerror1("bad arg for makenumber",  a);
         }
         case TAG_BOXFLOAT:
             restype = type_of_header(flthdr(a));
-            a = make_boxfloat((double)n, restype);
-            errexit();
-            return onevalue(a);
+            if (restype == TYPE_LONG_FLOAT)
+                return onevalue(make_boxfloat128(
+                    float128_of_number(fixnum_of_int(n))));
+            return onevalue(make_boxfloat((double)n, restype));
         default:
-            return aerror1("bad arg for makenumber",  a);
+            aerror1("bad arg for makenumber",  a);
     }
 }
 
@@ -1406,22 +1362,18 @@ static LispObject CSLpowi(LispObject a, uint32_t n)
 // external function called powi in <cmath> and then moan about the
 // name clash.
 //
-{   LispObject nil;
-    if (n == 0) return makenum(a, 1); // value 1 of appropriate type
+{   if (n == 0) return makenum(a, 1); // value 1 of appropriate type
     else if (n == 1) return a;
     else if ((n & 1) == 0)
     {   a = CSLpowi(a, n/2);
-        errexit();
         return times2(a, a);
     }
     else
     {   LispObject b;
         push(a);
         b = CSLpowi(a, n/2);
-        nil = C_nil;
-        if (!exception_pending()) b = times2(b, b);
+        b = times2(b, b);
         pop(a);
-        errexit();
         return times2(a, b);
     }
 }
@@ -1439,7 +1391,7 @@ static Complex complex_of_number(LispObject a)
     return z;
 }
 
-static LispObject Lhypot(LispObject nil, LispObject a, LispObject b)
+static LispObject Lhypot(LispObject env, LispObject a, LispObject b)
 {   double u, v, r;
     u = float_of_number(a);
     v = float_of_number(b);
@@ -1461,16 +1413,10 @@ static LispObject Lhypot(LispObject nil, LispObject a, LispObject b)
         r = v * sqrt(1.0 + r*r);
     }
     a = make_boxfloat(r, TYPE_DOUBLE_FLOAT);
-    errexit();
-    if (trap_floating_overflow &&
-        floating_edge_case(a))
-    {   floating_clear_flags();
-        return aerror("floating point hypotenuse");
-    }
     return onevalue(a);
 }
 
-LispObject Lexpt(LispObject nil, LispObject a, LispObject b)
+LispObject Lexpt(LispObject env, LispObject a, LispObject b)
 {   double d, e;
     int32_t restype, n;
     LispObject w;
@@ -1489,7 +1435,7 @@ LispObject Lexpt(LispObject nil, LispObject a, LispObject b)
         {   n = int_of_fixnum(b);
             switch (int_of_fixnum(a))
             {   case 1:  return onevalue(a);
-                case 0:  if (n < 0) return aerror2("expt", a, b);
+                case 0:  if (n < 0) aerror2("expt", a, b);
                     // In Common Lisp (expt 0 0) is defined to be 0
                     else if (n == 0) return onevalue(fixnum_of_int(1));
                     else return onevalue(a);
@@ -1501,7 +1447,7 @@ LispObject Lexpt(LispObject nil, LispObject a, LispObject b)
         {   switch (int_of_fixnum(a))
             {   case 1:  return onevalue(a);
                 case 0:  n = bignum_digits(b)[(bignum_length(b)-CELL-4)/4];
-                    if (n <= 0) return aerror2("expt", a, b);
+                    if (n <= 0) aerror2("expt", a, b);
                     else return onevalue(a);
                 case -1: n = bignum_digits(b)[0];
                     if (n & 1) return onevalue(a);
@@ -1527,7 +1473,6 @@ LispObject Lexpt(LispObject nil, LispObject a, LispObject b)
             case 3:   if (int_of_fixnum(imag_part(a)) == 1) n ^= 2;
                 a = make_complex(fixnum_of_int(0),
                                  fixnum_of_int((n & 2) ? 1 : -1));
-                errexit();
                 return onevalue(a);
             default:  break;
         }
@@ -1536,11 +1481,10 @@ LispObject Lexpt(LispObject nil, LispObject a, LispObject b)
     {   n = int_of_fixnum(b);
         if (n < 0)
         {   a = CSLpowi(a, (uint32_t)(-n));
-            nil = C_nil;
 #ifdef COMMON
-            if (!exception_pending()) a = CLquot2(fixnum_of_int(1), a);
+            a = CLquot2(fixnum_of_int(1), a);
 #else
-            if (!exception_pending()) a = quot2(fixnum_of_int(1), a);
+            a = quot2(fixnum_of_int(1), a);
 #endif
         }
         else a = CSLpowi(a, (uint32_t)n);
@@ -1569,11 +1513,8 @@ LispObject Lexpt(LispObject nil, LispObject a, LispObject b)
         c2 = complex_of_number(b);
         c3 = Cpow(c1, c2);
         a = make_boxfloat(c3.real, restype);
-        errexit();
         b = make_boxfloat(c3.imag, restype);
-        errexit();
         a = make_complex(a, b);
-        errexit();
         return onevalue(a);
     }
     d = float_of_number(a);
@@ -1583,31 +1524,25 @@ LispObject Lexpt(LispObject nil, LispObject a, LispObject b)
         c2.real = e; c2.imag = 0.0;
         c3 = Cpow(c1, c2);
         a = make_boxfloat(c3.real, restype);
-        errexit();
         b = make_boxfloat(c3.imag, restype);
-        errexit();
         a = make_complex(a, b);
-        errexit();
         return onevalue(a);
     }
     d = pow(d, e);
     a = make_boxfloat(d, restype);
-    errexit();
     return onevalue(a);
 }
 
-LispObject Llog_2(LispObject nil, LispObject a, LispObject b)
+LispObject Llog_2(LispObject env, LispObject a, LispObject b)
 //
 // Log with specified base.
 //
 {   push(b);
     a = Ltrigfn(33, a);
     pop(b);
-    errexit();
     push(a);
     b = Ltrigfn(33, b);
     pop(a);
-    errexit();
     return quot2(a, b);
 }
 
@@ -1631,12 +1566,12 @@ static LispObject Lisqrt(LispObject, LispObject a)
                     d = float_of_number(a);
                     break;
                 default:
-                    return aerror1("bad arg for isqrt",  a);
+                    aerror1("bad arg for isqrt",  a);
             }
             break;
         }
         default:
-            return aerror1("bad arg for isqrt",  a);
+            aerror1("bad arg for isqrt",  a);
     }
     d = sqrt(d);
 // /* This is not anything like good enough yet
@@ -1644,7 +1579,7 @@ static LispObject Lisqrt(LispObject, LispObject a)
 }
 #endif
 
-LispObject Labsval(LispObject nil, LispObject a)
+LispObject Labsval(LispObject env, LispObject a)
 //
 // I call this Labsval not Labs because a non-case-sensitive linker
 // would confuse Labs with labs, and labs is defined in the C libraries...
@@ -1653,9 +1588,7 @@ LispObject Labsval(LispObject nil, LispObject a)
 //
 {   switch ((int)a & TAG_BITS)
     {   case TAG_FIXNUM:
-#ifdef SHORT_FLOAT
-        case TAG_SFLOAT:
-#endif
+//      case XTAG_SFLOAT:
             break;
         case TAG_NUMBERS:
         {   int32_t ha = type_of_header(numhdr(a));
@@ -1672,57 +1605,47 @@ LispObject Labsval(LispObject nil, LispObject a)
 // /* I wonder if I am allowed to promote short or single values to
 //    double precision here?
                     a = make_boxfloat(d, TYPE_DOUBLE_FLOAT);
-                    errexit();
                     return onevalue(a);
                 }
                 default:
-                    return aerror1("bad arg for abs",  a);
+                    aerror1("bad arg for abs",  a);
             }
             break;
         }
         case TAG_BOXFLOAT:
             break;
         default:
-            return aerror1("bad arg for abs",  a);
+            aerror1("bad arg for abs",  a);
     }
-    if (minusp(a))
-    {   nil = C_nil;
-        if (!exception_pending()) a = negate(a);
-    }
-    errexit();
+    if (minusp(a)) a = negate(a);
     return onevalue(a);
 }
 
-static LispObject Lphase(LispObject nil, LispObject a)
+static LispObject Lphase(LispObject env, LispObject a)
 {   bool s;
     double d;
     if (is_numbers(a) && is_complex(a))
         return Latan2(nil, imag_part(a), real_part(a));
     s = minusp(a);
-    errexit();
     if (s) d = -_pi;
     else d = _pi;
     a = make_boxfloat(d, TYPE_DOUBLE_FLOAT);
-    errexit();
     return onevalue(a);
 // /* Wrong precision, I guess
 }
 
-static LispObject Lsignum(LispObject nil, LispObject a)
+static LispObject Lsignum(LispObject env, LispObject a)
 {
 //
 //* This seems an expensive way of doing things - huh? Maybe complex values?
     bool z;
     LispObject w;
     z = zerop(a);
-    nil = C_nil;
-    if (z || exception_pending()) return onevalue(a);
+    if (z) return onevalue(a);
     push(a);
     w = Labsval(nil, a);
     pop(a);
-    errexit();
     a = quot2(a, w);
-    errexit();
     return onevalue(a);
 }
 
@@ -1731,18 +1654,16 @@ static LispObject Lcis(LispObject, LispObject a)
 // Implement as exp(i*a) - this permits complex args which goes
 // beyond the specification of Common Lisp.
 //
-{   LispObject ii, nil;
+{   LispObject ii;
     push(a);
     ii = make_complex(fixnum_of_int(0), fixnum_of_int(1));
     pop(a);
-    errexit();
 //
 // it seems a bit gross to multiply by i by calling times2(), but
 // doing so avoids loads of messy type dispatch code here and
 // I am not over-worried about performance at this level (yet).
 //
     a = times2(a, ii);
-    errexit();
     return Ltrigfn(30, a);     // exp()
 }
 
@@ -1754,7 +1675,7 @@ LispObject Latan_2(LispObject env, LispObject a, LispObject b)
 {   return Latan2(env, a, b);
 }
 
-LispObject Latan2(LispObject nil, LispObject y, LispObject x)
+LispObject Latan2(LispObject env, LispObject y, LispObject x)
 {   double u, v, r;
     u = float_of_number(x);
     v = float_of_number(y);
@@ -1776,11 +1697,10 @@ LispObject Latan2(LispObject nil, LispObject y, LispObject x)
         r = _half_pi + atan(-u/v);
     else r = -_half_pi - atan(u/v);
     x = make_boxfloat(r, TYPE_DOUBLE_FLOAT);
-    errexit();
     return onevalue(x);
 }
 
-LispObject Latan2d(LispObject nil, LispObject y, LispObject x)
+LispObject Latan2d(LispObject env, LispObject y, LispObject x)
 {   double u, v, r;
     u = float_of_number(x);
     v = float_of_number(y);
@@ -1790,7 +1710,6 @@ LispObject Latan2d(LispObject nil, LispObject y, LispObject x)
         r = 90.0 + n180pi*atan(-u/v);
     else r = -90.0 - n180pi*atan(u/v);
     x = make_boxfloat(r, TYPE_DOUBLE_FLOAT);
-    errexit();
     return onevalue(x);
 }
 
@@ -1967,60 +1886,60 @@ LispObject Ltanh(LispObject, LispObject a)
 }
 
 setup_type const arith10_setup[] =
-{   {"abs",                     Labsval, too_many_1, wrong_no_1},
-    {"acos",                    Lacos, too_many_1, wrong_no_1},
-    {"acosd",                   Lacosd, too_many_1, wrong_no_1},
-    {"acosh",                   Lacosh, too_many_1, wrong_no_1},
-    {"acot",                    Lacot, too_many_1, wrong_no_1},
-    {"acotd",                   Lacotd, too_many_1, wrong_no_1},
-    {"acoth",                   Lacoth, too_many_1, wrong_no_1},
-    {"acsc",                    Lacsc, too_many_1, wrong_no_1},
-    {"acscd",                   Lacscd, too_many_1, wrong_no_1},
-    {"acsch",                   Lacsch, too_many_1, wrong_no_1},
-    {"asec",                    Lasec, too_many_1, wrong_no_1},
-    {"asecd",                   Lasecd, too_many_1, wrong_no_1},
-    {"asech",                   Lasech, too_many_1, wrong_no_1},
-    {"asin",                    Lasin, too_many_1, wrong_no_1},
-    {"asind",                   Lasind, too_many_1, wrong_no_1},
-    {"asinh",                   Lasinh, too_many_1, wrong_no_1},
-    {"atand",                   Latand, too_many_1, wrong_no_1},
-    {"atan2",                   too_few_2, Latan2, wrong_no_2},
-    {"atan2d",                  too_few_2, Latan2d, wrong_no_2},
-    {"atanh",                   Latanh, too_many_1, wrong_no_1},
-    {"cbrt",                    Lcbrt, too_many_1, wrong_no_1},
-    {"cos",                     Lcos, too_many_1, wrong_no_1},
-    {"cosd",                    Lcosd, too_many_1, wrong_no_1},
-    {"cosh",                    Lcosh, too_many_1, wrong_no_1},
-    {"cot",                     Lcot, too_many_1, wrong_no_1},
-    {"cotd",                    Lcotd, too_many_1, wrong_no_1},
-    {"coth",                    Lcoth, too_many_1, wrong_no_1},
-    {"csc",                     Lcsc, too_many_1, wrong_no_1},
-    {"cscd",                    Lcscd, too_many_1, wrong_no_1},
-    {"csch",                    Lcsch, too_many_1, wrong_no_1},
-    {"exp",                     Lexp, too_many_1, wrong_no_1},
-    {"expt",                    too_few_2, Lexpt, wrong_no_2},
-    {"hypot",                   too_few_2, Lhypot, wrong_no_2},
-    {"ln",                      Lln, too_many_1, wrong_no_1},
-    {"log",                     Lln, Llog_2, wrong_no_2},
-    {"log2",                    Llog2, too_many_1, wrong_no_2},
-    {"log10",                   Llog10, too_many_1, wrong_no_1},
-    {"sec",                     Lsec, too_many_1, wrong_no_1},
-    {"secd",                    Lsecd, too_many_1, wrong_no_1},
-    {"sech",                    Lsech, too_many_1, wrong_no_1},
-    {"sin",                     Lsin, too_many_1, wrong_no_1},
-    {"sind",                    Lsind, too_many_1, wrong_no_1},
-    {"sinh",                    Lsinh, too_many_1, wrong_no_1},
-    {"sqrt",                    Lsqrt, too_many_1, wrong_no_1},
-    {"tan",                     Ltan, too_many_1, wrong_no_1},
-    {"tand",                    Ltand, too_many_1, wrong_no_1},
-    {"tanh",                    Ltanh, too_many_1, wrong_no_1},
-    {"cis",                     Lcis, too_many_1, wrong_no_1},
-//  {"isqrt",                   Lisqrt, too_many_1, wrong_no_1},
-    {"phase",                   Lphase, too_many_1, wrong_no_1},
-    {"signum",                  Lsignum, too_many_1, wrong_no_1},
-    {"atan",                    Latan, Latan_2, wrong_no_1},
-    {"logb",                    too_few_2, Llog_2, wrong_no_2},
-    {NULL,                      0, 0, 0}
+{   {"abs",                     G0W1, Labsval, G2W1, G3W1, G4W1},
+    {"acos",                    G0W1, Lacos, G2W1, G3W1, G4W1},
+    {"acosd",                   G0W1, Lacosd, G2W1, G3W1, G4W1},
+    {"acosh",                   G0W1, Lacosh, G2W1, G3W1, G4W1},
+    {"acot",                    G0W1, Lacot, G2W1, G3W1, G4W1},
+    {"acotd",                   G0W1, Lacotd, G2W1, G3W1, G4W1},
+    {"acoth",                   G0W1, Lacoth, G2W1, G3W1, G4W1},
+    {"acsc",                    G0W1, Lacsc, G2W1, G3W1, G4W1},
+    {"acscd",                   G0W1, Lacscd, G2W1, G3W1, G4W1},
+    {"acsch",                   G0W1, Lacsch, G2W1, G3W1, G4W1},
+    {"asec",                    G0W1, Lasec, G2W1, G3W1, G4W1},
+    {"asecd",                   G0W1, Lasecd, G2W1, G3W1, G4W1},
+    {"asech",                   G0W1, Lasech, G2W1, G3W1, G4W1},
+    {"asin",                    G0W1, Lasin, G2W1, G3W1, G4W1},
+    {"asind",                   G0W1, Lasind, G2W1, G3W1, G4W1},
+    {"asinh",                   G0W1, Lasinh, G2W1, G3W1, G4W1},
+    {"atand",                   G0W1, Latand, G2W1, G3W1, G4W1},
+    {"atan2",                   G0W2, G1W2, Latan2, G3W2, G4W2},
+    {"atan2d",                  G0W2, G1W2, Latan2d, G3W2, G4W2},
+    {"atanh",                   G0W1, Latanh, G2W1, G3W1, G4W1},
+    {"cbrt",                    G0W1, Lcbrt, G2W1, G3W1, G4W1},
+    {"cos",                     G0W1, Lcos, G2W1, G3W1, G4W1},
+    {"cosd",                    G0W1, Lcosd, G2W1, G3W1, G4W1},
+    {"cosh",                    G0W1, Lcosh, G2W1, G3W1, G4W1},
+    {"cot",                     G0W1, Lcot, G2W1, G3W1, G4W1},
+    {"cotd",                    G0W1, Lcotd, G2W1, G3W1, G4W1},
+    {"coth",                    G0W1, Lcoth, G2W1, G3W1, G4W1},
+    {"csc",                     G0W1, Lcsc, G2W1, G3W1, G4W1},
+    {"cscd",                    G0W1, Lcscd, G2W1, G3W1, G4W1},
+    {"csch",                    G0W1, Lcsch, G2W1, G3W1, G4W1},
+    {"exp",                     G0W1, Lexp, G2W1, G3W1, G4W1},
+    {"expt",                    G0W2, G1W2, Lexpt, G3W2, G4W2},
+    {"hypot",                   G0W2, G1W2, Lhypot, G3W2, G4W2},
+    {"ln",                      G0W1, Lln, G2W1, G3W1, G4W1},
+    {"log",                     G0Wother, Lln, Llog_2, G3Wother, G4Wother},
+    {"log2",                    G0W1, Llog2, G2W1, G3W2, G4W2},
+    {"log10",                   G0W1, Llog10, G2W1, G3W1, G4W1},
+    {"sec",                     G0W1, Lsec, G2W1, G3W1, G4W1},
+    {"secd",                    G0W1, Lsecd, G2W1, G3W1, G4W1},
+    {"sech",                    G0W1, Lsech, G2W1, G3W1, G4W1},
+    {"sin",                     G0W1, Lsin, G2W1, G3W1, G4W1},
+    {"sind",                    G0W1, Lsind, G2W1, G3W1, G4W1},
+    {"sinh",                    G0W1, Lsinh, G2W1, G3W1, G4W1},
+    {"sqrt",                    G0W1, Lsqrt, G2W1, G3W1, G4W1},
+    {"tan",                     G0W1, Ltan, G2W1, G3W1, G4W1},
+    {"tand",                    G0W1, Ltand, G2W1, G3W1, G4W1},
+    {"tanh",                    G0W1, Ltanh, G2W1, G3W1, G4W1},
+    {"cis",                     G0W1, Lcis, G2W1, G3W1, G4W1},
+//  {"isqrt",                   G0W1, Lisqrt, G2W1, G3W1, G4W1},
+    {"phase",                   G0W1, Lphase, G2W1, G3W1, G4W1},
+    {"signum",                  G0W1, Lsignum, G2W1, G3W1, G4W1},
+    {"atan",                    G0Wother, Latan, Latan_2, G3Wother, G4Wother},
+    {"logb",                    G0W2, G1W2, Llog_2, G3W2, G4W2},
+    {NULL,                      0, 0, 0, 0, 0}
 };
 
 // end of arith10.cpp

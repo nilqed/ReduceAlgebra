@@ -55,7 +55,7 @@ fi
 
 export fasl psldir reduce
 
-psl/bpsl -td $STORE -f red/reduce.img <<XXX > buildlogs/$1.blg
+psl/bpsl -td $STORE -f red/reduce.img --no-rcfile <<XXX > buildlogs/$1.blg
 
 symbolic;
 
@@ -102,5 +102,5 @@ lisp print loaded!-modules!*;
 bye;
 XXX
 
-grep -q '^\*\*\*\*\* ' buildlogs/$1.blg && echo Possible error building noncore module $1 - check buildlogs/$1.blg && exit 1
+grep -q '\*\*\*\*\* ' buildlogs/$1.blg && echo Possible error building noncore module $1 - check buildlogs/$1.blg && exit 1
 exit 0

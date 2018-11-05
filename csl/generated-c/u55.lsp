@@ -1,78 +1,76 @@
 
 % u55.lsp           Machine generated Lisp
 
-(c!:install "u55" 1306 6090420 6893597)
+(c!:install "u55" 16218 1082367 702512)
 
-(c!:install 'makecoeffpairs1 '(makecoeffpairs1 ((nil)) nil tayexp!-minus
-makecoeffpairshom lastpair) 1976336402385581849)
+(c!:install 'ofsf_exploitknowl '(ofsf_exploitknowl equal !*rlsippsubst
+greaterp geq lessp leq neq sfto_varp negsq lto_insertq) 
+6407292417331235835)
 
-(c!:install 'mri_dettype '(mri_dettype int t nil real mri_arg2l kernels
-mri_realvarp) 1060490840620214584)
+(c!:install 'ofsf_factsf '(ofsf_factsf negf addf multf) 
+4753044934003228333)
 
-(c!:install 'xpdiff '(xpdiff nil "B too long in xpdiff"
-"A too long in xpdiff" failed interr) 1652087081665327731)
+(c!:install 'dip_comp1 '(dip_comp1 dip_evlmon ev_comp) 
+15677524538554573974)
 
-(c!:install 'ps!:find!-order '(ps!:find!-order ps nil !:ps!: tps
-"Unexpected form in ps!:find!-order" ps!:expression ps!:find!-order1
-ps!:order ps!:unknown!-order rerror) 1678637726556154181)
+(c!:install 'crprimp '(crprimp i minus times) 17061817778349731192)
 
-(c!:install 'subsqnew '(subsqnew prepsq subf quotsq) 1113325073612290420
-)
+(c!:install 'poly!-remainder '(poly!-remainder remainder poly!-divide!*)
+ 6768570781226289743)
 
-(c!:install 'groebfactorize3 '(groebfactorize3 nil) 1591123912490006136)
+(c!:install 'rtrnda '(rtrnda rlval!# round!:dec1 decimal2internal) 
+10001363363297517072)
 
-(c!:install 'groebsimpcontnormalform '(groebsimpcontnormalform t
-!*groebprot quotient gsugar vdpsimpcont gsetsugar vbc2a reval
-groebreductionprotocol2) 1804930588486180599)
+(c!:install 'partitindexvar '(partitindexvar minus metricu!* covariant
+indxsymmetries revalind !*num2id deg!*form getlower simp multpfsq addpf
+getupper coposp mkupf mksq indexsymmetrize negsq) 15859767580377981061)
 
-(c!:install 'tot!-asym!-indp '(tot!-asym!-indp t nil indxchk indordlp
-indordp) 237212066154293626)
+(c!:install 'new_provev '(new_provev) 6302738449472206509)
 
-(c!:install 'com43 '(com43 liemat bb ff algebraic l_z nil cc minus det
-quotient plus times comcom0 comcom1 comcom3 matrix aeval arrayfn setk
-evalneq evalequal clear aeval!*) 1199864247135900346)
+(c!:install 'restore_props '(restore_props props!*) 6152622342977608834)
 
-(c!:install 'invbase!* '(invbase!* thirdway!* shortway!* !*trinvbase
-maxord!* path nil gg!* varlist!* bv!* "---------- ORDER = "
-" ----------" alglist!* list plus gv!* invtempbasis
-"Maximum degree bound exceeded." t ng!* redall newbasis ord !*di2q
-prepsq rederr max ljet class nonmult pdmult nf stat dim) 
-749849579411438660)
+(c!:install 'liendimcom '(liendimcom lie_dim difference lie_cc lie_p
+lie_q plus quotient times lie_help lie_s lientrans lie_kk!* lie_tt aeval
+setk aeval!* aminusp!: evalneq evalequal) 14036051703278256262)
 
-(c!:install 'distri_pol '(distri_pol nil addfd multf) 
-1580202807867418221)
+(c!:install 'gi '(gi gg!* class) 12570059923375073769)
 
-(c!:install 'ofsf_ordrelp '(ofsf_ordrelp (equal neq leq lessp geq
-greaterp)) 677969609291168617)
+(c!:install 'sc_create '(sc_create symbolic list2vect!*) 
+7753972097936331166)
 
-(c!:install 'interglue '(interglue t nil !\co!  !+ !- ord clo !\cdot! ) 
-2066543670359593180)
+(c!:install 'simprd '(simprd !:rd!: dmode!* simplist) 
+15671832098548929442)
 
-(c!:install 'depend!-l '(depend!-l nil t simp depend!-sq) 
-176488832778283881)
+(c!:install 'add!-to!-sorted!-tree '(add!-to!-sorted!-tree nreverse) 
+16019473893027424821)
 
-(c!:install 'qqe_length!-graph!-remove!-mark '(
-qqe_length!-graph!-remove!-mark nil) 377600596588172727)
+(c!:install 'giminusp!: '(giminusp!:) 7111611823332749510)
 
-(c!:install 'ofsf_updsignadd '(ofsf_updsignadd t equal neq nil leq lessp
-geq greaterp unknown) 810883115368132037)
+(c!:install 'rl_!*qe '(rl_!*qe rl_qe apply) 17173489639086840913)
 
-(c!:install 'ev_dif '(ev_dif nil) 1694475901249152232)
+(c!:install 'search4facf '(search4facf tryfactorf) 7022717262781964485)
 
-(c!:install 'applyml '(applyml char rdlist!* (i d e n t !/) t (c o m p o
-s e !/) nil (i n v e r s e !/) lex compress!* apply errorml) 
-1098752773977122203)
+(c!:install 'subsubf '(subsubf equal sub subsublis reversip!* aeval
+aconc!* subeval mksp mk!*sq) 7039029750313157863)
 
-(c!:install 'xpwrlcmp '(xpwrlcmp expt nil sqrt getdenom getdenomx lcm) 
-2280473160855004936)
+(c!:install 'mkuniquewedge '(mkuniquewedge mkuniquewedge1 multpfsq addpf
+) 6436937546738158185)
 
-(c!:install 'ps!:expansion!-point '(ps!:expansion!-point t !:ps!: nil
-ps!:getv) 2201923963613956526)
+(c!:install 'rand!-comb '(rand!-comb random) 9507653342872797240)
 
-(c!:install 'appends '(appends) 2221779914227955136)
+(c!:install 'ev!-tades '(ev!-tades ndim!* nreverse binc) 
+5470766975652506745)
 
-(c!:install 'pm!:gensym '(pm!:gensym !? !_ pm!:gensym!-count!*) 
-619200523066929554)
+(c!:install 'mo_from_ei '(mo_from_ei mo_zero mo!=deglist) 
+602087789336090225)
+
+(c!:install '!*sf2exb '(!*sf2exb degr nreverse) 16721578175864221016)
+
+(c!:install 'prepsqyy '(prepsqyy !*sq prepsqxx) 17138303528519497267)
+
+(c!:install 'no_of_tm_sf '(no_of_tm_sf) 14650371380341364919)
+
+(c!:install 'cde_mkset '(cde_mkset nreverse) 13656224451752460396)
 
 
 % End of generated Lisp code

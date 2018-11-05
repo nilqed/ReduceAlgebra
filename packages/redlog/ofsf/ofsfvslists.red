@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 2015 M. Kosta, T. Sturm
-% ----------------------------------------------------------------------
+module ofsfvslists;
+
+revision('ofsfvslists, "$Id: ofsfvslists.red 4058 2017-05-23 17:12:59Z thomas-sturm $");
+
+copyright('ofsfvslists, "(c) 2015-2017 M. Kosta, T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -28,20 +29,35 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
 
-lisp <<
-   fluid '(ofsfvslists_rcsid!* ofsfvslists_copyright!*);
-   ofsfvslists_rcsid!* :=
-      "$Id$";
-   ofsfvslists_copyright!* := "(c) 2015 M. Kosta, T. Sturm"
->>;
-
-module ofsfvslists;
-
-fluid '(rlclustering!* rlmaxdeg!*);
+fluid '(rlclustering!*);
+fluid '(rlmaxdeg!*);
 rlclustering!* := t;
 rlmaxdeg!* := 3;
 
-fluid '(rsl!-alist!* rsl!-alist!-clustering!* guard!-fnalist!* vsub!-fnalist!*);
+fluid '(deg!-type!-code!-alist!*);
+fluid '(rsl!-alist!*);
+fluid '(rsl!-alist!-clustering!*);
+fluid '(guard!-fnalist!*);
+fluid '(vsub!-fnalist!*);
+
+%%% deg-type-code-alist
+
+deg!-type!-code!-alist!* := '(
+   ((1 -1 0 1) . 1)
+   ((1 1 0 -1) . -1)
+   ((2 1 0 -1 0 1) . 1)
+   ((2 1 0 1) . 2)
+   ((2 -1 0 1 0 -1) . -1)
+   ((2 -1 0 -1) . -2)
+   ((3 -1 0 1) . 1)
+   ((3 -1 0 -1 0 1) . 2)
+   ((3 -1 0 1 0 1) . 3)
+   ((3 -1 0 1 0 -1 0 1) . 4)
+   ((3 1 0 -1) . -1)
+   ((3 1 0 1 0 -1) . -2)
+   ((3 1 0 -1 0 -1) . -3)
+   ((3 1 0 -1 0 1 0 -1) . -4)
+      );
 
 %%% rsl-alist %%%
 
@@ -2656,7 +2672,7 @@ asserted procedure vsub_vsub(at: QfFormula, pr: VSpr, theo: Theory): QfFormula;
       % case 2
       w := assoc({ldeg f, ldeg g, op, vsub_nrsl rsl}, vsub!-fnalist!*);
       if w then <<
-	 pr := vspr_mk(negf vspr_f pr, vspr_v pr, vsub_nrsl rsl, vspr_c pr);
+	 pr := vspr_mk(negf vspr_f pr, vspr_v pr, vsub_nrsl rsl, vspr_rc pr);
       	 return cl_nnf apply(cdr w, {at, pr, theo})
       >>;
       % case 3
@@ -2669,7 +2685,7 @@ asserted procedure vsub_vsub(at: QfFormula, pr: VSpr, theo: Theory): QfFormula;
       w := assoc({ldeg f, ldeg g, ofsf_negateop op, vsub_nrsl rsl}, vsub!-fnalist!*);
       if w then <<
 	 at := ofsf_0mk2(ofsf_negateop op, g);
-	 pr := vspr_mk(negf vspr_f pr, vspr_v pr, vsub_nrsl rsl, vspr_c pr);
+	 pr := vspr_mk(negf vspr_f pr, vspr_v pr, vsub_nrsl rsl, vspr_rc pr);
 	 return cl_nnf rl_mk1('not, apply(cdr w, {at, pr, theo}))
       >>;
       rederr "no appropriate entry in vsub!-fnalist!*"

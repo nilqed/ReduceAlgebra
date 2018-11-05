@@ -49,13 +49,14 @@ fluid  '(!*fort
          rprifn!*
          rterfn!*
          !*utf8
-         !*utf82d);
+         !*utf82d
+         !*unicode_in_off_nat);
 
 fluid '(!*TeX);
 
 global '(!*eraise initl!* nat!*!* spare!* !*asterisk);
 
-switch list,ratpri,revpri,nosplit,asterisk;
+switch list,ratpri,revpri,nosplit,asterisk,unicode_in_off_nat;
 
 % Global variables initialized in this section.
 
@@ -281,7 +282,9 @@ symbolic procedure prin2!* u;
 
 symbolic procedure add_prin_char(u,n);
    if null !*nat then if stringp u or get(u,'switch!*) or digit u
-                        or get(car explode2 u,'switch!*) then prin2 u
+                        or get(car explode2 u,'switch!*)
+                        or (!*unicode_in_off_nat and idp u and not liter u)
+                        then prin2 u
                        else prin1 u
     else <<pline!* := (((posn!* . n) . ycoord!*) . u) .  pline!*;
            posn!* := n>>;
@@ -499,6 +502,8 @@ symbolic procedure boolvalpri u;
 
 put('boolvalue!*,'prifn,'boolvalpri);
 
+put('bool!-eval,'prifn,'boolvalpri);
+
 put('prog,'prifn,'progpri);
 
 put('progn,'prifn,'progpri);
@@ -513,6 +518,24 @@ symbolic procedure holdpri u;
   << if not atom cadr u then prin2!* "(";
      maprin cadr u;
      if not atom cadr u then prin2!* ")" >>;
+
+symbolic procedure wherepri u;
+  << prin2!* "(";
+     prin2!* "("; maprin caddr u; prin2!* ")";
+     prin2!* " where ";
+     if eqcar(cadr u,'list) and null cddr cadr u 
+       then maprin cadr cadr u
+      else maprin cadr u;
+     prin2!* ")" >>;
+
+put('whereexp,'prifn,'wherepri);
+
+symbolic procedure revalxpri u;
+   << u := lispeval cadr u;
+      if not atom u and not atom car u then u := prepf u;
+      maprin u; >>;
+
+put ('revalx,'prifn,'revalxpri);
 
 
 endmodule;

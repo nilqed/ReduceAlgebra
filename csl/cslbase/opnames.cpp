@@ -1,7 +1,7 @@
-// opnames.cpp                             Copyright (C) Codemist 1993-2015
+// opnames.cpp                             Copyright (C) Codemist 1993-2017
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -29,7 +29,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: opnames.cpp 4188 2017-09-08 07:44:29Z arthurcnorman $
 
 
 //
@@ -118,7 +118,7 @@ static const char *opnames[256] =
     "CALL2",                     // 0x49
     "CALL2R",                    // 0x4a
     "CALL3",                     // 0x4b
-    "CALLN",                     // 0x4c
+    "CALL4",                     // 0x4c
     "CALL0_0",                   // 0x4d
     "CALL0_1",                   // 0x4e
     "CALL0_2",                   // 0x4f
@@ -151,8 +151,8 @@ static const char *opnames[256] =
 // Maybe implementing it might help?
 //
     "APPLY4",                    // 0x64 @
-    "JCALL",                     // 0x65
-    "JCALLN",                    // 0x66
+    "JCALLPACKED",               // 0x65
+    "JCALL",                     // 0x66
     "JUMP",                      // 0x67
     "JUMP_B",                    // 0x68
     "JUMP_L",                    // 0x69

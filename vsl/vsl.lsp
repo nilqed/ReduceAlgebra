@@ -25,6 +25,25 @@
 
 (setq f       nil)
 
+% The following names are used with "#\name" to get the character code of
+% various special characters.
+
+(put 'null      'charvalue 0)
+(put 'bell      'charvalue 7)
+(put 'backspace 'charvalue 8)
+(put 'tab       'charvalue 9)
+(put 'lf        'charvalue 10)
+(put 'eol       'charvalue 10)
+(put 'ff        'charvalue 12)
+(put 'cr        'charvalue 13)
+(put 'eof       'charvalue -1)
+(put 'escape    'charvalue 27)
+(put 'space     'charvalue 32)
+(put 'rubout    'charvalue 8)
+(put 'rub       'charvalue 8)
+(put 'delete    'charvalue 127)
+(put 'del       'charvalue 127)
+
 % Many combinations of car and cdr are supported. Here I define
 % versions that do up to four accesses. These would of course be
 % trivial to move into C code!
@@ -197,6 +216,9 @@
 (de prog1 (a b)
    a)
 
+(de prog2 (a b)
+   b)
+
 (de reverse (x)
    (prog (y)
    loop
@@ -227,12 +249,20 @@
       ((atom a) b)
       (t (cons (car a) (append (cdr a) b)))))
 
+
+% I have written various of these in ugly imperative styles so that they
+% end up iterative not recusrive...
+
 (de length (l)                  % Find length of a list.
-   (cond
-      ((atom l) 0)
-      (t (iadd1 (length (cdr l))))))
+   (prog (n)
+      (setq n 0)
+   top(cond ((atom l) (return n)))
+      (setq n (add1 n))
+      (setq l (cdr l))
+      (go top)))
 
 (de last (l)                    % Last element of a (non-empty) list.
+%  #ifndef XXX
    (cond
       ((atom l) (error 1 "last on emtpy list"))
       ((atom (cdr l)) (car l))
@@ -249,8 +279,36 @@
       ((atom l) nil)
       ((atom (cdr l)) l)
       (t (lastpair (cdr l)))))
+%  #else /* XXX */
+%     (prog ()
+%        (cond
+%           ((null l) (error 1 "last on emtpy list")))
+%     top(cond
+%          ((atom (cdr l)) (return l)))
+%        (setq l (cdr l))
+%        (go top)))
+%
+%  (de lastcar (l)         % Not in Standard Lisp
+%     (prog ()
+%        (cond
+%           ((null l) (error 1 "lastcar on emtpy list")))
+%     top(cond
+%          ((atom (cdr l)) (return (car l))))
+%        (setq l (cdr l))
+%        (go top)))
+%
+%  (de lastpair (l)                % Last pair of a (non-empty) list.
+%     (prog ()
+%        (cond
+%           ((null l) (error 1 "lastpair on emtpy list")))
+%     top(cond
+%          ((atom (cdr l)) (return l)))
+%        (setq l (cdr l))
+%        (go top)))
+%  #endif /* XXX */
 
 (de member (a l)
+%  #ifndef XXX
    (cond
       ((atom l) nil)
       ((equal a (car l)) l)
@@ -258,12 +316,31 @@
 
 % "member" checks it a value is present in a list using the
 % "equal" test, while "memq" uses "eq".
+%  #else /* XXX */
+%    (prog ()
+%    top
+%      (cond
+%        ((null l) (return nil))
+%        ((equal a (car l)) (return l)))
+%      (setq l (cdr l))
+%      (go top)))
+%  #endif /* XXX */
 
 (de memq (a l)
+%  #ifndef XXX
    (cond
       ((atom l) nil)
       ((eq a (car l)) l)
       (t (memq a (cdr l)))))
+%  #else /* XXX */
+%    (prog ()
+%    top
+%      (cond
+%        ((null l) (return nil))
+%        ((eq a (car l)) (return l)))
+%      (setq l (cdr l))
+%      (go top)))
+%  #endif /* XXX */
 
 (de delete (a l)
    (cond
@@ -453,8 +530,11 @@ top (cond ((atom a) (return (reversip r))))
       ((and (symbolp x) (null (null x))) (list 'quote x))
       ((atom x) x)                  % nil, number or string
       ((eq (car x) '!,) (cadr x))
+      ((eq (car x) '!`) (expand_backquote (expand_backquote (cadr x))))
       ((eqcar (car x) '!,!@)
          (list 'append (cadar x) (expand_backquote (cdr x))))
+      ((eqcar (car x) '!,!.)
+         (list 'nconc (cadar x) (expand_backquote (cdr x))))
       (t (list 'cons (expand_backquote (car x)) (expand_backquote (cdr x))))))
 
 (dm !` (x) (expand_backquote (cadr x)))
@@ -468,29 +548,44 @@ top (cond ((atom a) (return (reversip r))))
 
 % Both "let" and "let!*" expand naturally into uses of lambda-expressions.
 
+(de let_name (x)
+  (if (atom x) x (car x)))
+
+(de let_val (x)
+  (if (or (atom x) (atom (cdr x)))
+     nil
+    (cadr x)))
+
 (dm !~let (x)              % (!~let ((v1 E1) (v2 E2) ...) body)
-   (cons (cons 'lambda (cons (mapcar (cadr x) 'car) (cddr x)))
-         (mapcar (cadr x) 'cadr)))
+   (cons (cons 'lambda (cons (mapcar (cadr x) 'let_name) (cddr x)))
+         (mapcar (cadr x) 'let_val)))
 
 (de expand_let!* (b x)
    (cond
       ((null b) x)
-      (t (list (list 'lambda (list (caar b)) (expand_let!* (cdr b) x))
-               (cadar b)))))
+      (t (list (list 'lambda (list (let_name (car b))) (expand_let!* (cdr b) x))
+               (let_val (car b))))))
 
 (dm let!* (x)            % As !~let, but do bindings sequentially
    (expand_let!* (cadr x) (cons 'progn (cddr x))))
 
 % A set of macros provide various neat and easy-to-use control structures.
 
-(dm if (x)          % (IF predicate yes no) or (IF predicate yes)
+% Note that tis version of IF allows a sequence of forms in the place
+% that gets processed if the predicate evaluates to nil.
+
+(dm if (x)          % (IF predicate yes no*) or (IF predicate yes)
    `(cond
       (,(cadr x) ,(caddr x))
-      (t ,(cond ((atom (cdddr x)) nil) (t (car (cdddr x)))))))
+      (t ,@(cdddr x))))
 
 (dm when (x)        % (WHEN predicate yes yes yes ...)
    `(cond
       (,(cadr x) ,@(cddr x))))
+
+(dm unless (x)        % (UNLESS predicate no no no ...)
+   `(cond
+      ((null ,(cadr x)) ,@(cddr x))))
 
 (dm while (x)       % (WHILE predicate body body body ...)
    (let!* ((g (gensym)))
@@ -668,8 +763,9 @@ top (cond ((atom a) (return (reversip r))))
 % The "atom" test in vsl needs to know that a bit of
 % data stored as (!~bignum ...) should viewed as atomic.
 
-(de fixp (u) (and (inumberp u) (not (floatp u))))
+(de fixp (u) (and (numberp u) (not (floatp u))))
 (de numberp (u) (or (inumberp u) (bignump u)))
+(de integerp (u) (and (numberp u) (not (floatp u))))
 
 % There are two representations of numbers. The one used in the
 % main parts of the code are
@@ -855,21 +951,21 @@ top (cond ((atom a) (return (reversip r))))
       ((null u) nil)
       ((null v) nil)
       (t (!~bigcons (ilogand (car u) (car v))
-                    (!~biglogand (cdr u) (cdr v))))))
+                    (!~biglogand2 (cdr u) (cdr v))))))
 
 (de !~biglogor2 (u v)
    (cond
       ((null u) v)
       ((null v) u)
       (t (!~bigcons (ilogor (car u) (car v))
-                    (!~biglogor (cdr u) (cdr v))))))
+                    (!~biglogor2 (cdr u) (cdr v))))))
 
 (de !~biglogxor2 (u v)
    (cond
       ((null u) v)
       ((null v) u)
       (t (!~bigcons (ilogxor (car u) (car v))
-                    (!~biglogxor (cdr u) (cdr v))))))
+                    (!~biglogxor2 (cdr u) (cdr v))))))
 
 (de !~bigdifference (u v)
    (!~bigplus2carry u (!~bigminus v) 0))
@@ -909,8 +1005,6 @@ top (cond ((atom a) (return (reversip r))))
       (while (not (!~biggreaterp1 v u))
          (setq d (!~approx_quotient u v))
          (setq u (!~bigdifference u (!~bigtimes2 d v)))
-%(printc (list "xxx = " (!~bigtimes2 d v)))
-%(printc (list "new u = " u))
          (if (!~bigminusp u)
             (error 99 (list "approx was overestimate, v=" v " d=" d " u=" u)))
          (setq r (!~bigplus2carry r d 0)))
@@ -920,35 +1014,26 @@ top (cond ((atom a) (return (reversip r))))
 
 (de !~approx_quotient (u v) % v has at least 2 digits and u >= v
    (prog (x xx un vn q)
-%      (printc (list "u = " (cons '!~bignum u)))
-%      (printc (list "v = " (cons '!~bignum v)))
-%      (printc (list "greaterp = " (!~biggreaterp1 v u)))
       (when (null (cddr u)) % then v must also be short
          (setq un (iplus (car u) (itimes !~radix (cadr u))))
          (setq vn (iplus (car v) (itimes !~radix (cadr v))))
-%         (printc (list "small case " un vn (iquotient un vn)))
          (return (list (iquotient un vn))))
       (while (cddr v) (setq u (cdr u) v (cdr v)))
       (setq x 0)
       (while (cddr u) (setq u (cdr u) x (add1 x)))
-%      (printc (list "truncated u v =" u v x))
       (setq un (iplus (car u) (itimes !~radix (cadr u))))
       (setq vn (iplus (car v) (itimes !~radix (cadr v))))
-%      (printc (list "un vn =" un vn))
       (setq xx 0)
       (while (ilessp un !~big) (setq un (ileftshift un 1) xx (iadd1 xx)))
       (while (igeq vn !~radix) (setq vn (irightshift vn 1) xx (iadd1 xx)))
-%      (printc (list "normalised un vn =" un vn x xx))
       (setq q (iquotient un (iadd1 vn)))
       (when (igeq xx 30) (setq x (isub1 x) xx (idifference xx 30)))
-%      (printc (list "q=" q "xx=" xx " x=" x))
       (if (zerop xx)
           (setq un q vn 0)
           (progn
              (setq un (irightshift q xx))
              (setq vn (ileftshift (idifference q (ileftshift un xx))
                                   (idifference 30 xx)))))
-%      (printc (list "split & shifted " xx " bits = " un vn))
       (setq q nil)
       (if (igreaterp x 0) (dotimes (i x) (setq q (cons 0 q))))
       (setq q (cons un (cons vn q)))
@@ -1099,7 +1184,13 @@ top (cond ((atom a) (return (reversip r))))
 
 (de !~big2str (n)
    (prog (r neg)
+      (setq n (cdr n))
       (when (null n) (return "0"))
+% In bad cases you may try to display a list whose first element is
+% "~bignum" but which is then badly formatted.
+      (setq r n)
+      (while (and r (inumberp (car r))) (setq r (cdr r)))
+      (when r (return nil))
       (setq r '(!"))
       (when (or !*rawbig !*onlyraw)
          (setq r (cons '!] r))
@@ -1119,6 +1210,34 @@ top (cond ((atom a) (return (reversip r))))
             (setq n (reverse n)))
          (setq r (cons (car (explodec (!~sizecheck n))) r))
          (when neg (setq r (cons '!- r))))
+      (return (compress (cons '!" r)))))
+
+(de list!-to!-vector (l)
+   (prog (n v)
+      (setq n (length l))
+      (setq v (mkvect (sub1 n)))
+      (setq n 0)
+      (while l
+         (putv v n (car l))
+         (setq n (add1 n))
+         (setq l (cdr l)))
+      (return v)))
+
+(setq hexdigs
+  (list!-to!-vector
+    '(!0 !1 !2 !3 !4 !5 !6 !7 !8 !9 !a !b !c !d !e !f)))
+
+(de !~big2strhex (n)
+   (prog (r neg)
+      (when (null (cdr n)) (return "0"))
+      (setq r '(!"))
+      (when (minusp n) (setq n (minus n) neg t))
+      (while (greaterp n 15)
+         (setq n (divide n 16))
+         (setq r (cons (getv hexdigs (cdr n)) r))
+         (setq n (car n)))
+      (setq r (cons (getv hexdigs n) r))
+      (when neg (setq r (cons '!- r)))
       (return (compress (cons '!" r)))))
 
 % I want to define these two AFTER I have defined all of the rest
@@ -1280,7 +1399,7 @@ top (cond ((atom a) (return (reversip r))))
 
 (setq !*redefmsg nil)
 
-(dm date (x) "1 Feb 2012") % A macro so that number of args does not matter
+(dm date (x) "1 Jan 2018") % A macro so that number of args does not matter
 
 (de set!-print!-precision (n) n)
 
@@ -1408,6 +1527,9 @@ top (cond ((atom a) (return (reversip r))))
          (return r))))
 
 (de ash (a n) (leftshift a n))
+(de lsh (a n) (leftshift a n))
+(de ilsh (a n) (leftshift a n))
+(de lshift (a n) (leftshift a n))
 
 (de ash1 (a n)
    (if (minusp a) (minus (leftshift (minus a) n)) (leftshift a n)))
@@ -1599,8 +1721,6 @@ top (cond ((atom a) (return (reversip r))))
 
 (de verbos (x) nil)
 
-(de linelength (n) 80)
-
 (de getenv (x) nil)
 
 (de filep (x)
@@ -1622,17 +1742,6 @@ top (cond ((atom a) (return (reversip r))))
 
 (de threevectorp (x)
    (and (vectorp x) (equal (upbv x) 2)))
-
-(de list!-to!-vector (l)
-   (prog (n v)
-      (setq n (length l))
-      (setq v (mkvect (sub1 n)))
-      (setq n 0)
-      (while l
-         (putv v n (car l))
-         (setq n (add1 n))
-         (setq l (cdr l)))
-      (return v)))
 
 (de frexp (x)
    (prog (n)
@@ -1723,10 +1832,6 @@ top (cond ((atom a) (return (reversip r))))
 
 (de tmpnam () "./temporary-file.tmp")
 
-(de posn () 0)
-
-(de lposn () 0)
-
 (dm unwind!-protect (x) `(progn . ,(cdr x)))
 
 % arithmetic left shift
@@ -1756,5 +1861,18 @@ top (cond ((atom a) (return (reversip r))))
       (t (length (explode2 u)))))
 
 %(de get!-lisp!-directory () ".")
+
+(dm commentoutcode (u) nil)
+
+(dm compiletime (x) (cons 'progn (cdr x)))
+(dm loadtime (x) (cons 'progn (cdr x)))
+(dm bothtimes (x) (cons 'progn (cdr x)))
+
+(dm load (x)
+  (terpri)
+  (prin2 "++++ LOAD ")
+  (prin (cdr x))
+  (printc " called")
+  nil)
 
 % End of vsl.lsp

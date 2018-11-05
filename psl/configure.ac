@@ -10,6 +10,8 @@ AC_CONFIG_SRCDIR(README.PSL)
 
 AM_INIT_AUTOMAKE([1.8.3 -Wno-portability foreign no-dist-gzip dist-bzip2])
 
+LT_INIT
+
 AC_CONFIG_FILES([Makefile])
 
 AC_CHECK_PROGS(CYGPATH,[cygpath],[no])
@@ -141,6 +143,15 @@ fi
 # just the text "yes", in cases that the implementation is 64-bit.
 
 AM_CONDITIONAL(sixty_four, test -f psl/64)
+
+unm=`uname -m`
+uns=`uname -s`
+
+AM_CONDITIONAL(windows, test "X$OS" = "XWindows_NT")
+AM_CONDITIONAL(i686, test "$unm" = "i686")
+AM_CONDITIONAL(x86_64, test "$unm" = "x86_64")
+AM_CONDITIONAL(macintosh, test "$uns" = "Darwin")
+AM_CONDITIONAL(linux, test "$uns" = "Linux")
 
 AC_OUTPUT
 

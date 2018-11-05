@@ -1,10 +1,8 @@
-// unimaths.cpppp                     Copyright (C)        2015 Codemist    
-
-// $Id$
+// unimaths.cpp                            Copyright (C) 2015-2017 Codemist    
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -32,6 +30,9 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
+// $Id: unimaths.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
+
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -42,6 +43,11 @@
 // codepoints corresponding to various "mathematical" styles. The converted
 // values are all available in STIXGeneral-Regular so even Bold and Italic
 // letters should be found there rather than in STIX_General-Bold etc.
+
+// I have a range of "styles" here, and present one of them plus a simple
+// Basic Latin code, and I get back a Unicode code-point. Note that this
+// will NOT support use of characters othger than [A-Za-z0-9] in any
+// clean manner.
 
 #define MATH_REGULAR                        0
 #define MATH_BOLD                           1
@@ -64,6 +70,16 @@
 // where individual letters had already been provided in the basic
 // multilingual pane. So the code here will map letters either onto this
 // special range or onto one of the special cases.
+
+
+// Once again the main "joy" here is that a fair number of styled
+// mathematical letters had been provided in early revisions of Unicode,
+// so for instance an "Math Italic small h" was provided with the Unicode
+// name PLANCK_CONSTANT. Then a-g and i-z in Math Italic are then provided
+// in a block somewhere above U+1d400. The code here knows about the
+// special cases and allows you to ask for letters in different styles
+// without needing to track the full mess of Unicode layout.
+
 
 int map_math_letter(int style, int c)
 {   int r;
@@ -138,7 +154,10 @@ int map_math_greek_letter(int style, int c)
 // There are also varients available, such as THETA_SYMBOL, PHI_SYMBOL,
 // EPSILON_SYMBOL, KAPPA_SYMBOL, RHO_SYMBOL, PI_SYMBOL & PARTIAL_DIFFERENTIAL
 // in the range of mathematical symbols, but those will have to be generated
-// by hand as individual special cases.
+// by hand as individual special cases. You start by passing this a regular
+// Unicode Greek letter. If you ask for the MATH_REGULAR varient it gets
+// returned unchanged - otherwise it maps to one of the mathematical special
+// variants.
     if (unicode_GREEK_CAPITAL_LETTER_ALPHA <= c &&
         c <= unicode_GREEK_CAPITAL_LETTER_OMEGA)
         r = c - unicode_GREEK_CAPITAL_LETTER_ALPHA;
@@ -167,7 +186,9 @@ int map_math_greek_letter(int style, int c)
     }
 }
 
-// Similarly for digits.
+// Similarly for digits. As a matter of trying to be generous I will allow
+// the input EITHER to be a code in the range '0' to '9' or a number
+// in the range 0-9.
 
 int map_math_digit(int style, int c)
 {   int r;
@@ -189,14 +210,13 @@ int map_math_digit(int style, int c)
         case MATH_MONOSPACE:
             return r+unicode_MATHEMATICAL_MONOSPACE_DIGIT_ZERO;
         case MATH_OLDSTYLE:
-// BEWARE. The codepoints here are in the Private Use Area of STIXNonUnicode.
-// I include the mapping here just as a reminder of where to look and I do
-// not really expect generic mapping to be useful.
-            return 0xe261 + 4*r; // !!!!
+// Just in STIXMath... and mapped onto valid codepoints in the ACN variant
+// of that font!
+            return r+nonstandard_OLD_STYLE_DIGIT_ZERO;
         default:
             return 0;
     }
 }
 
 
-// end of unimaths.cpppp
+// end of unimaths.cpp

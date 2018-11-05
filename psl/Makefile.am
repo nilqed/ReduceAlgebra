@@ -5,6 +5,8 @@
 
 TRACE = $(warning TRACE: $@ :: $?)
 
+ACLOCAL_AMFLAGS = -I m4
+
 srcdir = @srcdir@
 VPATH = @srcdir@
 
@@ -54,11 +56,11 @@ red/bootstrap.img:	psl/* \
 # the "red" directory will mean that Reduce can find them even if the
 # full set of source files are not available.
 
-red/mma.awk:	$(reducec)/packages/redlog/mma/mma.awk
-	cp $(reducec)/packages/redlog/mma/mma.awk red/mma.awk
+red/mma.awk:	$(reducec)/packages/redlog/ofsf/mma.awk
+	cp $(reducec)/packages/redlog/ofsf/mma.awk red/mma.awk
 
-red/qepcad.awk:	$(reducec)/packages/redlog/qepcad/qepcad.awk
-	cp $(reducec)/packages/redlog/qepcad/qepcad.awk red/qepcad.awk
+red/qepcad.awk:	$(reducec)/packages/redlog/ofsf/qepcad.awk
+	cp $(reducec)/packages/redlog/ofsf/qepcad.awk red/qepcad.awk
 
 tryboot:
 	psl/bpsl -td $(STORE2) -f red/bootstrap.img
@@ -99,6 +101,89 @@ red/reduce.img:  red/hugo
 	if  test -f "../../psl/mkreduce" -o ! -f red/reduce.img; then rm -f ../../psl/mkreduce; \
 	"$(srcdir)/reduce.img.sh" $(BUILD); \
 	fi
+
+
+# Now I am going to put some customized and rather odd install stuff. When I
+# have this working I will want to put in matching uninstall code, but for
+# now that will wait. The idea I have is that the files that get set up by the
+# stuff here should match the ones created by the system-specific installers,
+# i.e. reduce.deb and .rpm and the Windows installer. I am really not sure
+# what I should do on a Macintosh! So I think I will put things so that
+# reduce can be launched from the command-line an dnot worry (at least the
+# start with) about applications bundles etc.
+
+if windows
+
+install-exec-local:	red/reduce.img
+	echo install for windows not implemented
+	exit 1
+
+else !windows
+if macintosh
+
+install-exec-local:	red/reduce.img
+	echo install for macintosh not implemented
+	exit 1
+
+else !macintosh
+if linux
+
+install-exec-local:	red/reduce.img
+# This version is mainly for Linux... It follows the directory layout used
+# in the "debianbuild" directory.
+	echo install for Linux, Unix etc into destdir=$(DESTDIR) prefix=$(prefix)
+	rm -rf $(DESTDIR)$(libdir)/reduce/pslbuild ; \
+	mkdir -p $(DESTDIR)$(libdir)/reduce/pslbuild/psl ; \
+	mkdir -p $(DESTDIR)$(libdir)/reduce/pslbuild/red ; \
+	cp -r psl/* $(DESTDIR)$(libdir)/reduce/pslbuild/psl ; \
+	cp -r red/* $(DESTDIR)$(libdir)/reduce/pslbuild/red ; \
+	sed -e "s+#libdir#+$(libdir)+" < $(reducec)/psl/redpsl > $(DESTDIR)$(prefix)/bin/redpsl ; \
+	chmod +x > $(DESTDIR)$(prefix)/bin/redpsl ; \
+	echo Installed for PSL in $(DESTDIR)$(prefix)
+
+else !linux
+
+install-exec-local:
+	echo install for this unknown system not implemented
+	exit 1
+
+endif !linux
+endif !macintosh
+endif !windows
+
+if windows
+
+uninstall-local:
+	echo uninstall for windows not implemented
+	exit 1
+
+else !windows
+if macintosh
+
+uninstall-local:
+	echo uninstall for macintosh not implemented
+	exit 1
+
+else !macintosh
+if linux
+
+uninstall-local:
+# This version is mainly for Linux... It follows the directory layout used
+# in the "debianbuild" directory.
+	echo install for Linux, Unix etc into destdir=$(DESTDIR) prefix=$(prefix)
+	rm -rf $(DESTDIR)$(prefix)/lib/reduce/pslbuild ; \
+	rf -f $(DESTDIR)$(prefix)/bin/redpsl ; \
+	echo Uninstalled for PSL in $(DESTDIR)$(prefix)
+
+else !linux
+
+uninstall-local:
+	echo uninstall for this unknown system not implemented
+	exit 1
+
+endif !linux
+endif !macintosh
+endif !windows
 
 # end of Makefile.am
 

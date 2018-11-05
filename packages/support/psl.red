@@ -32,9 +32,9 @@ imports big2sys, bigp, floatloworder, floathighorder, gtneg, gtpos,
 
 exports ashift, msd!:, fl2bf, integerp!:, normbf, oddintp, preci!:;
 
-fluid '(bbits!*);
+fluid '(bbits!* dirchar!*);
 
-global '(bfz!* bitsperword dirchar!* tempdir!*);
+global '(bfz!* bitsperword tempdir!*);
 
 !#if (intersection '(dos os2 winnt alphant win32 win64 cygwin) lispsystem!*)
    dirchar!* := "\";
@@ -55,6 +55,8 @@ remflag ('(ashift msd!: fl2bf ff0 ff1
 flag('(cond),'eval);   % Enable conditional compilation.
 
 %-------------------------------------------------------------------
+
+!#if (member 'ieee lispsystem!*)
 
 % % The following routines support fast float operations by exploiting
 % % the IEEE number format explicitly.
@@ -145,8 +147,25 @@ symbolic procedure float!-is!-infinite x;
 symbolic procedure float!-is!-subnormal x;
   floatp x and ieeeexpt x = 0;
 
+symbolic procedure float!-is!-negative x;
+  floatp x and not(0 eq ieeesign x);
 
-remflag('(fp!-infinite fp!-nan fp!-finite fp!-subnorm),'lose);
+!#else
+
+symbolic procedure float!-is!-finite x; t;
+
+symbolic procedure float!-is!-nan x; nil;
+
+symbolic procedure float!-is!-infinite x; nil;
+
+symbolic procedure float!-is!-subnormal x; nil;
+
+symbolic procedure float!-is!-negative x; floatp x and minusp x;
+
+!#endif
+
+
+remflag('(fp!-infinite fp!-nan fp!-finite fp!-subnorm fp!-signbit),'lose);
 
 symbolic inline procedure fp!-infinite x;
   float!-is!-infinite x;
@@ -160,7 +179,10 @@ symbolic inline procedure fp!-finite x;
 symbolic inline procedure fp!-subnorm x;
   float!-is!-subnormal x;
 
-flag('(fp!-infinite fp!-nan fp!-finite fp!-subnorm),'lose);
+symbolic inline procedure fp!-signbit x;
+  float!-is!-negative x;
+
+flag('(fp!-infinite fp!-nan fp!-finite fp!-subnorm fp!-signbit),'lose);
 
 %---------------------------------------------------------------
 
@@ -382,6 +404,9 @@ symbolic inline procedure princ x; prin2 x;
 symbolic inline procedure prin x;  prin1 x;
 symbolic inline procedure printc x; << prin2 x; terpri(); x >>;
 
+symbolic procedure ttab n;
+  while posn() < n do prin2 " ";
+
 symbolic inline procedure list!-to!-vector a; list2vector a;
 
 symbolic procedure hexdig w;
@@ -403,6 +428,11 @@ symbolic procedure explodehex n;
     return r
   end;
 
+symbolic procedure plist x;
+  prop x;
+
+symbolic procedure symbol!-name x;
+  id2string x;
 
 % A function to expand a filename glob (pattern) via a pipe
 %  A couple of tricky issues here:
@@ -531,7 +561,7 @@ symbolic procedure find!-gnuplot!-aux path;
 % had been installed in may vary from case to case. The code here tries
 % to sort this out!
 
-global '(cygin_tmp!*);
+global '(cygwin_tmp!*);
 
 cygwin_tmp!* := nil;
 

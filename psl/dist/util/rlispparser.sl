@@ -6,6 +6,7 @@
 % Created:      May 1981 
 % Modified:     02-Dec-83 19:04:21 (Nancy Kendzierski) 
 % Package:      Utilities 
+% Status:       Open Source: BSD License
 %
 % (c) Copyright 1982, University of Utah
 %
@@ -1352,11 +1353,17 @@
         11 18 20 11 0 1 2 3 4 5 6 7 8 9 13 11 13 11 13 11 11 10 10 10 10 
         10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 
         11 16 11 11 10 11 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 
-        10 10 10 10 10 10 10 10 10 10 11 11 11 11 11 lispdiphthong])
+        10 10 10 10 10 10 10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11
+        11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11
+        11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11
+        11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11
+        11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11
+        11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11 11
+        11 11 11 11 11 11 11 11 11 11 11 lispdiphthong])
 
 (setq rlispscantable* (totalcopy rlispreadscantable*))
 
-(putv rlispscantable* 128 'rlispdiphthong)
+(putv rlispscantable* 256 'rlispdiphthong)
 
 (changechartype rlispscantable* '!- 11)
 

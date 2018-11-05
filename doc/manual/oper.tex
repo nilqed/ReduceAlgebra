@@ -249,7 +249,6 @@ positive only as long as the switch \texttt{COMPLEX} is off.
 \hypertarget{operator:IBETA}{}
 \hypertarget{operator:IGAMMA}{}
 \hypertarget{operator:LERCH_PHI}{}
-\hypertarget{operator:LN}{}
 \hypertarget{operator:LOG}{}
 \hypertarget{operator:LOGB}{}
 \hypertarget{operator:LOG10}{}
@@ -274,7 +273,7 @@ take arbitrary scalar expressions as their argument(s):
 \begin{verbatim}
    ACOS ACOSH ACOT ACOTH ACSC ACSCH ASEC ASECH ASIN
    ASINH ATAN ATANH ATAN2 BETA CI COS COSH COT COTH CSC
-   CSCH DILOG EI EXP GAMMA HYPOT IBETA IGAMMA LN LOG
+   CSCH DILOG EI EXP GAMMA HYPOT IBETA IGAMMA LOG
    LOGB LOG10 SEC SECH SI SIN SINH SQRT TAN TANH
    AIRY_AI AIRY_AIPRIME AIRY_BI AIRY_BIPRIME
    BESSELI BESSELJ BESSELK BESSELY
@@ -298,12 +297,12 @@ take arbitrary scalar expressions as their argument(s):
 \ttindex{Lommel1}\ttindex{Lommel2}
 \ttindex{StruveH}\ttindex{StruveL}
 \ttindex{WhittakerM}\ttindex{WhittakerU}
-\ttindex{HYPOT}\ttindex{IBETA}\ttindex{IGAMMA}\ttindex{LN}\ttindex{LOG}\ttindex{LOGB}\ttindex{LOG10}
+\ttindex{HYPOT}\ttindex{IBETA}\ttindex{IGAMMA}\ttindex{LOG}\ttindex{LOGB}\ttindex{LOG10}
 \ttindex{POCHHAMMER}\ttindex{POLYGAMMA}\ttindex{PSI}
 \ttindex{SEC}\ttindex{SECH}\ttindex{SI}\ttindex{SIN}
 \ttindex{SINH}\ttindex{SQRT}\ttindex{TAN}\ttindex{TANH}
 \ttindex{ZETA}
-where \texttt{LOG} is the natural logarithm (and equivalent to \texttt{LN}),
+where \texttt{LOG} is the natural logarithm,
 and \texttt{LOGB} has two arguments of which the second is the logarithmic base.
 
 The derivatives of all these functions are also known to the system.
@@ -326,33 +325,27 @@ view these, the SHOWRULES operator can be used, e.g.
 \begin{verbatim}
       SHOWRULES tan;
 
-{tan(~n*arbint(~i)*pi + ~(~ x)) => tan(x) when fixp(n),
+{tan(~n*arbint(~i)*pi + ~~x) => tan(x) when fixp(n),
 
- tan(~x)
+ tan(~x) => trigquot(sin(x),cos(x)) when knowledge_about(sin,x,tan),
 
-  => trigquot(sin(x),cos(x)) when knowledge_about(sin,x,tan),
+      ~x + ~~k*pi              x                 k                     k     1
+ tan(-------------) =>  - cot(--- + i*pi*impart(---)) when abs(repart(---))=---,
+          ~~d                  d                 d                     d     2
 
-      ~x + ~(~ k)*pi
- tan(----------------)
-            ~d
+      ~~w + ~~k*pi           w      k                k
+ tan(--------------) => tan(--- + (--- - fix(repart(---)))*pi)
+          ~~d                d      d                d
 
-             x                  k                     k     1
-  =>  - cot(---) + i*pi*impart(---)) when abs(repart(---))=---,
-             d                  d                     d     2
-
-      ~(~ w) + ~(~ k)*pi           w      k                k
- tan(--------------------) => tan(--- + (--- - fix(repart(---)))*pi)
-            ~(~ d)                 d      d                d
-
-                              k
- when whereexp({rp => repart(---)},bool-eval(ratnump(rp) and abs(rp)>=1)),
-                              d
+                                                         k
+  when ((ratnump(rp) and abs(rp)>=1) where rp => repart(---)),
+                                                         d
 
  tan(atan(~x)) => x,
 
                              2
  df(tan(~x),~x) => 1 + tan(x) }
-
+			      
 \end{verbatim}
 
 For further simplification, especially of expressions involving
@@ -479,6 +472,7 @@ yields the output
 2*sqrt( - 2*a *b)
 \end{verbatim}
 
+\hypertarget{operator:LN}{}
 The statement that {\REDUCE} knows very little about these functions
 applies only in the mathematically exact \texttt{off rounded} mode.  If
 \sw{ROUNDED}\ttindexswitch{ROUNDED} is on, any of the functions
@@ -794,11 +788,12 @@ case the derivative is reported as the symbol \texttt{df(z,x)}.
 \hypertarget{switch:NOCOMMUTEDF}{}
 \hypertarget{switch:SIMPNONCOMDF}{}
 
-Consider \texttt{df(u,x,y,z)}.  If non of \texttt{x,y,z} are equal to \var{u}
+Consider \texttt{df(u,x,y,z)}, assuming \var{u} depends on each of \texttt{x,y,z}
+in some way.  If none of \texttt{x,y,z} is equal to \var{u}
 then the order of differentiation is commuted into a canonical form, unless the
 switch \sw{NOCOMMUTEDF}\ttindexswitch{NOCOMMUTEDF} is turned on (default is off).
-if at least one of \texttt{x,y,z} is equal to \var{u} then the order of
-differentiation is \emph{not} commuted and the derivative is \emph{not}
+If at least one of \texttt{x,y,z} is equal to \var{u} then the order of
+differentiation is \emph{not} fully commuted and the derivative is \emph{not}
 simplified
 to zero, unless the switch \sw{COMMUTEDF}\ttindexswitch{COMMUTEDF} is turned on.
 It is off by default.
@@ -821,7 +816,7 @@ It is off by default.  Thus, for example, given
 \begin{verbatim}
         DEPEND F,U,V; DEPEND {U,V},X;
         ON EXPANDDF;
-        DF(F,X)        -> DF(F,U)*DF(U,X) + DF(F,V)*DF(V,X)
+        DF(F,X)    -> DF(F,U)*DF(U,X) + DF(F,V)*DF(V,X)
 \end{verbatim}
 whereas after
 \begin{verbatim}
@@ -1034,25 +1029,26 @@ operator, or an algebraic expression with one free variable.
 
 It is used with the syntax:
 \begin{verbatim}
-   MAP(U:function,V:object)
+   MAP(FNC:function,OBJ:object)
 \end{verbatim}
-Here \texttt{object} is a list, a matrix or an operator expression.
-\texttt{Function} can be one of the following:
+Here \texttt{OBJ} is a list, a matrix or an operator expression.
+\texttt{FNC} can be one of the following:
 \begin{enumerate}
-\item the name of an operator for a single argument: the operator
-is evaluated once with each element of \texttt{object} as its single argument;
-\item an algebraic expression with exactly one free variable, that is
+\item the name of an operator with a single argument: the operator
+is evaluated once with each element of \texttt{OBJ} as its single argument;
+\item an algebraic expression with exactly one free variable, i.e.
 a variable preceded by the tilde symbol. The expression
-is evaluated for each element of \texttt{object}, where the element is
+is evaluated for each element of \texttt{OBJ}, with the element
 substituted for the free variable;
 \item a replacement rule of the form \texttt{var => rep}
 where \texttt{var} is a variable (a kernel without a subscript)
 and \texttt{rep} is an expression that contains \texttt{var}.
-\texttt{Rep} is evaluated for each element of \texttt{object} where
-the element is substituted for  \texttt{var}. \texttt{Var} may be
+The replacement expression \texttt{rep} is evaluated for each element of 
+\texttt{OBJ} with
+the element substituted for  \texttt{var}. The variable \texttt{var} may be
 optionally preceded by a tilde.
 \end{enumerate}
-The rule form  for \texttt{function} is needed when more than
+The rule form  for \texttt{FNC} is needed when more than
 one free variable occurs.
 
 Examples:
@@ -1074,7 +1070,7 @@ Examples:
 \end{verbatim}
 
 You can use \texttt{MAP} in nested expressions. However, you cannot
-apply \texttt{MAP} to a non-composed object, e.g. an identifier or a number.
+apply \texttt{MAP} to a non-composite object, e.g. an identifier or a number.
 
 
 \section{MKID Operator}\ttindex{MKID}
@@ -1093,12 +1089,17 @@ for example
 \end{verbatim}
 while \texttt{mkid(a+b,2)} gives an error.
 
-The \texttt{SET}\ttindex{SET} operator can be used to give a value to the
+The \texttt{SET}\ttindextype{SET}{statement} statement can be used to give a value to the
 identifiers created by \texttt{MKID}, for example
 \begin{verbatim}
         set(mkid(a,3),3);
 \end{verbatim}
 will give \var{A3} the value 2.
+Similarly, the \texttt{UNSET}\ttindextype{UNSET}{statement} statement can be used to
+remove the value from these identifiers, for example
+\begin{verbatim}
+        unset(mkid(a,3));
+\end{verbatim}
 
 
 \section{The Pochhammer Notation}
@@ -1174,30 +1175,30 @@ The \texttt{SELECT} operator extracts from a list,
 or from the arguments of an n--ary operator, elements corresponding
 to a boolean predicate. It is used with the syntax:
 \begin{syntax}
-  \texttt{SELECT(}\meta{U:function},\meta{V:list}\texttt{)}
+  \texttt{SELECT(}\meta{FNC:function},\meta{LST:list}\texttt{)}
 \end{syntax}
 
-\texttt{Function} can be one of the following forms:
+\texttt{FNC} can be one of the following forms:
 \begin{enumerate}
-\item the name of an operator for a single argument: the operator
-is evaluated once with each element of \texttt{object} as its single argument;
-\item an algebraic expression with exactly one free variable, that is
+\item the name of an operator with a single argument: the operator
+is evaluated once on each element of \texttt{LST};
+\item an algebraic expression with exactly one free variable, i.e.
 a variable preceded by the tilde symbol. The expression
-is evaluated for each element of \meta{object}, where the element is
+is evaluated for each element of \meta{LST}, with the element
 substituted for the free variable;
 \item a replacement rule of the form \meta{var} \texttt{=>} \meta{rep}
 where \meta{var} is a variable (a kernel without subscript)
 and \meta{rep} is an expression that contains \meta{var}.
-\meta{rep} is evaluated for each element of \texttt{object} where
-the element is substituted for  \meta{var}. \meta{var} may be
+\meta{rep} is evaluated for each element of \texttt{LST} with
+the element substituted for  \meta{var}. \meta{var} may be
 optionally preceded by a tilde.
 \end{enumerate}
-The rule form  for \texttt{function} is needed when more than
+The rule form  for \texttt{FNC} is needed when more than
 one free variable occurs.
 
-The result of evaluating \texttt{function} is
+The result of evaluating \texttt{FNC} is
 interpreted as a boolean value corresponding to the conventions of
-{\REDUCE}. These values are composed with the leading operator of the
+\REDUCE. These values are composed with the leading operator of the
 input expression.
 
 \textit{Examples:}\nopagebreak

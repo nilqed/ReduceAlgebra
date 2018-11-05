@@ -1,6 +1,5 @@
-//
-// get-computer-modern-widths.cpp
-//
+// get-computer-modern-widths.cpp          Copyright (C) 2015-2017 Codemist
+
 // This extracts just enough font information from a bunch of *.tfm
 // files that I can do the processing of the fonts that the DVI format
 // requires.
@@ -22,7 +21,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -50,7 +49,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: get-computer-modern-widths.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -145,7 +144,7 @@ int main(int argc, char *argv[])
     fprintf(out, "// Widths for characters in Computer Modern Fonts\n *\n");
     fprintf(out, "// extracted from %s\n *\n", FONT_PATH);
     fprintf(out, "//\n");
-    fprintf(out, "\n\n// $Id$\n\n\n");
+    fprintf(out, "\n\n// $Id: get-computer-modern-widths.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $\n\n\n");
     fprintf(out, "#include <stdint.h>\n\n");
     fprintf(out, "typedef struct font_width {\n");
     fprintf(out, "   const char *name;\n");

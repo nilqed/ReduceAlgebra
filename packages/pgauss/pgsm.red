@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: pgsm.red 1887 2013-01-15 11:22:55Z thomas-sturm $
 % ----------------------------------------------------------------------
 % (c) 1998 A. Dolzmann, A. Seidl, T. Sturm, 2012 T. Sturm
 % ----------------------------------------------------------------------
@@ -30,7 +30,7 @@
 
 lisp <<
    fluid '(pgsm_rcsid!* pgsm_copyright!*);
-   pgsm_rcsid!* := "$Id$";
+   pgsm_rcsid!* := "$Id: pgsm.red 1887 2013-01-15 11:22:55Z thomas-sturm $";
    pgsm_copyright!* := "(c) 1998 A. Dolzmann, A. Seidl, T. Sturm, 2012 T. Sturm"
 >>;
 

@@ -7,10 +7,34 @@
 % Modified:     2-Jan-85 13:13:16 (Vicki O'Day)
 % Mode:         Lisp
 % Package:
-% Status:       Experimental (Do Not Distribute)
+% Status:       Open Source: BSD License
 %
 % (c) Copyright 1983, Hewlett-Packard Company, see the file
 %            HP_disclaimer at the root of the PSL file tree
+%
+% (c) Copyright 1982, University of Utah
+%
+% Redistribution and use in source and binary forms, with or without
+% modification, are permitted provided that the following conditions are met:
+%
+%    * Redistributions of source code must retain the relevant copyright
+%      notice, this list of conditions and the following disclaimer.
+%    * Redistributions in binary form must reproduce the above copyright
+%      notice, this list of conditions and the following disclaimer in the
+%      documentation and/or other materials provided with the distribution.
+%
+% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+% THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+% PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNERS OR
+% CONTRIBUTORS
+% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+% INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+% POSSIBILITY OF SUCH DAMAGE.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -94,6 +118,24 @@
      (*move (quote ,errorstring) (fluid errorstring*))
 					     % string for error message
      (push (reg 1))
+
+     ,@(if (eq signumber 11)
+                                             % insert code for SIGSEGV handler
+					     % to handle stack overflow
+          (list
+            '(!*jumpnoteq (label nostackoverflow) (fluid exceptioncode*) 16#c00000fd)
+                                             % check for stack overflow
+					     % and reset the stack
+            '(*link _resetstkoflw expr 0)
+            '(!*jumpnoteq (label nostackoverflow) (reg 1) 0)
+                                             % abort if _resetstkoflw failed
+            '(*move (quote "Stack overflow - aborting") (reg 1))
+	    '(*call console-print-string)
+            '(*call console-newline)
+            '(*link exit-with-status expr 1)
+           'nostackoverflow
+	  ))
+
      (*link initializeinterrupts-1 expr 0)
      (pop (reg 1))
      (pop (reg rsi)) 		             % restored saved registers
@@ -172,6 +214,7 @@
 	     ((weq exceptioncode* 16#c0000090) "Invalid floating point operation")
 	     ((weq exceptioncode* 16#c0000092) "Floating point stack over-/underflow")
 	     ((weq exceptioncode* 16#c0000093) "Floating point underflow")
+	     ((weq exceptioncode* 16#c00000fd) "Stack overflow")
 	     (t errorstring*)
 	     )
 	    sigaddr*))))

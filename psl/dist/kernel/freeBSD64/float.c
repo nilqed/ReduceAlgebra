@@ -1,14 +1,14 @@
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% File:         PB:FLOAT.C
+% File:         PXK:FLOAT.C
 % Description:  Miscellaneous floating point support routines.
 % Author:       Leigh Stoller
 % Created:      29-Oct-86 
 % Modified:     
 % Mode:         Text
 % Package:      
-% Status:       Experimental (Do Not Distribute)
+% Status:       Open Source: BSD License
 %
 % (c) Copyright 1982, University of Utah
 %
@@ -49,6 +49,19 @@
 #include <math.h>
 #include <fenv.h>
 
+#ifdef USE_CRLIBM
+#include "crlibm.h"
+
+#define sin	sin_rn
+#define cos	cos_rn
+#define tan 	tan_rn
+#define asin	asin_rn
+#define acos	acos_rn
+#define atan	atan_rn
+#define exp	exp_rn
+#define log	log_rn
+
+#endif
 
 /* Tag( uxfloat )
  */
@@ -122,8 +135,8 @@ uxquotient(f1,f2,f3)
      double *f1, *f2, *f3;
 {
   *f1 = *f2 / *f3;
-  fegetexceptflag(&flagp, FE_OVERFLOW | FE_DIVBYZERO);
-  if(flagp != 0) {feclearexcept(FE_OVERFLOW | FE_DIVBYZERO); return (0);}
+  fegetexceptflag(&flagp, FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID);
+  if(flagp != 0) {feclearexcept(FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID); return (0);}
   return (1);
 }
 
@@ -153,8 +166,6 @@ long long uxlessp(f1,f2,val1,val2)
 
 /* Tag( uxwritefloat )
  */
-
-
 void
 uxwritefloat(buf, flt, convstr)
      char *buf;          /* String buffer to return float int */
@@ -169,32 +180,34 @@ uxwritefloat(buf, flt, convstr)
 
   sprintf(temps,convstr, *flt);
 
-  /* Make sure that there is a trailing .0
-   */
-  dot = rindex(temps, '.');
-  if (dot == '\0')
+  if (finite(*flt)) 
     {
-    /* Check to see if the number is in scientific notation. If so, we need
-     *  add the .0 into the middle of the string, just before the e.
+
+    /* Make sure that there is a trailing .0
      */
-    if ((e = rindex(temps, 'e')) || (e = rindex(temps, 'E')))
-      {
-	strcpy(tempbuf, e);       /* save exponent part */
-	*e = '\0'; 
-	strcat(temps, ".0");     /* Add .0 ono original string */
-	strcat(temps, tempbuf);  /* add the exponent part onto the end */
-      }
-  else
-    {
-      strcat(temps, ".0");
+      dot = rindex(temps, '.');
+      if (dot == '\0')
+	{
+	/* Check to see if the number is in scientific notation. If so, we need
+	 *  add the .0 into the middle of the string, just before the e.
+	 */
+	if ((e = rindex(temps, 'e')) || (e = rindex(temps, 'E')))
+	  {
+	    strcpy(tempbuf, e);       /* save exponent part */
+	    *e = '\0'; 
+	    strcat(temps, ".0");     /* Add .0 ono original string */
+	    strcat(temps, tempbuf);  /* add the exponent part onto the end */
+	  }
+	else
+	  {
+	    strcat(temps, ".0");
+	  }
+	}
     }
-  }
-  
   /* Install the length of the string into the Lisp header word
    */
   *((long long *)buf) = strlen(temps) - 1;
 }
-
 
 void
 uxwritefloat8(buf, flt, convstr,dummy)

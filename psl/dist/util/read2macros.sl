@@ -6,6 +6,7 @@
 % Created:      Wednesday, 12 May 1982 
 % Modified:     6 May 1984 1553-PDT 
 % Package:      Utilities 
+% Status:       Open Source: BSD License
 %
 % (c) Copyright 1982, University of Utah
 %
@@ -53,7 +54,7 @@
 
 (putv LispScanTable* (char !#) 13)
 
-(put '!# (getv LispScanTable* 128) '((!. . !#!.)
+(put '!# (getv LispScanTable* 256) '((!. . !#!.)
 				     (!/ . !#!/)
 				     (!' . !#!')
 				     (!+ . !#!+)

@@ -19,7 +19,7 @@ struct
   fun dig ch  =  ord ch - ord #"0"
 
   fun varChar NONE NONE NONE  =  NONE
-  |   varChar t    b    r     =  SOME {top = t, bot = b, rep = r}
+  |   varChar t    b    r     =  SOME {top = t, bot = b, rep = valOf r}
 
 (* BEGIN destructive file reading *)
 
@@ -37,29 +37,34 @@ struct
   (* The next function is called with an W ... R ahead,
      and reads until the next C or E, consuming this character *)
   fun getInfo size file  =
-  let fun collect w h d i l t b r  =
+  let fun collect w h d i l t b r a =
       case  valOf(input1 file)  of
         #"W"  =>  let val w'  =  getDist size file
-                  in  collect w' h  d  i  l  t  b  r   end
+                  in  collect w' h  d  i  l  t  b  r  a  end
       | #"H"  =>  let val h'  =  getDist size file
-                  in  collect w  h' d  i  l  t  b  r   end
+                  in  collect w  h' d  i  l  t  b  r  a  end
       | #"D"  =>  let val d'  =  getDist size file
-                  in  collect w  h  d' i  l  t  b  r   end
+                  in  collect w  h  d' i  l  t  b  r  a  end
       | #"I"  =>  let val i'  =  getDist size file
-                  in  collect w  h  d  i' l  t  b  r   end
+                  in  collect w  h  d  i' l  t  b  r  a  end
       | #"L"  =>  let val l'  =  SOME (getOctal file)
-                  in  collect w  h  d  i  l' t  b  r   end
+                  in  collect w  h  d  i  l' t  b  r  a  end
       | #"T"  =>  let val t'  =  SOME (getOctal file)
-                  in  collect w  h  d  i  l  t' b  r   end
+                  in  collect w  h  d  i  l  t' b  r  a  end
       | #"B"  =>  let val b'  =  SOME (getOctal file)
-                  in  collect w  h  d  i  l  t  b' r   end
+                  in  collect w  h  d  i  l  t  b' r  a  end
       | #"R"  =>  let val r'  =  SOME (getOctal file)
-                  in  collect w  h  d  i  l  t  b  r'  end
+                  in  collect w  h  d  i  l  t  b  r' a  end
+      | #"M"  =>  let val m'  =  SOME (getOctal file)
+                  in  collect w  h  d  i  l  t  b  r  a  end
+      | #"S"  =>  let val a' =   getDist size file
+                  in  collect w  h  d  i  l  t  b  r  a' end
       (* The code above may be expressed simpler using references *)
       | code  =>  ({width  = w,  height = h,  depth = d,  itCorr = i,
+                    accentSkew = a,
                     larger = l,  varChar  =  varChar t b r},
                    code = #"E")
-  in  collect zero zero zero zero NONE NONE NONE NONE  end
+  in  collect zero zero zero zero NONE NONE NONE NONE zero end
 
   fun getList size file  =
   let val _  =  inputLine file    (* skips remainder of C line *)

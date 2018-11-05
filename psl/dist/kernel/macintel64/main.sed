@@ -1,5 +1,2 @@
-s/ main/ _psl_main/g
-s/^main:/_psl_main:/g
-s/\*jumphugo %rax/jmp  \*%rax/g
-s/cmp \$/cmpq \$/g
+s/psl_main/_psl_main/g
 s/,@/@/g

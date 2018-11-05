@@ -4,7 +4,7 @@
 %
 % This is where (for now) I will put documentation of the syntax I
 % will use when creating a grammer. There is a main function called
-% lalr_construct_parser and that is passed a list that describes
+% lalr_create_parser and that is passed a list that describes
 % a grammar. It is in the form of a sequence of productions, and the first
 % one given is taken to be the top-level target.
 %
@@ -25,14 +25,24 @@
 % non-terminals that are unambiguous even when case-folded, but I would like
 % to establish a convention that in source code they are written in capitals.
 %
-% The rhs items may be either non-terminals (identified because they are
+% The RHS items may be either non-terminals (identified because they are
 % present in the left hand side of some production) or terminals. Terminal
 % symbols can be specified in two different ways.
-% The lexer has built-in recipies that decode certain sequences of characters
-% and return the special markers for !:symbol, !:number, !:string, !:list for
-% commonly used cases. In these cases the variable yylval gets left set
-% to associated data, so for instance in the case of !:symbol it gets set
-% to the particular symbol concerned.
+%
+% Semantic actions must be given in Lisp, and the variables !$1, !$2, ...
+% refer to the components from the matched right hand side. The final
+% item in the semantic action is used as the result (and hence gets built
+% up into the parse tree). If an explicit action is not given the
+% behaviour is as if "(list !$1 !$2 ... !$n)" had been given, where the
+% number of items is the number of terms in the pattern -- with a special
+% case if there is only one item in which case the implicit action is
+% just "!$1".
+%
+% The default lexer has built-in recipies that decode certain sequences
+% of characters and return the special markers for !:symbol, !:number,
+% !:string, !:list for commonly used cases. In these cases the variable
+% yylval gets left set to associated data, so for instance in the case of
+% !:symbol it gets set to the particular symbol concerned.
 % The token type :list is used for Lisp or rlisp-like notation where the
 % input contains
 %     'expression
@@ -50,7 +60,10 @@
 % terminal then '<', '<-' and '<--' will each by parsed as single tokens, and
 % any of them that are not used as terminals will be classified as !:symbol.
 %
-% As well as terminals and non-terminals (which are wrirrent as symbols or
+% A non-default lexer needs to be hand-written and can be installed
+% for a grammar by using "set!-lexer". See examples.
+%
+% As well as terminals and non-terminals (which are written as symbols or
 % strings) it is possible to write one of
 %     (OPT s1 s2 ...)           0 or 1 instances of the sequence s1, ...
 %     (STAR s1 s2 ...)          0, 1, 2, ... instances
@@ -71,17 +84,31 @@
 % Precedence can be set using lalr_precedence. See examples lower down in this
 % file.
 
-% Limitations are
-% (1) At present the parser generator will not cope with large grammars
-%     because it does not merge rules promptly enough.
-% (2) The lexer is hand-written and can not readily be reconfigured for
-%     use with languages other than rlisp. For instance it has use of "!"
-%     as a character escape built into it.
+% Some of the limitations are:
+% (0) Testing has been pretty minimal so far, with the examples in this
+%     file the main ones used. Well testing is ongoing with a grammar
+%     for SML, and so things are improving on that front.
+% (1) The lexer is hand-written and hence somewhat inflexible. It does
+%     provide a set of option that can be used to tune it for (broad)
+%     compatibility with several commonly-used languages. Probably some
+%     people would appreciate something like "lex" or "flex" to make
+%     lexer generationm automatic?
+% (2) The issue of when input should end is not properly though through,
+%     and so it is easy to end up with a syntax error reported when the
+%     parser reaches what you had wanted to be the end of your input.
+% (3) Diagnostics if you give a malformed grammar are weak.
+% (4) The input format is perhaps crude, and in particular semantic actions
+%     have to be given as raw Lisp code.
+% (5) Diagnostics when you present malformed input to the parser are
+%     not that good either...
+% (6) The internals of the code use association lists and I *believe* that
+%     calls to assoc, rassoc and related functions represent bottlenecks
+%     such that processing could be made somewhat faster.
 %
-%
-
+% I have listed the above in the order that I think I need to work on them. 
 
 symbolic;
+load_package lalr;
 
 % Before testing parser generation I will demonstrate the lexer..
 % If I was jumpy about the exact behaviour of the lexer I could go
@@ -98,7 +125,6 @@ lex_keywords '("begin" "<=>" "<==");
 %  Result: (4 200)
 %  Result: (4 3.542)
 %  Result: (3 "a string")
-%  Result: (2 nil)
 %  Result: (5 (quote (quoted lisp)))
 %  Result: (5 (backquote (backquoted (!, comma) (!,!@ comma_at))))
 %  Result: (2 !+)
@@ -111,7 +137,6 @@ lex_keywords '("begin" "<=>" "<==");
 %  Result: (5 begin)
 %  Result: (2 !;)
 %  Result: (2 !;)
-%  Result: (2 !;)
 %
 %  nil
 
@@ -121,14 +146,17 @@ lex_keywords '("begin" "<=>" "<==");
 % syntax and so the rest of this test file will be able to continue happily.
 
 
-<< off echo;
-   lex_init();
-   for i := 1:18 do <<
-     tt := yylex();
-     if not zerop posn() then terpri();
-     princ "Result: ";
-     print list(tt, yylval) >>;
-   on echo >>;
+begin
+  scalar tt;
+  off echo;
+  lex_init();
+  for i := 1:16 do <<
+    tt := yylex();
+    if not zerop posn() then terpri();
+    princ "Result: ";
+    print list(tt, yylval) >>;
+  on echo
+end;
 
 symbol
 200
@@ -143,8 +171,102 @@ symbol
 <
 <=
 begin
-; ; ; ;
+; ; ;
 
+
+% I will now illustrate the various lexing styles that are available:
+
+symbolic procedure demonstrate_lexer style;
+  begin
+    scalar tt, r;
+    lex_init();
+    lex_keywords '(">=");
+% This sets one of the "lexer styles".
+    lexer_style!* := style;
+    while << tt := yylex(); yylval neq '!; >> do r := (tt . yylval) . r;
+    for each x in reverse r do <<
+% CSL and PSL do not put "!" escapes in exactly the same places when
+% printing symbols with an underscore in the name - and thay also
+% disagree about where to break lines to respect linelength. The
+% function portable_print exists to provide consistent output in places
+% like here.
+      if not zerop posn() then terpri();
+      portable_print x >>
+  end;
+
+% I will read exactly the same sequence of characters using various lexer
+% styles so that token syntax, string treatment and comments show up.
+
+demonstrate_lexer lexer_style_rlisp;
+% Rlisp
+# script comment test $
+// C line
+/* C block /* no_nesting */ outside */
+(* SML (* nesting *) inside *)
+'x'
+"strings \" twice \" escapes & embedded "" quotes"
+quote'-'chars :=: !!!! _ _ABC mixed!Case a!-b
+>=
+>>
+0x10000
+#if nil
+conditional
+#endif
+;;;
+
+demonstrate_lexer lexer_style_C;
+% Rlisp
+# script comment test $
+// C line
+/* C block /* no_nesting */ outside */
+(* SML (* nesting *) inside *)
+'x'
+"strings \" twice \" escapes & embedded "" quotes"
+quote'-'chars :=: !!!! _ _ABC mixed!Case a!-b
+>=
+>>
+0x10000
+#if nil
+conditional
+#endif
+;;;
+
+demonstrate_lexer lexer_style_SML;
+% Rlisp
+# script comment test $
+// C line
+/* C block /* no_nesting */ outside */
+(* SML (* nesting *) inside *)
+'x'
+"strings \" twice \" escapes & embedded "" quotes"
+quote'-'chars :=: !!!! _ _ABC mixed!Case a!-b
+>=
+>>
+0x10000
+#if nil
+conditional
+#endif
+;;;
+
+demonstrate_lexer lexer_style_script;
+% Rlisp
+# script comment test $
+// C line
+/* C block /* no_nesting */ outside */
+(* SML (* nesting *) inside *)
+'x'
+"strings \" twice \" escapes & embedded "" quotes"
+quote'-'chars :=: !!!! _ _ABC mixed!Case a!-b
+>=
+>>
+0x10000
+#if nil
+conditional
+#endif
+;;;
+
+
+lexer_style!* := lexer_style_rlisp;
 
 on lalr_verbose;
 
@@ -161,36 +283,47 @@ on lalr_verbose;
 % undo that setting. I will omit semantic actions here so that the default
 % action of building a form of tree is used.
 
-
+% There seems to be an issue here in that if I use a name for a non-terminal
+% that is the same as one used for a terminal thinsg get confused. So I had
+% originally hoped and expected to write just 'c' for the name of the
+% non-terminal here are use '"c"' to denote the terminal. However when I
+% try that I find that internally the names and up clashing to rather bad
+% effect. I will look into this later since it is merely a matter of surface
+% notation!  Also in the input to semantic actions the values passed when a
+% terminal is matched may at present be the internal numeric code allocated
+% to that terminal, not a "sensible" value. Agian this is a small issue.
 
 grammar := '(
-  (s  ((c c)    )   % One production for S, no semantic actions
+  (s  ((cc cc)  )   % One production for S, no explicit semantic here
   )
-  (c  (("c" c)  )   % First production for C
-      (("d")    )   % Second production for C
-  ));
+  (cc (("c" cc) (list 'c !$2))   % First production for C
+      (("d")    'd           ))  % Second production for C
+% I put in a redundant (unused) clause here to illustrate that it is
+% detected and reported.
+  (redundant (()))
+  )$
 
-lalr_construct_parser grammar;
+g := lalr_create_parser(nil, grammar)$
 
-symbolic procedure pparse();
+symbolic procedure pparse g;
   begin
     scalar r;
-    r := yyparse();
+    r := yyparse g;
     terpri();
     princ "= ";
-    print r
+    portable_print r
   end;
 
-pparse()$
+pparse g$
 
 c c c d c d ;
 
-pparse()$
+pparse g$
 
 d d ;
 
 
-% Now switch off the tracing. It is useful whiloe debugging this
+% Now switch off the tracing. It is useful while debugging this
 % package but is typically rather over the top for normal use.
 
 off tracelex, lalr_verbose;
@@ -217,16 +350,16 @@ g4_46 := '((s   ((l "=" r)   (neatprintc "## S => L = R")
                 ((!:symbol)  (neatprintc "## L => symbol")
                              !$1))
            (r   ((l)         (neatprintc "## R => L")
-                             !$1)));
+                             !$1)))$
 
-lalr_construct_parser g4_46;
+g := lalr_create_parser(nil, g4_46)$
 
-pparse()$
+pparse g$
 
 leftsym = rightsym ;
 
 
-pparse()$
+pparse g$
 
 ****abc = *def ;
 
@@ -236,118 +369,117 @@ pparse()$
 % cases where two operators have the same precedence.
 
 gtest := '((s  ((p))
-               ((s "^" s) (list 'pow !$1 !$3))
-               ((s "**" s) (list 'pow !$1 !$3))
-               ((s "*" s) (list 'tms !$1 !$3))
-               ((s "/" s) (list 'quot !$1 !$3))
+               ((s "^" s) (list 'expt !$1 !$3))
+               ((s "**" s) (list 'expt !$1 !$3))
+               ((s "*" s) (list 'times !$1 !$3))
+               ((s "/" s) (list 'quotient !$1 !$3))
                ((s "+" s) (list 'plus !$1 !$3))
-               ((s "-" s) (list 'diff !$1 !$3))
-               ((s "=" s) (list 'eq !$1 !$3))
+               ((s "-" s) (list 'difference !$1 !$3))
+               ((s "=" s) (list 'equal !$1 !$3))
                (("-" s) (list 'minus !$2))
                (("+" s) !$2))
 
            (p  (("(" s ")") !$2)
                ((!:symbol))
                ((!:string))
-               ((!:number))));
+               ((!:number))))$
 
 % "^" and "**" both have the same high precedence and are right
 % associative. Next come "*" and "/" which are left associative,
 % and after that "+" and "-". Finally "=" has lowest precedence and
 % must not associate with itself, so (a=b=c) should be a syntax error.
 
-lalr_precedence '(!:right ("^" "**") !:left ("*" "/") ("+" "-") !:none "=");
+p := '(!:right ("^" "**") !:left ("*" "/") ("+" "-") !:none "=")$
 
-lalr_construct_parser gtest;
+g := lalr_create_parser(p, gtest)$
 
-pparse()$
+pparse g$
 a^b^c;
 
-pparse()$
+pparse g$
 a*b+c*d;
 
-pparse()$
+pparse g$
 a * (b/c + d/e/f) ^ 2 ^ g - "str" ;
 
 % Demonstrate various of the short-hand notations...
 
-lalr_construct_parser '(
+g := lalr_create_parser(nil, '(
  (s
 % (opt ...) means that the included material is optional.
-          (("begin" (opt "and" "also") "end"))));
+          (("begin" (opt "and" "also") "end")))))$
 
-pparse()$
+pparse g$
 begin end
 ;;
 
-pparse()$
+pparse g$
 begin and also end
 ;;
 
-lalr_construct_parser '(
+g := lalr_create_parser(nil, '(
  (s
 % (star ...) is for zero or mor instances of something.
-          (((star "a") "end") !$1)));
+          (((star "a") "end") !$1))))$
 
-pparse()$
+pparse g$
 end
 ;;
 
-pparse()$
+pparse g$
 a a a a a a end
 ;;
 
-lalr_construct_parser '(
+g := lalr_create_parser(nil, '(
  (s
 % (plus ...) is for one or more repetitions of an item
-          (((plus "a") "end") !$1)));
+          (((plus "a") "end") !$1))))$
 
-pparse()$
+pparse g$
 a end
 ;;
 
-pparse()$
+pparse g$
 a a a a a a end
 ;;
 
-lalr_construct_parser '(
+g := lalr_create_parser(nil, '(
  (s
 % (list delimiter item-description) is a sequence of zero
 % or more items, and if there are several that are separated by the
 % indicated delimiter. 
-          (((list ";" !:symbol) "eof") !$1)));
+          (((list ";" !:symbol) "eof") !$1))))$
 
-pparse()$
+pparse g$
 
 several ; words ; here eof
 ;;
 
-lalr_construct_parser '(
+g := lalr_create_parser(nil, '(
  (s
 % (listplus delimiter item-description) is as (list ...) however it
 % requires at least one item.
-          (((listplus ";" !:symbol) "eof") !$1)));
+          (((listplus ";" !:symbol) "eof") !$1))))$
 
-pparse()$
+pparse g$
 
 several ; words ; here eof
 ;;
 
-lalr_construct_parser '(
+g := lalr_create_parser(nil, '(
  (s
 % (or x y z) may be a more compact way of writing what could
 % otherwise by given as multiple productions, so for instance
 % (or "+" "-" "*" "/") would match one of the listed operators.
-          (((star (or "a" "b")) "end") !$1)));
+          (((star (or "a" "b")) "end") !$1))))$
 
-pparse()$
+pparse g$
 end
 ;;
 
-pparse()$
+pparse g$
 a b b a end
 ;;
-
 
 % The next example shows all the above put together to parse what is
 % in effect a small programming language. Although it is not yet a large
@@ -355,11 +487,11 @@ a b b a end
 % parser generator can be if ut used what Aho, Sethi and Ullman describe as
 % the "Easy but space-consuming LALR table construction" method.
 
-lalr_precedence '(!:left ("*" "/")
-                         ("+" "-")
-                  !:none ("<" "<=" "==" "neq" ">=" ">")
-                  !:right ":=" "="
-                  !:left ("then" "else" "return"));
+p := '(!:left ("*" "/")
+              ("+" "-")
+       !:none ("<" "<=" "==" "neq" ">=" ">")
+       !:right ":=" "="
+       !:left ("then" "else" "return"))$
 
 mini_language := '(
  (program
@@ -380,9 +512,9 @@ mini_language := '(
           ((expression ":=" expression) (list 'setq !$1 !$3))
           (("fun" funcall "=" expression) (list 'fun !$2 !$4))
           (("if" sequence "then" expression)
-             (list 'cond, list(!$2, !$4)))
+             (list 'cond (list !$2 !$4)))
           (("if" sequence "then" sequence "else" expression)
-             (list 'cond, list(!$2, !$4), list(t, !$6)))
+             (list 'cond (list !$2 !$4) (list t !$6)))
           (("go" (opt "to") !:symbol) (list 'go !$3))
           (("goto" !:symbol) (list 'go !$2))
           (("return" expression)))
@@ -394,7 +526,7 @@ mini_language := '(
 (closedexpression
           ((!:symbol))
           ((!:number))
-          ((plus !:string))  % Several strings in a row just concatenate
+          (((plus !:string))) % Several strings in a row just concatenate
           (("let" sequence "in" sequence "end") (list 'letstat !$2 !$4))
           (("(" exprlist ")") (cons 'paren !$2))
           (("(" sequence ")") (cons 'paren !$2))
@@ -405,23 +537,25 @@ mini_language := '(
 (sequence
           (((list ";" expression)))))$
 
-% The grammar shown here can be processed, however at the moment the
-% code in genparser.red uses the "simple but inefficient" scheme from Aho
-% et al. to generate LALR parsing tables and a consequence is that even for
-% this apparently reasonable grammar it takes a remarkably long time and
-% way too much memory. When the parser-generator has been upgraded to
-% merge states as they are constructed it will only take seconds (rather than
-% many minutes) to deal with this and the example can be re-enabled.
-%                                                     ACN   January 2015
-
-% lalr_construct_parser mini_language;
+% The grammar shown here used to fail for lack of space. It should now
+% behave.
+% One issue it reveals at right now is that the processing here does not
+% keep the types of terminal symbols under control carefully enough, so the
+% numeric values 22 and 33 in the sample text get transliterated back into
+% terminal symbols that happen to have ended up allocated numeric codes
+% 22 and 33. This NEEDS fixing, but is not really an issue for the
+% code that manufactures parsing tables.
 %
-% pparse()$
-%
-% fun f(a,b) = a + b;
-% f(22,33)
-% eof
+%                                                       ACN   May 2016
 
+on tracelex, lalr_verbose;
+
+g := lalr_create_parser(p, mini_language)$
+
+pparse g$
+fun f(a,b) = a + b;
+f(22,33)
+eof
 
 end;
 

@@ -7,11 +7,32 @@
 * Modified:    15-Jul-85 10:10:51 (RAM)
 * Mode:         Text
 * Package:
-* Status:       Experimental (Do Not Distribute)
+* Status:       Open Source: BSD License
 *
 *  (c) Copyright 1983, Hewlett-Packard Company, see the file
 *             HP_disclaimer at the root of the PSL file tree
 *
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions are met:
+*
+*    * Redistributions of source code must retain the relevant copyright
+*      notice, this list of conditions and the following disclaimer.
+*    * Redistributions in binary form must reproduce the above copyright
+*      notice, this list of conditions and the following disclaimer in the
+*      documentation and/or other materials provided with the distribution.
+*
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+* AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+* THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+* PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNERS OR
+* CONTRIBUTORS
+* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+* CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+* ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+* POSSIBILITY OF SUCH DAMAGE.
 *
 ******************************************************************************
 * Revisions:
@@ -60,9 +81,18 @@ extern void gcleanup ();
 
 void init_fp();
 
+void clear_iob();
+void clear_dtabsize();
+void psl_main(int,char **);
+char ** copy_argv(int argc,char * argv[]);
+void os_startup_hook(int,char **);
+int setupbpsandheap(int, char **);
+
 // Install a global Vectored exception handler for exceptions in Lisp code
 // to call the standard handler _gnu_exception_handler after saving the pointer
 // to the exception info area, for use in trap.sl
+
+long CALLBACK _gnu_exception_handler (EXCEPTION_POINTERS * exception_data);
 
 LONG WINAPI
 GlobalVectoredHandler1(
@@ -76,11 +106,27 @@ GlobalVectoredHandler1(
 //    Context = ExceptionInfo->ContextRecord;
 
     saved_pxcptinfoptrs = (void *)ExceptionInfo;
+
+//
+//  Stack overflow is not handled by _gnu_exception_handler,
+//  therefore call the SIGSEGV handler by hand.
+//
+    if (ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_STACK_OVERFLOW) {
+	void (*old_handler) (int);
+
+//	fputs("Stack overflow",stderr);
+//	fflush(stderr);
+
+	old_handler = signal (SIGSEGV, SIG_DFL);
+	(*old_handler) (SIGSEGV);
+	return EXCEPTION_CONTINUE_EXECUTION;
+    }
+
     return _gnu_exception_handler(ExceptionInfo);
 }
 
 
-
+void
 main(argc,argv)
 int argc;
 char *argv[];
@@ -106,7 +152,7 @@ char *argv[];
   val=setjmp(mainenv);        /* set non-local return point for exit    */
  
   if (val == 0) {
-    init_fp();
+    /*    init_fp();*/
     AddVectoredExceptionHandler(1,GlobalVectoredHandler1);
     psl_main(argc,copy_argv(argc,argv));
   }
@@ -114,25 +160,33 @@ char *argv[];
   gcleanup ();
   exit(0);
 }
- 
+
+/*
+ * Initialize floating point exceptions
+ * Allow hardware exception for floating point overflow, division by zero and invalid 
+ */
+
 void init_fp()
 {
   unsigned int cw, cwOriginal;
   
   _clearfp();			/* always call _clearfp before setting the control word */
 
+  /* clear OVERFLOW, ZERODIVIDE, INVALID */
   cw = ~(_EM_OVERFLOW|_EM_ZERODIVIDE|_EM_INVALID);
   cwOriginal = _controlfp(cw, _MCW_EM); //Set it.   
 }
 
 
+void
 os_startup_hook(argc, argv)
      int argc;
      char *argv[];
 {
   setupbpsandheap(argc, argv);   /* Allocate bps and heap areas. */
 }
- 
+
+void
 os_cleanup_hook()
 {
 longjmp(mainenv,1);
@@ -143,6 +197,7 @@ char * get_execfilepath ()
   return abs_execfilepath;
 }
 
+void
 clear_iob()
 {
 }
@@ -189,6 +244,7 @@ extern char *end;
 /*
  *     Size of dtabsize is 0x34c bytes.
  */
+void
 clear_dtabsize()
 {
  int i;

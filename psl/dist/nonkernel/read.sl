@@ -6,6 +6,7 @@
 % Created:      28 August 1981 
 % Modified:     31-Dec-84 11:04:49 (Cris Perdue)
 % Package:      Kernel 
+% Status:       Open Source: BSD License
 %
 % (c) Copyright 1982, University of Utah
 %
@@ -95,10 +96,8 @@
 (de channelreadeof (channel ef)
   % Handle end-of-file in Read
   (if *insidestructureread
-    (return (let (*insidestructureread)
-                 (stderror
-                  (bldmsg "Unexpected EOF while reading on channel %r"
-                   channel))))
+    (let (*insidestructureread)
+    	 (stderror (bldmsg "Unexpected EOF while reading on channel %r" channel)))
     $eof$))
 
 (de channelreadquotedexpression (channel qt)

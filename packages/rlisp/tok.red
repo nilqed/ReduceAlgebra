@@ -40,7 +40,8 @@ module tok; % Identifier and reserved character reading.
 % generally packed in the underlying Lisp string type using utf-8 encoding.
 
 fluid '(!*adjprec !*comment !*defn !*eoldelimp !*lower !*minusliter
-        peekchar!* !*quotenewnam !*raise semic!* !*report!_colons);
+        peekchar!* !*quotenewnam !*raise semic!* !*report!_colons
+        ifl!* curline!*);
 
 !*report!_colons := t;
 
@@ -54,11 +55,9 @@ global '(!$eof!$
          crbuf!*
          crbuf1!*
          crchar!*
-         curline!*
          cursym!*
          curescaped!*
          eof!*
-         ifl!*
          nxtsym!*
          outl!*
 % Values in ttype!*:
@@ -71,6 +70,7 @@ global '(!$eof!$
          escaped!*
          !*csl
          !*psl
+
          named!-character!*);
 
 flag('(adjprec),'switch);
@@ -109,11 +109,11 @@ symbolic procedure string2bytelist u;
   begin
     scalar r, w;
     w := string2list u;
- a: if null w then return reversip r;
-    if minusp car w then r := (256+car w) . r
-    else r := car w . r;
-    w := cdr w;
-    go to a;
+    while w do <<
+       if minusp car w then r := (256+car w) . r
+       else r := car w . r;
+       w := cdr w >>;
+    return reversip r;
   end;
 
 % Make a symbol from the given list of bytes that are each on 0-255
@@ -152,22 +152,19 @@ symbolic procedure string!-store1(s, n, c);
   string!-store(s, n, c);
 
 symbolic procedure string!-store2(s, n, c1, c2);
-  progn(
-    string!-store(s, n, c1),
-    string!-store(s, n+1, c2));
+  << string!-store(s, n, c1);
+     string!-store(s, n+1, c2) >>;
 
 symbolic procedure string!-store3(s, n, c1, c2, c3);
-  progn(
-    string!-store(s, n, c1),
-    string!-store(s, n+1, c2),
-    string!-store(s, n+2, c3));
+ << string!-store(s, n, c1);
+    string!-store(s, n+1, c2);
+    string!-store(s, n+2, c3) >>;
 
 symbolic procedure string!-store4(s, n, c1, c2, c3, c4);
-  progn(
-    string!-store(s, n, c1),
-    string!-store(s, n+1, c2),
-    string!-store(s, n+2, c3),
-    string!-store(s, n+3, c4));
+ << string!-store(s, n, c1);
+    string!-store(s, n+1, c2);
+    string!-store(s, n+2, c3);
+    string!-store(s, n+3, c4) >>;
 
 % Take a list of integers (now each in the range 0-0x0010ffff) and
 % turn it into a string encoding those using utf-8
@@ -175,6 +172,9 @@ symbolic procedure string!-store4(s, n, c1, c2, c3, c4);
 % It will also support use of identifiers or strings as well as integers,
 % and will use the first character (n.b. not octet) as the code concerned.
 %
+
+% Look at the GOTOs in this...
+
 symbolic procedure list2widestring u;
   begin
     scalar u1, n, s, len;
@@ -197,33 +197,33 @@ symbolic procedure list2widestring u;
     go to a;
  b: s := allocate!-string len;
     len := 0;
- c: if null u then return s;
-    n := car u;
-    if idp n then n := car widestring2list symbol!-name n
-    else if stringp n and n neq "" then n := car widestring2list n;
-    u := cdr u;
-    if n < 128 then progn(
+ c: while u do <<
+       n := car u;
+       if idp n then n := car widestring2list symbol!-name n
+       else if stringp n and n neq "" then n := car widestring2list n;
+       u := cdr u;
+       if n < 128 then <<
 % I use string!-store rather than the more proper name string!-store1 here
 % since I believe that string!-store will be the version built into the Lisp
 % I am using.
-      string!-store(s, len, n),
-      (len := len + 1))
-    else if n < 2048 then progn(
-      string!-store2(s, len, 192 + lshift(n, (iminus 6)),
-                             128 + land(n, 63)),
-      (len := len + 2))
-    else if n < 65536 then progn(
-      string!-store3(s, len, 224 + lshift(n, (iminus 12)),
-                             128 + land(lshift(n, (iminus 6)), 63),
-                             128 + land(n, 63)),
-      (len := len + 3))
-    else progn(
-      string!-store4(s, len, 240 + lshift(n, (iminus 18)),
-                             128 + land(lshift(n, (iminus 12)), 63),
-                             128 + land(lshift(n, (iminus 6)), 63),
-                             128 + land(n, 63)),
-      (len := len + 4));
-    go to c;
+         string!-store(s, len, n);
+         len := len + 1 >>
+       else if n < 2048 then <<
+         string!-store2(s, len, 192 + lshift(n, (iminus 6)),
+                                128 + land(n, 63));
+         len := len + 2 >>
+       else if n < 65536 then <<
+         string!-store3(s, len, 224 + lshift(n, (iminus 12)),
+                                128 + land(lshift(n, (iminus 6)), 63),
+                                128 + land(n, 63));
+         len := len + 3 >>
+       else <<
+         string!-store4(s, len, 240 + lshift(n, (iminus 18)),
+                                128 + land(lshift(n, (iminus 12)), 63),
+                                128 + land(lshift(n, (iminus 6)), 63),
+                                128 + land(n, 63));
+         len := len + 4 >> >>;
+    return s
   end;
 
 % Ditto but make a symbol;
@@ -259,37 +259,37 @@ symbolic procedure widestring2list u;
 % positive.
     w := string2list u;
 % Now I need to decode any utf-8 specials...
- a: if null w then return reversip r;
-    n := car w;
-    w := cdr w;
+    while w do <<
+       n := car w;
+       w := cdr w;
 % I am going to rely on the fact that bytes from the string that were
 % at least 0x80 in value come back looking negative here. Thus any values
 % that are positive are simple ASCII.
-    if not (land(n, 128) = 0) then progn(
-      if land(n, 224) = 192 then progn( % Start of 2 byte code
-        c := moan!-if!-truncated w,
-        w := cdr w,
-        n := lshift(land(n, 31), 6) + land(c, 63))
-      else if land(n, 240) = 224 then progn( % Start of 3 byte code
-        c := moan!-if!-truncated w,
-        w := cdr w,
-        n := lshift(land(n, 15), 12) + lshift(land(c, 63), 6),
-        c := moan!-if!-truncated w,
-        w := cdr w,
-        n := n + land(c, 63))
-      else if land(n, 248) = 240 then progn( % Start of 4 byte code
-        c := moan!-if!-truncated w,
-        w := cdr w,
-        n := lshift(land(n, 7), 18) + lshift(land(c, 63), 12),
-        c := moan!-if!-truncated w,
-        w := cdr w,
-        n := n + lshift(land(c, 63), 6),
-        c := moan!-if!-truncated w,
-        w := cdr w,
-        n := n + land(c, 63))
-      else error(0, "Improper byte in utf-8 string"));
-    r := n . r;
-    go to a;
+       if not (land(n, 128) = 0) then <<
+         if land(n, 224) = 192 then << % Start of 2 byte code
+           c := moan!-if!-truncated w;
+           w := cdr w;
+           n := lshift(land(n, 31), 6) + land(c, 63) >>
+         else if land(n, 240) = 224 then << % Start of 3 byte code
+           c := moan!-if!-truncated w;
+           w := cdr w;
+           n := lshift(land(n, 15), 12) + lshift(land(c, 63), 6);
+           c := moan!-if!-truncated w;
+           w := cdr w;
+           n := n + land(c, 63) >>
+         else if land(n, 248) = 240 then << % Start of 4 byte code
+           c := moan!-if!-truncated w;
+           w := cdr w;
+           n := lshift(land(n, 7), 18) + lshift(land(c, 63), 12);
+           c := moan!-if!-truncated w;
+           w := cdr w;
+           n := n + lshift(land(c, 63), 6);
+           c := moan!-if!-truncated w;
+           w := cdr w;
+           n := n + land(c, 63) >>
+         else error(0, "Improper byte in utf-8 string") >>;
+       r := n . r >>;
+    return reversip r;
   end;
 
 % Return a list of bytes corresponding to the representation of the
@@ -325,18 +325,18 @@ symbolic procedure lengthc u;
 % those that are 10xxxxxx in binary).
 %
 symbolic procedure widelengthc u;
-  if idp u then length!-without!-followers string2list id2string u
-  else if stringp u then length!-without!-followers string2list u
-  else length explode2 u;
+   if idp u then length!-without!-followers string2list id2string u
+   else if stringp u then length!-without!-followers string2list u
+   else length explode2 u;
 
 symbolic procedure length!-without!-followers l;
   begin
     scalar n;
     n := 0;
-a:  if null l then return n;
-    if not (land(car l, 192) = 128) then n := n + 1;
-    l := cdr l;
-    go to a
+    while l do <<
+       if not (land(car l, 192) = 128) then n := n + 1;
+       l := cdr l >>;
+    return n
   end;
 
 %==========================================================================
@@ -351,7 +351,7 @@ a:  if null l then return n;
 % written in terms of the explicit LISP used.
 
 symbolic procedure prin2x u;
-  outl!* := u . outl!*;
+   outl!* := u . outl!*;
 
 % This character look-ahead is used when parsing names that
 % have colons within them, as in abc:def. In particular it is active when
@@ -433,80 +433,80 @@ symbolic procedure prin2x u;
 % a result all characters whose code exceeds 127 will be neither letters
 % not digits nor whitespace.
 
+% Check GOTO here
+
+
 symbolic procedure readch1;
   begin
     scalar x, y, w, n, save;
 % First cope with anything that had been read ahead...
-    if peekchar!* then progn(
-      x := car peekchar!*,
+    if peekchar!* then <<
+      x := car peekchar!*;
 % In general when I peek ahead I will not do case-folding as I go:
 % that has to be done now when I retrieve the character for final use.
 % The PSL rule is that if !*raise is set then characters are all converted
 % to the standard case (ie lower case). CSL has two variables !*raise and
 % !*lower and folds case as directed by them.
-      peekchar!* := cdr peekchar!*,
+      peekchar!* := cdr peekchar!*;
 % I had at first tried "memq('psl, lispsystem!*)" here to detect PSL but that
 % fails for two reasons in bootstrapping. First MEMQ may only be used as an
 % infix, secondly lispsystem!* is not set early enough. So I have a new
 % variable !*psl that I use to detect the relevant situation!
-      progn(
+      <<
         if x eq !$eof!$ then nil % Do not mess with EOF
-        else if !*psl then progn(if !*raise then x := red!-char!-downcase x)
+        else if !*psl then << if !*raise then x := red!-char!-downcase x >>
         else if !*lower then x := char!-downcase x
-        else if !*raise then x := char!-upcase x),
-      return x);
+        else if !*raise then x := char!-upcase x >>;
+      return x >>;
 % Now it is necessary to do a "real" read.
-a:  if null terminalp() then progn(
+a:  if null terminalp() then <<
 % In a fully Unicode world readch() might return a symbol whose name
 % is several bytes long but that represents a single Unicode character.
 % Doing things that way risks repeatedly packing and unpacking utf-8
 % and Unicode data but may feel most consistent.
-      x := readch(),
-      if x eq !$eol!$ then curline!* := curline!*+1)
+      x := readch();
+      if x eq !$eol!$ then curline!* := curline!*+1 >>
 % crbuf1!* is a close relative of peekchar!* but is mainly used as
 % an interface for "cedit" to use so that it can have an edited
 % bit of stuff appear visible as if it was keyboard input.
-    else if crbuf1!* then progn(
-      x := car crbuf1!*,
-      crbuf1!* := cdr crbuf1!*)
+    else if crbuf1!* then <<
+      x := car crbuf1!*;
+      crbuf1!* := cdr crbuf1!* >>
     else x := readch();
     crbuf!* := x . crbuf!*;
 % One might worry that adding support for "#" escapes has made this code
 % a lot longer than before and that this might slow critical things down.
 % In fact about the only extra work done here in normal circumstances is
 % a fairly cheap test to see if "#" is present.
-    if null peekchar!* then progn(
-% The parentheses on the next line are unexpectedly vital because
-% otherwise things get parsed as "return (x , save := ...)" which leads
-% to grave confusion!
-      (if not (x eq '!#) then return x),
-      save := (!*raise . !*lower),
+    if null peekchar!* then <<
+      if not (x = '!#) then return x;
+      save := (!*raise . !*lower);
 % I switch off !*raise and !*lower while reading. That is (for instance)
 % so that #Sigma; and #sigma; can yield an upper and a lower case
 % Greek sigma character.
-      !*raise := (!*lower := nil),
-      peekchar!* := x . peekchar!*,
-      go to a)
+      !*raise := (!*lower := nil);
+      peekchar!* := x . peekchar!*;
+      go to a >>
 % Here I am accumulating a bit of stuff where I look ahead following
 % a "#" character.
     else if (not (x eq !$eof!$)) and
        (string!-length id2string x = 1) and
-       (liter x or digit x) then progn(
+       (liter x or digit x) then <<
 % I accumulate the initial "#" followed by any number of letters and
 % digits. Well I will only consider letters with codes in the range
 % U+0000 to u+007f here and that keeps things simpler - eg when it comes
 % to case folding things later on.
-      (peekchar!* := x . peekchar!*),
-      go to a);
+      peekchar!* := x . peekchar!*;
+      go to a >>;
     !*raise := car save;
     !*lower := cdr save;
 % If what I find at the end is not a semicolon then I will
 % do nothing... ie I will leave the peeked characters to be read one
 % by one in the usual way. Note that while the very final peeked character
 % could be a second "#" none of the others can be.
-    if not (x eq '!;) or null cdr peekchar!* then progn(
-      (peekchar!* := cdr reversip (x . peekchar!*)),
-      return '!#);
+    if not (x = '!;) or null cdr peekchar!* then <<
+      peekchar!* := cdr reversip (x . peekchar!*);
+      return '!# >>;
 % Now I have a potential character name object. It could be one of
 %        #name;
 %        #hexdigits;
@@ -518,10 +518,10 @@ a:  if null terminalp() then progn(
 % this special treatment will have been merely a diversion.
     y := intern list2string (x := cdr reverse peekchar!*);
 % For bootstrapping there has to be a "!" before the "_" on the next line.
-    if (y := get(y, 'unicode!_character)) then progn(
-       (peekchar!* := nil),
-       (named!-character!* := t),
-       return int2wideid y);
+    if (y := get(y, 'unicode!_character)) then <<
+       peekchar!* := nil;
+       named!-character!* := t;
+       return int2wideid y >>;
 % Now it was not a known name. Next check if it was #Udddd
     n := 0;
 % I uprated the very initial bootstrap version of the parser so that
@@ -550,7 +550,6 @@ fail:
     return '!#
   end;
 
-
 symbolic procedure tokquote;
    begin
       crchar!* := readch1();
@@ -562,15 +561,36 @@ symbolic procedure tokquote;
 
 put('!','tokprop,'tokquote);
 
+% Check GOTO here
+
+if !*csl then <<
+% I will accept input such as 1.23S0. I preserve the fact that it named
+% a short float by using ":dn!-s!:" to tag it rather than just ":dn:", but
+% then in algebraic mode form() will map that back onto just !:dn!: so that
+% the short nature of the float is only used in symbolic mode.
+  put('!s, 'exponent!-mark, '!:dn!-s!:);
+  put('!S, 'exponent!-mark, '!:dn!-s!:);
+  put('!f, 'exponent!-mark, '!:dn!-f!:);
+  put('!F, 'exponent!-mark, '!:dn!-f!:);
+  put('!e, 'exponent!-mark, '!:dn!:);
+  put('!E, 'exponent!-mark, '!:dn!:);
+  put('!d, 'exponent!-mark, '!:dn!:);
+  put('!D, 'exponent!-mark, '!:dn!:);
+  put('!l, 'exponent!-mark, '!:dn!-l!:);
+  put('!L, 'exponent!-mark, '!:dn!-l!:) >>
+else <<
+  put('!e, 'exponent!-mark, '!:dn!:);
+  put('!E, 'exponent!-mark, '!:dn!:) >>;
+
 symbolic procedure token!-number x;
    % Read and return a valid number from input.
    % Adjusted by A.C. Norman to be less sensitive to input case and to
    % support hex numbers.
-   begin scalar dotp,power,sign,y,z;
+   begin scalar dotp,power,sign,y,z,xmark;
       power := 0;
       ttype!* := 2;
     num1:
-      if y or null(x eq '!)) then y := x . y;
+      if y or null(x = '!)) then y := x . y;
       if dotp then power := power - 1;
     num2:
       x := readch1();
@@ -580,20 +600,41 @@ symbolic procedure token!-number x;
 % now it should accept 1.2 as a number and just stop reading at the second
 % dot. That seems more friendly and generally consistent with what lexical
 % processing should do.
-       else if x eq '!. and not dotp then progn(
-         dotp := t,
-         go to num2)
+       else if x = '!. and not dotp then <<
+         dotp := t;
+         go to num2 >>
        else if digit x then go to num1
-       else if y = '(!0) and (x eq '!x or x eq '!X) then go to hexnum
+       else if y = '(!0) and (x = '!x or x = '!X) then go to hexnum
 % For whatever original reason this ignores backslashes within numbers. This
 % I guess lets one write 12\34567\89000 and group digits in fives if you like.
 % I can not see this mentioned in the manual and wonder if anybody uses it.
-       else if x eq '!\ then progn(readch1(), go to num2)
-       else if null(x eq '!e or x eq '!E) then go to ret;
+       else if x = '!\ then << readch1(); go to num2 >>
+       else if null(xmark := get(x, 'exponent!-mark)) then go to ret;
+% I want to let exponent markers S, F, E, D and L be available for
+% writing floating point literals with some specified width. However there
+% is a problem of backwards compatibility. Old-style Reduce lets a number end
+% when there is a character other than "E". And it does not require spaces
+% between tokens. A concrete example of how this hurts is that there are
+% places that read "... 2sqrt x ..." where I might have liked it better if
+% the code read "2*sqrt x" or at a minimum "2 sqrt x" with a space. But I
+% should not break TOO much existing code. So I will allow letters other than
+% "e" to instroduce exponents only when there has been an explicit "." before.
+% That means that the input "... 2.0sqrt x ..." will now parse with a short
+% float 2.0s0 and then "qrt x" and that is a change. But that case "2sqrt x"
+% will behave the way it used to. Similarly for cases with other letters at the
+% end of of numbers.
+%
+% To show part of why U believe that the status quo was wrong, note the
+% different behaviour of
+%    2sqrt x;       (times 2 (list 'sqrt 'x))
+%    2exp x;        (times '(!:rd!: 2 . 0) (list 'xp 'x))
+% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+% I rather view that as broken behaviour.
+      if not dotp and (x neq '!e and x neq '!E) then go to ret;
       % Case of number with embedded or trailing E.
       dotp := t;
-      if (x := readch1()) eq '!- then sign := t
-       else if x eq '!+ then nil
+      if (x := readch1()) = '!- then sign := t
+       else if x = '!+ then nil
        else if (x eq !$eof!$) or
                (null (string!-length id2string x = 1)) then go to ret
        else if null digit x then go to ret
@@ -625,7 +666,8 @@ symbolic procedure token!-number x;
 % This use of compress is for a number...
       y := compress reversip!* y;
    ret1:
-      nxtsym!* := if dotp then '!:dn!: . (y . power)
+      nxtsym!* := if dotp then (if null xmark then '!:dn!: else xmark) .
+                               (y . power)
                    else if !*adjprec then '!:int!: . (y . nil)
                    else y;
       crchar!* := x;
@@ -656,6 +698,9 @@ fluid '(!*line!-marker !*file!-marker);
 % desired literal symbol - hence the use of intern on a string!
 !*line!-marker := intern "__line__";
 !*file!-marker := intern "__file__";
+
+% This is a big ugly procedure with a lot of GOTO statements. It is overdue
+% for re-work.
 
 symbolic procedure token1;
 %
@@ -693,7 +738,7 @@ symbolic procedure token1;
     a:  if (x eq !$eof!$) or
            (not (string!-length id2string x = 1)) then go to unicode;
         if seprp x and null(x eq !$eol!$ and !*eoldelimp)
-          then progn(x := readch1(), go to a)
+          then << x := readch1(); go to a >>
          else if digit x then return token!-number x
 % Letters in the Basic Latin Block can be used without needing an escape
 % character. The status of things such as U+00c1 (latin capital A with acute)
@@ -701,19 +746,19 @@ symbolic procedure token1;
 % will be a matter for the underlying Lisp to worry about.
          else if liter x then go to letter
          else if (y := get(x,'tokprop)) then return lispapply(y,nil)
-         else if x eq '!% and null !*savecomments!* then go to coment
-         else if x eq '!! and null(!*micro!-version and null !*defn)
+         else if x = '!% and null !*savecomments!* then go to coment
+         else if x = '!! and null(!*micro!-version and null !*defn)
           then go to escape
-         else if x eq '!" then go to string
-         else if x eq '!\ then go to backslash;
+         else if x = '!" then go to string
+         else if x = '!\ then go to backslash;
     unicode:
         ttype!* := 3;
         if x eq !$eof!$ then prog2(crchar!* := '! ,filenderr());
         nxtsym!* := x;
-        if not (x eq !$eof!$) then progn(
+        if not (x eq !$eof!$) then <<
            if (string!-length id2string x = 1) and (delcp x) then
-             crchar!*:= '!  else crchar!*:= readch1());
-        if null(x eq '!- and
+             crchar!*:= '!  else crchar!*:= readch1() >>;
+        if null(x = '!- and
                 (not (crchar!* eq !$eof!$)) and
                 (string!-length id2string crchar!*  = 1) and
                 digit crchar!* and
@@ -756,14 +801,14 @@ symbolic procedure token1;
         if (x eq !$eof!$) or
             (not (string!-length id2string crchar!*  = 1)) then go to ordinarysym
          else if digit x or liter x then go to let1
-         else if x eq '!! then go to escape
-         else if x eq '!- and !*minusliter
+         else if x = '!! then go to escape
+         else if x = '!- and !*minusliter
           then go to let1
-         else if x eq '!_ then go to let1     % Allow _ as letter.
+         else if x = '!_ then go to let1     % Allow _ as letter.
 %% The following change led to problems with CSL, and perhaps it is not
 %% even needed.
-%%         else if x eq '!% then go to let1     % Allow % as letter.
-         else if x eq '!: then go to maybepackage;
+%%         else if x = '!% then go to let1     % Allow % as letter.
+         else if x = '!: then go to maybepackage;
     ordinarysym:
         y := list2wideid reversip!* y;
 % If I implement a package system I might want to check if the name
@@ -799,12 +844,12 @@ symbolic procedure token1;
         y := '(!\ b e g i n !{ r e d u c e !});
         ttype!* := 3;
     bssrch:
-        if x eq '!% then go to bscomm
-        else if x eq !$eof!$ then progn(
-           crchar!* := '! ,
-           filenderr(),
-           nxtsym!* := x,
-           return x);
+        if x = '!% then go to bscomm
+        else if x eq !$eof!$ then <<
+           crchar!* := '! ;
+           filenderr();
+           nxtsym!* := x;
+           return x >>;
 % If I have found \begin{reduce} go back to scanning input normally.
         if null y then go to a;
         z := x;
@@ -819,7 +864,7 @@ symbolic procedure token1;
         else go to bscomm;
     maybepackage:                               % Seen abc:
         x := readch1();
-        if x eq '!: then go to maybeextpackage;
+        if x = '!: then go to maybeextpackage;
         peekchar!* := list x;
         x := '!:;
         go to ordinarysym; 
@@ -848,10 +893,10 @@ symbolic procedure token1;
         if (x eq !$eof!$) or
            (not (string!-length id2string crchar!*  = 1)) then go to extdone
          else if digit x or liter x then go to extpackmore
-         else if x eq '!! then go to extpackescape
-         else if x eq '!- and !*minusliter
+         else if x = '!! then go to extpackescape
+         else if x = '!- and !*minusliter
           then go to extpackmore
-         else if x eq '!_ then go to extpackmore;    % Allow _ as letter.
+         else if x = '!_ then go to extpackmore;    % Allow _ as letter.
     extdone:
         y := list2wideid reversip!* y;
 % At this stage I will always display a message reporting what I have seen.
@@ -880,14 +925,14 @@ symbolic procedure token1;
        dumped:
            named!-character!* := nil;
            if (x := readch1()) eq !$eof!$
-             then progn(crchar!* := '! ,
-                        lpriw("***** End-of-file in string",nil),
-                        filenderr())
-            else if (null(x eq '!")) or named!-character!* then go to strinx;
+             then << crchar!* := '! ;
+                     lpriw("***** End-of-file in string",nil);
+                     filenderr() >>
+            else if (null(x = '!")) or named!-character!* then go to strinx;
            % Now check for embedded string character.
            named!-character!* := nil;
            x := readch1();
-           if (x eq '!") and (null named!-character!*) then go to strinx;
+           if (x = '!") and (null named!-character!*) then go to strinx;
            nxtsym!* := list2widestring cdr reversip!* y
          end;
         ttype!* := 1;
@@ -922,6 +967,7 @@ symbolic procedure token;
 symbolic procedure filenderr;
    begin
       curescaped!* := nil;
+      cursym!* := '!*semicol!*;
       eof!* := eof!*+1;
       if terminalp() then error1()
        else error(99,if ifl!*
@@ -932,10 +978,10 @@ symbolic procedure filenderr;
 symbolic procedure ptoken;
    begin scalar x;
         x := token();
-        if x eq '!) and eqcar(outl!*,'! ) then outl!*:= cdr outl!*;
+        if x = '!) and eqcar(outl!*,'! ) then outl!*:= cdr outl!*;
            %an explicit reference to OUTL!* used here;
         prin2x x;
-        if null ((x eq '!() or (x eq '!))) then prin2x '! ;
+        if null ((x = '!() or (x = '!))) then prin2x '! ;
         return x
    end;
 
@@ -954,15 +1000,16 @@ symbolic procedure rread1;
                        else if eqcar(x,'!:dn!:)
                         then dnform(x,nil,'symbolic)
                        else x
-         else if x eq '!( then return rrdls()
-         else if null (x eq '!+ or x eq '!-) then return x;
+         else if x = '!( then return rrdls()
+         else if null (x = '!+ or x = '!-) then return x;
         y := ptoken();
         if eqcar(y,'!:dn!:) then y := dnform(y,nil,'symbolic);
         if null numberp y
-          then progn(nxtsym!* := " ",
-                     symerr("Syntax error: improper number",nil))
-         else if x eq '!- then y := apply1('minus,y);
+          then << nxtsym!* := " ";
+                  symerr("Syntax error: improper number",nil) >>
+         else if x = '!- then y := apply1('minus,y);
            % We need this construct for bootstrapping purposes.
+%@@@@@@@@ Check if this is still the case @@@@@@@@@@@
         return y
    end;
 
@@ -970,19 +1017,19 @@ symbolic procedure rrdls;
    begin scalar x,y,z;
     a:  x := rread1();
         if null (ttype!*=3) then go to b
-         else if x eq '!) then return z
-         else if null (x eq '!.) then go to b;
+         else if x = '!) then return z
+         else if null (x = '!.) then go to b;
         x := rread1();
         y := ptoken();
-        if null (ttype!*=3) or null (y eq '!))
-          then progn(nxtsym!* := " ",symerr("Invalid S-expression",nil))
+        if null (ttype!*=3) or null (y = '!))
+          then << nxtsym!* := " "; symerr("Invalid S-expression",nil) >>
          else return nconc(z,x);
     b: z := nconc(z,list x);
        go to a
    end;
 
 symbolic procedure rread;
-   progn(prin2x " '",rread1());
+   << prin2x " '"; rread1() >>;
 
 symbolic procedure delcp u;
    % Returns true if U is a semicolon, dollar sign, or other delimiter.
@@ -1068,12 +1115,12 @@ symbolic procedure addcomment u;
 
 symbolic procedure scan;
    begin scalar bool,x,y;
-        if null (cursym!* eq '!*semicol!*) then go to b;
+        if null (cursym!* = '!*semicol!*) then go to b;
     a:  escaped!* := nil;
         nxtsym!* := token();
     b:  if null atom nxtsym!* and null toknump nxtsym!*
           then go to q1
-         else if nxtsym!* eq 'else or cursym!* eq '!*semicol!*
+         else if nxtsym!* = 'else or cursym!* = '!*semicol!*
          then outl!* := nil;
         prin2x nxtsym!*;
     c:  if null idp nxtsym!* then go to l
@@ -1084,42 +1131,44 @@ symbolic procedure scan;
 % intended to be comments remain treated as such. The various capitalisations
 % detected here actually arise within the Reduce sources (at least until at
 % some stage they are tidied away...)
-         else if nxtsym!* eq '!c!o!m!m!e!n!t or
-                 nxtsym!* eq '!C!O!M!M!E!N!T or
-                 nxtsym!* eq '!C!o!m!m!e!n!t
-          then progn(x := read!-comment1 'comment,
-                     if !*comment then return x else go to a)
-         else if nxtsym!* eq '!% and ttype!*=3
-          then progn(x := read!-comment1 'percent!_comment,
-                     if !*comment then return x else go to a)
+         else if nxtsym!* = '!c!o!m!m!e!n!t or
+                 nxtsym!* = '!C!O!M!M!E!N!T or
+                 nxtsym!* = '!C!o!m!m!e!n!t
+          then << x := read!-comment1 'comment;
+                  if !*comment then return x else go to a >>
+         else if nxtsym!* = '!% and ttype!*=3
+          then << x := read!-comment1 'percent!_comment;
+                  if !*comment then return x else go to a >>
 % I might comment that the material within a quoted form is not
 % processed by SCAN and so the text "!#if" here both NEED the initial
 % escape mark and it will not be treated as introducing a conditional
 % section.
-         else if nxtsym!* eq '!#if then go to conditional
-         else if nxtsym!* eq '!#else or
-                 nxtsym!* eq '!#elif then progn(
-                     nxtsym!* := x := bool := nil,
-                     go to skipping)
-         else if nxtsym!* eq '!#endif then go to a
-         else if nxtsym!* eq '!#eval then progn(
-                     errorset(rread(), !*backtrace, nil),
-                     curescaped!* := (escaped!* := nil),
-                     go to a)
-         else if nxtsym!* eq '!#define then progn(
-                     x := errorset(rread(), !*backtrace, nil),
-                     curescaped!* := (escaped!* := nil),
-                     progn(if errorp x then go to a),
-                     y := errorset(rread(), !*backtrace, nil),
-                     curescaped!* := (escaped!* := nil),
-                     progn(if errorp y then go to a),
-                     put(x, 'newnam, y),
-                     go to a)
+         else if nxtsym!* = '!#if then go to conditional
+         else if nxtsym!* = '!#else or
+                 nxtsym!* = '!#elif then <<
+                     nxtsym!* := x := bool := nil;
+                     go to skipping >>
+         else if nxtsym!* = '!#endif then go to a
+         else if nxtsym!* = '!#eval then <<
+                     errorset(rread(), !*backtrace, nil);
+                     curescaped!* := (escaped!* := nil);
+                     go to a >>
+         else if nxtsym!* = '!#define then <<
+                     x := errorset('(rread), !*backtrace, nil);
+                     curescaped!* := (escaped!* := nil);
+                     if errorp x then go to a;
+                     y := errorset('(rread), !*backtrace, nil);
+                     curescaped!* := (escaped!* := nil);
+                     if errorp y then go to a;
+                     put(car x, 'newnam, car y);
+% Print a message to show that the "#define" has been seen.
+                     princ "*** "; prin car x; princ " => "; print car y;
+                     go to a >>
          else if null(ttype!* = 3) then go to l
          else if nxtsym!* eq !$eof!$ then return filenderr()
-         else if nxtsym!* eq '!' then rederr "Invalid QUOTE"
+         else if nxtsym!* = '!' then rederr "Invalid QUOTE"
          else if !*eoldelimp and nxtsym!* eq !$eol!$ then go to delim
-         else if nxtsym!* eq '!# and not seprp crchar!* then go to hh
+         else if nxtsym!* = '!# and not seprp crchar!* then go to hh
          else if null (x:= get(nxtsym!*,'switch!*)) then go to l
          else if eqcar(cdr x,'!*semicol!*) then go to delim;
         bool := seprp crchar!*;
@@ -1130,7 +1179,7 @@ symbolic procedure scan;
    sw2: cursym!*:=cadr x;
         curescaped!*:=nil;
         bool := nil;
-        if cursym!* eq '!*rpar!* then go to l2
+        if cursym!* = '!*rpar!* then go to l2
          else return addcomment cursym!*;
    sw3: if bool or null (y:= atsoc(nxtsym!*,car x)) then go to sw2;
         prin2x nxtsym!*;
@@ -1138,8 +1187,8 @@ symbolic procedure scan;
 % The next line is a hook for RLISP88 where input of the form
 %    /* .... */ reads in as (!*comment!* "....") so that the comment
 % text can be preserved.
-        if null car x and cadr x eq '!*comment!*
-          then progn(comment!* := read!-comment(),go to a);
+        if null car x and cadr x = '!*comment!*
+          then << comment!* := read!-comment(); go to a >>;
         go to sw1;
   hh:
 % Here I have a "#" not preceeded by an escape marker (!) and followed
@@ -1177,15 +1226,15 @@ symbolic procedure scan;
 % or "endif" must be noticed here... The way I do that here has the
 % effect that (eg) ##endif is treated as ## endif not as # #endif so will
 % not terminate a conditional block.
-        if nxtsym!* eq '!# and ttype!*=3 and not seprp crchar!* then progn(
-          nxtsym!* := token(),
+        if nxtsym!* = '!# and ttype!*=3 and not seprp crchar!* then <<
+          nxtsym!* := token();
           if ttype!* = 0 then
-            nxtsym!* := intern list2string ('!# . explode2 nxtsym!*));
-        if nxtsym!* eq '!#endif then
+            nxtsym!* := intern list2string ('!# . explode2 nxtsym!*) >>;
+        if nxtsym!* = '!#endif then
            if null x then go to a else x := cdr x
-        else if nxtsym!* eq '!#if then x := nil . x
-        else if (nxtsym!* eq '!#else) and null x and bool then go to a
-        else if (nxtsym!* eq '!#elif) and null x and bool then go to conditional;
+        else if nxtsym!* = '!#if then x := nil . x
+        else if (nxtsym!* = '!#else) and null x and bool then go to a
+        else if (nxtsym!* = '!#elif) and null x and bool then go to conditional;
         nxtsym!* := token();
         if (ttype!*=3) and (nxtsym!* eq !$eof!$)
           then return filenderr()
@@ -1198,7 +1247,7 @@ symbolic procedure scan;
         if stringp x then go to l
         else if atom x then go to c
         else go to l;
-  q1:   if null (car nxtsym!* eq 'string) then go to l;
+  q1:   if null (car nxtsym!* = 'string) then go to l;
         prin2x " ";
         prin2x cadr(nxtsym!* := mkquote cadr nxtsym!*);
   l:    cursym!*:=nxtsym!*;
@@ -1219,10 +1268,10 @@ symbolic procedure read!-comment1 u;
       if named!-character!* or
          (null (string!-length id2string crchar!* = 1)) or
          (null (delcp crchar!*)) or
-         (crchar!* eq !$eol!$) then progn(
-             named!-character!* := nil,
-             crchar!* := readch1(),
-             go to comm1);
+         (crchar!* eq !$eol!$) then <<
+             named!-character!* := nil;
+             crchar!* := readch1();
+             go to comm1 >>;
       crchar!* := '! ;
       condterpri()
    end;
@@ -1237,8 +1286,8 @@ symbolic procedure read!-comment;
          scalar !*raise, !*lower;
          z := list crchar!*;
       a: named!-character!* := nil;
-         if (x := readch()) eq '!* and not named!-character!* then
-            if (y := readch()) eq '!/ and not named!-character!* then return
+         if (x := readch()) = '!* and not named!-character!* then
+            if (y := readch()) = '!/ and not named!-character!* then return
             else z := y . x . z
          else if x = !$eof!$ then rederr "EOF encountered in comment"
          else z := x . z;

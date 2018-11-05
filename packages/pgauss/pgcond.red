@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: pgcond.red 1887 2013-01-15 11:22:55Z thomas-sturm $
 % ----------------------------------------------------------------------
 % (c) 1998 A. Dolzmann, A. Seidl, T. Sturm, 2012 T. Sturm
 % ----------------------------------------------------------------------
@@ -30,7 +30,7 @@
 
 lisp <<
    fluid '(cond_rcsid!* cond_copyright!*);
-   cond_rcsid!* := "$Id$";
+   cond_rcsid!* := "$Id: pgcond.red 1887 2013-01-15 11:22:55Z thomas-sturm $";
    cond_copyright!* := "(c) 1998 A. Dolzmann, A. Seidl, T. Sturm, 2012 T. Sturm"
 >>;
 

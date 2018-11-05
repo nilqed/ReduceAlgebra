@@ -20,7 +20,7 @@
 # are then "--csl --psl" is assumed.
 
 # Part of the intent here is that if any further variants of Reduce get created
-# it should be reasonably straightforward to extent the code here tu support
+# it should be reasonably straightforward to extent the code here to support
 # testing them. Changes will be needed in "test1.sh" too.
 
 # I want this script to be one I can launch from anywhere, so
@@ -29,7 +29,8 @@
 # current when this script was invoked.
 
 here="$0";while test -L "$here";do here=`ls -ld "$here" | sed 's/.*-> //'`;done
-here=`cd \`dirname "$here"\` ; pwd -P`
+here=`dirname "$here"`
+here=`cd "$here"; pwd -P`
 here=`dirname "$here"`
 
 # Well I want to tidy up files relating to platforms being tested so I
@@ -64,6 +65,8 @@ do
     ;;
   *)
     printf "\"$a\" is not a valid argument to this script.\n"
+    printf "Valid options are: --csl --psl --jlisp --cslboot --jlispboot\n"
+    printf "    --noregressions --install --keep --debug\n"
     printf "Stopping.\n"
     exit 1
     ;;

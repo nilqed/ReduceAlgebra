@@ -1,5 +1,5 @@
 dnl --------------------------------------------------------------------
-dnl $Id$
+dnl $Id: configure.ac 3959 2017-03-18 20:27:49Z thomas-sturm $
 dnl --------------------------------------------------------------------
 dnl Copyright (c) 1999-2009 Andreas Dolzmann and Thomas Sturm
 dnl --------------------------------------------------------------------
@@ -136,6 +136,14 @@ AC_ARG_WITH(csl-reduce,[  --with-csl-reduce=FILE  location of the executable CSL
 AC_DEFINE_UNQUOTED(REDUCE,"$cslreduce",
 	[Define your executable REDUCE (with CSL)])
 
+AC_ARG_WITH(csl-bootstrapreduce,[  --with-csl-bootstrapreduce=FILE  location of the executable CSL bootstrap REDUCE],
+        cslbootstrapreduce="$withval",cslbootstrapreduce="$abssrcdir/cslbuild/$RBUILD/csl/bootstrapreduce$COMEXT")
+AC_DEFINE_UNQUOTED(BOOTSTRAPREDUCE,"$cslbootstrapreduce",
+	[Define your executable bootstrap REDUCE (with CSL)])
+
+AC_DEFINE_UNQUOTED(REDUCE,"$cslreduce",
+	[Define your executable REDUCE (with CSL)])
+
 AC_ARG_WITH(bpsl,[  --with-bpsl=FILE        location of executable bpsl (with PSL)],
         bpsl="$withval",bpsl="$abssrcdir/pslbuild/$RBUILD/psl/bpsl$EXEEXT")
 AC_DEFINE_UNQUOTED(BPSL,"$bpsl",
@@ -195,8 +203,8 @@ AC_DEFINE_UNQUOTED(PACKAGE_MAP,"$packagemap",
 	[Define the location of package.map])
 
 dnl Checks for libraries.
-dnl AC_CHECK_LIB(termcap,main,LIBS="-ltermcap $LIBS",\
-dnl AC_MSG_ERROR("install a termcap library first"))
+AC_CHECK_LIB(termcap,main,LIBS="-ltermcap $LIBS",\
+AC_MSG_ERROR("Please install libtermcap-devel (or similar) first"))
   curses_header="no"
   AC_CHECK_HEADER(curses.h,
     [AC_DEFINE(HAVE_CURSES_H, [1], [Header file curses.h available])
@@ -311,7 +319,7 @@ AS_IF([test "$editline" = yes &&
 
 AS_IF([test "$editline" = yes],
    AC_CHECK_LIB(edit,using_history,
-      [LIBS="-ledit $LIBS"
+      [LIBS="$editlinepath/lib/libedit.a $LIBS"
 dnl I am adding the libedit/src for filecomplete.h. This is going to
 dnl be used even with the system libedit for Darwin universal builds.
 #       CFLAGS="$CFLAGS -I$abssrcdir/generic/redfront/libedit/src"

@@ -5,7 +5,7 @@
 % Author:       Eric Benson 
 % Created:      28 August 1981 
 % Modified:     04-Apr-84 14:45:33 (Brian Beach) 
-% Status:       Experimental 
+% Status:       Open Source: BSD License
 % Mode:         Lisp 
 %
 % (c) Copyright 1982, University of Utah
@@ -79,11 +79,11 @@
                         (wleq c 255))
                        c)
                       ((idp u) % take first char of ID print name
-
+                               % logand with 0xff to avoid sign extension
+                               % on conversion to integer
                        (wand 16#ff (strbyt (strinf (symnam (idinf u))) 0)))
-                      ((stringp u) (wand (strbyt (strinf u) 0)))
+                      ((stringp u) (wand 16#ff (strbyt (strinf u) 0)))
                       (t % take first character of Lisp string
-
                          (noncharactererror u 'lisp2char))))))
 
 (de int2code (n)

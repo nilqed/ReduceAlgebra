@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2013 A. Dolzmann, T. Sturm
-% ----------------------------------------------------------------------
+module ofsfdpep;
+
+revision('ofsfdpep, "$Id: ofsfdpep.red 4058 2017-05-23 17:12:59Z thomas-sturm $");
+
+copyright('ofsfdpep, "(c) 1995-2013 A. Dolzmann, T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -27,15 +28,6 @@
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
-
-lisp <<
-   fluid '(ofsf_dpep_rcsid!* ofsf_dpep_copyright!*);
-   ofsf_dpep_rcsid!* :=
-      "$Id$";
-   ofsf_dpep_copyright!* := "(c) 1995-2013 A. Dolzmann T. Sturm"
->>;
-
-module ofsfdpep;
 
 switch rldpepverbose,rldpepiverbose;
 
@@ -93,19 +85,19 @@ procedure ofsf_dpep(ophi,k);
            then <<
               ioto_tprin2t "++++ DPEP QE by CAD";
               % QE of phi (by CAD)
-	      psiprime := cdr ofsf_cad(phi,nil,nil)
+	      psiprime := ofsf_cad(phi,nil,nil)
            >> else <<
               if !*rlverbose and !*rlcadverbose
               then <<
                  off1 'rlverbose;
                  off1 'rlcadverbose;
                  % QE of phi (by CAD)
-	         psiprime := cdr ofsf_cad(phi,nil,nil);
+	         psiprime := ofsf_cad(phi,nil,nil);
                  on1 'rlverbose;
 	         on1 'rlcadverbose
               >> else
 	         % QE of phi (by CAD)
-	         psiprime := cdr ofsf_cad(phi,nil,nil);
+	         psiprime := ofsf_cad(phi,nil,nil);
            >>
         >> else psiprime := phi;
 
@@ -125,7 +117,7 @@ procedure ofsf_dpep(ophi,k);
            (if rl_mat phiprime eq 'false or
                rl_mat phiprime eq 'true
             then
-	       nil . cl_simpl(rl_mat phiprime,nil,-1)
+	       cl_simpl(rl_mat phiprime,nil,-1)
 	    else
 	       ofsf_dupep(phiprime,k))
    end;
@@ -315,16 +307,16 @@ procedure ofsf_dupep(phiprime,k);
          then
             if smember('false,tv)
             then
-               return nil . cl_simpl('false,nil,-1)
+               return cl_simpl('false,nil,-1)
             else
-               return nil . cl_simpl('true,nil,-1)
+               return cl_simpl('true,nil,-1)
          else
             if smember('true,tv)
             then
-               return nil . cl_simpl('true,nil,-1)
+               return cl_simpl('true,nil,-1)
             else
-               return nil . cl_simpl('false,nil,-1);
-      return nil . cl_simpl(phiprime,nil,-1)
+               return cl_simpl('false,nil,-1);
+      return cl_simpl(phiprime,nil,-1)
    end;
 
 procedure ofsf_pepevalqff(f,sp,id,k);

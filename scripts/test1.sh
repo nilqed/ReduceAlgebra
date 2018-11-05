@@ -13,6 +13,8 @@
 #                 a fresh set of reference log files
 #
 #     --debug     pass "-g" flags to CSL and Jlisp to help debugging
+#                 (well, I will use a version of CSL compiled with
+#                 --enable-debug if I can).
 #     --csl       run tests using CSL
 #     --psl       run tests using PSL
 #     --jlisp     run tests using Jlisp
@@ -30,13 +32,25 @@
 # to access files etc I need to know where it lives.
 
 here="$0";while test -L "$here";do here=`ls -ld "$here" | sed 's/.*-> //'`;done
-here=`cd \`dirname "$here"\` ; pwd -P`
 here=`dirname "$here"`
+here=`cd "$here"; pwd -P`
+here=`dirname "$here"`
+
+diffBw() {
+# if "diff" is not the GNU version it may not support the "-B" or "-w"
+# options that ignore whitespace, so here I use sed to get rid of it
+# before running diff.
+    sed 's/[[:space:]]//g; /^[[:space:]]*$/d' < $1 > $name-times/temp1.tmp
+    sed 's/[[:space:]]//g; /^[[:space:]]*$/d' < $2 > $name-times/temp2.tmp
+    diff $name-times/temp1.tmp $name-times/temp2.tmp
+    rm $name-times/temp1.tmp $name-times/temp2.tmp
+}
 
 install="no"
 keep="no"
 platform=""
 debug="no"
+slow="no"
 
 csl="no"
 cslboot="no"
@@ -96,6 +110,7 @@ do
         exit 1
       fi
       cslboot="yes"
+      slow="yes"
       platform="$platform cslboot"
       shift
       ;;
@@ -106,6 +121,7 @@ do
         exit 1
       fi
       jlisp="yes"
+      slow="yes"
       platform="$platform jlisp"
       shift
       ;;
@@ -116,6 +132,7 @@ do
         exit 1
       fi
       jlispboot="yes"
+      slow="yes"
       platform="$platform jlispboot"
       shift
       ;;
@@ -207,6 +224,7 @@ then
   then
     timecmd="$timecmd -p"
   fi
+  timeoutcmd=`type -P timeout`
 else
   testfortime=`type time 2>&1 | grep -v "not found"`
   if test -n "$testfortime"
@@ -217,6 +235,37 @@ else
     timecmd="$1 -p"
   else
     timecmd=""
+  fi
+  testfortimeout=`type timeout 2>&1 | grep -v "not found"`
+  if test -n "$testfortimeout"
+  then
+    set -- $testfortimeout
+    # remove all but last parameter
+    shift `expr $# - 1`
+    timeoutcmd="$1"
+  else
+    timeoutcmd=""
+  fi
+fi
+
+# If I can I will limit the time that each test script can possibly use.
+# I would like to make the limit such that everything has a decent chance of
+# running to completion but that tests that get stuck do not delay me
+# unduly. The most extreme test at the time of writing this is qsum which
+# uses around 20 seconds on a decent speed desktop machine. So a limit
+# at 600 seconds seems tolerably safe for most machine. It is sufficient for
+# if the Raspberry Pi 3, where the sstools and qsum take a fair proportion
+# of that. Well I will qualify that the bootstrap version -- especially if
+# built with debug options enabled - can be much slower, so if one of the
+# tests is for that I will increase the limit significantly.
+
+if test "x$timeoutcmd" != "x"
+then
+  if test "x$slow" = "xyes"
+  then
+    timeoutcmd="$timeoutcmd 2400"
+  else
+    timeoutcmd="$timeoutcmd 600"
   fi
 fi
 
@@ -272,7 +321,7 @@ fi
 # slowest ones may take almost 15 seconds. The idea behind applying a
 # ulimit here is to avoid trouble when and if a test script loops.
  
-ulimit -c 60
+ulimit -c 60 2>/dev/null
 
 # There are a number of "sed" operations I use to tidy up logs files
 # so that comparisons do not show up frivolous differences. I put the
@@ -281,6 +330,8 @@ ulimit -c 60
 SED1='/^Total time taken:/d;
       /^Number of garbage/d;
       /^Time: /d;
+      /^Realtime: /d;
+      / cpu time :/d;
       /^CRACK needed :/d;
       /^time for init/d;
       /^+++ levelt compiled/d;
@@ -292,6 +343,11 @@ SED1='/^Total time taken:/d;
       /^>> accum\. cpu time :/d
       /^max_gc_int :/d;
       /^max_gc_fac :/d'
+
+# To be able to replace full pathnames I generate a version of the path with 
+# directory separators / and \ escaped:
+
+ESCAPED_DIR=`echo $dd | sed -e 's/[\/\\\\]/\\\\&/g'`
 
 #######################################################################
 # CSL testing
@@ -309,9 +365,43 @@ command=$2
 showname=$3
 gflag=$4
 
+fullcommand="$here/bin/$command"
+
+if test "$debug" = "yes"
+then
+  w=""
+  if test "$command" = "redcsl"
+  then
+    c1="reduce"
+  else
+    c1="bootstrapreduce"
+  fi
+# The following ugly list tries to show an order of prededence for versions
+# of Reduce that I will run if the --debug option is passed. The key idea
+# is that on Windows I will use a 64-bit cygwin versiuon in preference to
+# anything else (because I can use gdb most easily there), and in all cases
+# I will try to use a "-nogui" version since that reduces the amount of
+# complication that the Windowed interface introduces.
+  for x in "$here/cslbuild/x*cygwin-nogui-debug" \
+           "$here/cslbuild/x*cygwin-debug" \
+           "$here/cslbuild/x*cygwin-wx-debug" \
+           "$here/cslbuild/*nogui-debug" \
+           "$here/cslbuild/*debug"
+  do
+    if test -x $x/csl/$c1 && \
+       test -f $x/csl/$c1.img
+    then
+      w="$x"
+      break
+    fi
+  done
+# echo "Selected $w" 
+  fullcommand="$w/csl/$c1"
+fi
+
 mkdir -p $name-times
 
-$timecmd sh -c "$here/bin/$command -v -w $gflag > $name-times/$p.rlg.tmp" <<XXX 2>$p.howlong.tmp
+$timeoutcmd $timecmd sh -c "$fullcommand -v -w $gflag $otherflags > $name-times/$p.rlg.tmp" <<XXX 2>$p.howlong.tmp
 off int;
 symbolic linelength 80;
 symbolic(!*redeflg!* := nil);
@@ -331,8 +421,9 @@ sed -e "/^Tested on /,//d" <$rlgfile |
 sed -e "1,/START OF REDUCE TEST RUN/d" -e "/END OF REDUCE TEST RUN/,//d" \
     -e "/OMIT/,/TIMO/d" <$name-times/$p.rlg.tmp | \
   sed -e "1s/^1: //" | sed -e '$s/^1: //' | \
+  sed -e "s/${ESCAPED_DIR}.//" | \
   sed -e "$SED1" >$name-times/$p.rlg
-diff -B -w $name-times/$p.rlg.orig $name-times/$p.rlg >$name-times/$p.rlg.diff
+diffBw $name-times/$p.rlg.orig $name-times/$p.rlg >$name-times/$p.rlg.diff
 if test -s $name-times/$p.rlg.diff
   then printf "Diff is in $name-times/$p.rlg.diff "
   else printf "OK " ; rm -f $name-times/$p.rlg.diff $name-times/$p.rlg.orig
@@ -364,6 +455,11 @@ then
   csltest "cslboot" "bootstrapreduce" "BootstrapCSL"
 fi
 
+if test "$csldebug" = "yes"
+then
+  csltest "csldebug" "csldebug" "csldebug"
+fi
+
 fi # CSL case
 
 if test "$psl" = "yes"
@@ -373,9 +469,10 @@ then
 # PSL testing
 #######################################################################
 
-mkdir -p psl-times
+name=psl
+mkdir -p $name-times
 
-$timecmd sh -c "$here/bin/redpsl > psl-times/$p.rlg.tmp" <<XXX 2>$p.howlong.tmp
+$timeoutcmd $timecmd sh -c "$here/bin/redpsl > psl-times/$p.rlg.tmp" <<XXX 2>$p.howlong.tmp
 off int;
 symbolic linelength 80;
 symbolic(!*redefmsg := nil);
@@ -397,8 +494,9 @@ sed -e "/^Tested on /,//d" <$rlgfile | \
 sed -e "1,/START OF REDUCE TEST RUN/d" -e "/END OF REDUCE TEST RUN/,//d" \
     -e "/OMIT/,/TIMO/d" <psl-times/$p.rlg.tmp | \
   sed -e "1s/^1: //" | sed -e '$s/^1: //' | \
+  sed -e "s/${ESCAPED_DIR}.//" | \
   sed -e "$SED1" >psl-times/$p.rlg
-diff -B -w psl-times/$p.rlg.orig psl-times/$p.rlg >psl-times/$p.rlg.diff
+diffBw psl-times/$p.rlg.orig psl-times/$p.rlg >psl-times/$p.rlg.diff
 if test -s psl-times/$p.rlg.diff
   then echo "diff is in psl-times/$p.rlg.diff"
   else printf "OK " ; rm -f psl-times/$p.rlg.diff psl-times/$p.rlg.orig
@@ -435,7 +533,7 @@ then
   wh=`cygpath -m $wh`
 fi
 
-$timecmd sh -c "java -jar $wh/jlisp/$command -v -w $gflag > $name-times/$p.rlg.tmp" <<XXX 2>$p.howlong.tmp
+$timeoutcmd $timecmd sh -c "java -jar $wh/jlisp/$command -v -w $gflag $otherflags > $name-times/$p.rlg.tmp" <<XXX 2>$p.howlong.tmp
 off int;
 symbolic linelength 80;
 symbolic(!*redeflg!* := nil);
@@ -456,7 +554,7 @@ sed -e "1,/START OF REDUCE TEST RUN/d" -e "/END OF REDUCE TEST RUN/,//d" \
     -e "/OMIT/,/TIMO/d" <$name-times/$p.rlg.tmp | \
   sed -e "1s/^1: //" | sed -e '$s/^1: //' | \
   sed -e "$SED1" >$name-times/$p.rlg
-diff -B -w $name-times/$p.rlg.orig $name-times/$p.rlg >$name-times/$p.rlg.diff
+diffBw $name-times/$p.rlg.orig $name-times/$p.rlg >$name-times/$p.rlg.diff
 if test -s $name-times/$p.rlg.diff
   then printf "Diff is in $name-times/$p.rlg.diff "
   else printf "OK " ; rm -f $name-times/$p.rlg.diff $name-times/$p.rlg.orig
@@ -541,7 +639,7 @@ then
       base="$sys"
     else
       mkdir -p $base-$sys-times-comparison
-      diff -B -w $base-times/$p.rlg $sys-times/$p.rlg >$base-$sys-times-comparison/$p.rlg.diff
+      diffBw $base-times/$p.rlg $sys-times/$p.rlg >$base-$sys-times-comparison/$p.rlg.diff
       if test -s $base-$sys-times-comparison/$p.rlg.diff
       then
         printf "***** $base and $sys test logs differ!\n"

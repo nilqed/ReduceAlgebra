@@ -35,7 +35,7 @@ package uk.co.codemist.jlisp.core;
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: Uxx.java 3137 2015-06-15 09:45:01Z arthurcnorman $
 
 
 // Uxx.java

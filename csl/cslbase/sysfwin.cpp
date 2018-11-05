@@ -1,4 +1,4 @@
-// sysfwin.cpp                      Copyright (C) 1989-2016 Codemist    
+// sysfwin.cpp                             Copyright (C) 1989-2017 Codemist    
 
 //
 // System-specific code for use with the "fwin" window interface code.
@@ -7,7 +7,7 @@
 //
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -36,7 +36,7 @@
  *************************************************************************/
 
 
-// $Id$
+// $Id: sysfwin.cpp 4611 2018-05-16 20:34:06Z arthurcnorman $
 
 #ifdef __CYGWIN__
 //
@@ -44,6 +44,7 @@
 // appears best to include this file very early - otherwise I have found
 // some confusion between cygwin and mingw entrypoints hurting me.
 //
+#include <winsock.h>
 #include <windows.h>
 #include <sys/cygwin.h>
 #endif
@@ -125,7 +126,7 @@
 // Jollies re GC statistics...
 //
 
-static char time_string[32], space_string[32];
+static char time_string[40], space_string[32];
 
 void report_time(int32_t t, int32_t gct)
 {
@@ -136,10 +137,17 @@ void report_time(int32_t t, int32_t gct)
 #endif
 }
 
-void report_space(int n, double percent)
+void report_space(uint64_t n, double percent, double mbytes)
 {
 #ifndef EMBEDDED
-    sprintf(space_string, "[GC %d]:%.2f%%", n, percent);
+    if (mbytes > 9500.0)
+        sprintf(space_string, "[GC %" PRIu64 "]:%.2f%% %dG",
+            n, percent, (int)((mbytes+500.0)/1000.0));
+    else if (mbytes > 700.0)
+        sprintf(space_string, "[GC %" PRIu64 "]:%.2f%% %.1fG",
+            n, percent, mbytes/1000.0);
+    else sprintf(space_string, "[GC %" PRIu64 "]:%.2f%% %dM",
+        n, percent, (int)(mbytes + 0.5));
     if ((window_heading & 4) == 0) fwin_report_right(space_string);
 #endif
 }
@@ -339,22 +347,16 @@ void my_pclose(FILE *stream)
 
 
 char *look_in_lisp_variable(char *o, int prefix)
-{   LispObject nil, var;
+{   LispObject var;
 //
 // I will start by tagging a '$' (or whatever) on in front of the
 // parameter name.
 //
     o[0] = (char)prefix;
     var = make_undefined_symbol(o);
-    nil = C_nil;
 //
 // make_undefined_symbol() could fail either if we had utterly run out
 // of memory or if somebody generated an interrupt (eg ^C) around now. Ugh.
-//
-    if (exception_pending())
-    {   flip_exception();
-        return NULL;
-    }
 //
 // If the variable $name was undefined then I use an empty replacement
 // text for it. Otherwise I need to look harder at its value.
@@ -367,23 +369,9 @@ char *look_in_lisp_variable(char *o, int prefix)
 // Mostly I expect that the value will be a string or symbol.
 //
 #ifdef COMMON
-        if (complex_stringp(var))
-        {   var = simplify_string(var);
-            nil = C_nil;
-            if (exception_pending())
-            {   flip_exception();
-                return NULL;
-            }
-        }
+        if (complex_stringp(var)) var = simplify_string(var);
 #endif // COMMON
-        if (symbolp(var))
-        {   var = get_pname(var);
-            nil = C_nil;
-            if (exception_pending())
-            {   flip_exception();
-                return NULL;
-            }
-        }
+        if (symbolp(var)) var = get_pname(var);
         else if (!is_vector(var) || !is_string(var)) return NULL;
         len = length_of_byteheader(vechdr(var)) - CELL;
 //
@@ -582,7 +570,8 @@ const char *find_image_directory(int argc, const char *argv[])
     }
 #endif
     n = strlen(xname)+1;
-    w = (char *)(*malloc_hook)(n);
+    w = (char *)malloc(n);
+    if (w == NULL) abort();
     strcpy(w, xname);
     return w;
 }
@@ -891,7 +880,7 @@ const char *CSLtmpdir()
 #endif
 }
 
-const char *CSLtmpnam(const char *suffix, int32_t suffixlen)
+const char *CSLtmpnam(const char *suffix, size_t suffixlen)
 {   time_t t0 = time(NULL);
     clock_t c0 = clock();
     unsigned long taskid;
@@ -968,6 +957,73 @@ const char *CSLtmpnam(const char *suffix, int32_t suffixlen)
         break;
     }
     return tempname;
+}
+
+// The following functions are best described as delicate, and they are only
+// present for debugging purposes. It is not clear to me how much performance
+// penalty they introduce, and certainly in a multi-threaded context the
+// state of availabaility of memory to one thread can be changed by a
+// different thread, leaving any result found here out of date. The Windows
+// code also hints at issues where pages are marked in a special manner to
+// let them act as guard pages - and potential consequences of that (eg
+// wrt stack extension) are not handled carefully here.
+
+#if defined __CYGWIN__ || defined __unix__ || defined MACINTOSH
+
+// This code is intended to discover whether the pointer that is passed
+// is a valid address. This is JUST intended for debugging so that I can
+// go things like
+//   my_assert(valid_address(p), [=]{ ... });
+// with my own custom diagnostics in the code that reports trouble.
+// The failure is not expected to arise except when I have an internal
+// error in CSL.
+// The write() function never causes an exception, but instead returns
+// -1 if it fails, and sets errno to EFAULT if the buffer address that it
+// is passed offends it.
+
+#include <unistd.h>
+#include <fcntl.h>
+
+static FILE *file_handle;
+static int fd_handle;
+static bool file_handle_set = false;
+
+bool valid_address(void *pointer)
+{   if (!file_handle_set)
+    {   if ((file_handle = tmpfile()) == NULL) return false;
+        fd_handle = fileno(file_handle);
+        file_handle_set = true;   // I will open the fd just once.
+    }
+// I will not bother to check errno, and just take any failure as
+// indicating a bad memory address in the pointer.
+    return (write(fd_handle, pointer, 1) != -1);
+}
+
+#elif defined WIN32
+
+// On Windows I can query the page that the address is within, and accept
+// it if there is read/write access and if it is not a guard page.
+
+bool valid_address(void *pointer)
+{   MEMORY_BASIC_INFORMATION mbi = {0};
+    if (::VirtualQuery(pointer, &mbi, sizeof(mbi)))
+    {   // check the page is not a guard page
+        if (mbi.Protect & (PAGE_GUARD|PAGE_NOACCESS)) return false;
+        return ((mbi.Protect & (PAGE_READWRITE|PAGE_EXECUTE_READWRITE)) != 0);
+    }
+    return false;  // ::VirtualQuery failed.
+}
+
+#else
+
+bool valid_address(void *pointer)
+{   return true;
+}
+
+#endif
+
+bool valid_address(uintptr_t pointer)  // an overload to accept integer types
+{   return valid_address((void *)pointer);
 }
 
 // end of sysfwin.cpp

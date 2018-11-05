@@ -5,7 +5,7 @@
 % Author:       Eric Benson 
 % Created:      27 August 1981 
 % Modified:     03-Jul-84 10:14:03 
-% Status:       Experimental 
+% Status:       Open Source: BSD License
 % Mode:         Lisp 
 % Package:      Kernel 
 % Compiletime:  
@@ -76,10 +76,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 (compiletime (load if-system))
-
-(de eval(x) x)
-(de equal (x y) (eq x y))
-(de errorprintf(x) (console-print-string x) (console-newline))
 
 (global '(heapupperbound heaplowerbound heaplast heaptrapbound heaplast
           heaptrapped nextbps lastbps))

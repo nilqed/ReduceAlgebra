@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 2001-2009 A. Dolzmann, A. Seidl, and T. Sturm
-% ----------------------------------------------------------------------
+module ofsfanuex;  % Expresions with real  algebraic numbers.
+
+revision('ofsfanuex, "$Id: ofsfanuex.red 4066 2017-05-28 07:14:32Z thomas-sturm $");
+
+copyright('ofsfanuex, "(c) 2001-2009 A. Dolzmann, A. Seidl, T. Sturm, 2012-2017 M. Kosta, T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -28,14 +29,6 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
 
-lisp <<
-   fluid '(ofsf_anuex_rcsid!* ofsf_anuex_copyright!*);
-   ofsf_anuex_rcsid!* :=
-      "$Id$";
-   ofsf_anuex_copyright!* := "(c) 2001-2009 A. Dolzmann, A. Seidl, T. Sturm"
->>;
-
-module ofsfanuex;
 % ANUEX: a package for primitive or hierarchical representation of algebraic
 % numbers and expressions in algebraic numbers (algebraic polynomials). The
 % features include incremental real root isolation and factorization.
@@ -60,12 +53,16 @@ module ofsfanuex;
 % polynomial defining this algebraic number is x.
 
 fluid '(bigvarpref!* bigvarcount!* smallvarpref!* smallvarcount!*);
-bigvarpref!* := 'zzzzz;
+bigvarpref!* := '!~var;
 bigvarcount!* := 0;
-smallvarpref!* := '!_!_x;
-smallvarcount!* := 10000;
+smallvarpref!* := '!&var;
+smallvarcount!* := 99999;
 
-procedure mksmallid();
+global '(!*NaN!*);
+
+!*NaN!* := "NaN";
+
+procedure ofsf_mksmallid();
    begin scalar w; integer d;
       smallvarcount!* := smallvarcount!* - 1;
       w := explode smallvarcount!*;
@@ -77,7 +74,7 @@ procedure mksmallid();
       return compress append(explode smallvarpref!*, w)
    end;
 
-procedure mkbigid();
+procedure ofsf_mkbigid();
    begin scalar w; integer d;
       bigvarcount!* := bigvarcount!* + 1;
       w := explode bigvarcount!*;
@@ -109,12 +106,15 @@ asserted procedure rat_denr(q: Rational): Integer;
 
 asserted procedure rat_print(q: Rational): Any;
    % Rational number print.
-   <<
-      prin2 rat_numrn q;
-      prin2 "/";
-      prin2 rat_denr q;
-      nil
-   >>;
+   prin2t rat_tostring q;
+
+asserted procedure rat_tostring(q: Rational): String;
+   begin scalar sl;
+      push(lto_at2str rat_numrn q, sl);
+      push("/", sl);
+      push(lto_at2str rat_denr q, sl);
+      return lto_sconcat reversip sl
+   end;
 
 asserted procedure rat_fromnum(n: Integer): Rational;
    % Rational number from integer number.
@@ -230,14 +230,17 @@ asserted procedure iv_rb(iv: RatInterval): Rational;
 
 asserted procedure iv_print(iv: RatInterval): Any;
    % Print interval.
-   <<
-      prin2 "]";
-      rat_print iv_lb iv;
-      prin2 ",";
-      rat_print iv_rb iv;
-      prin2t "[";
-      nil
-   >>;
+   prin2t iv_tostring iv;
+
+asserted procedure iv_tostring(iv: RatInterval): String;
+   begin scalar sl;
+      push("]", sl);
+      push(rat_tostring iv_lb iv, sl);
+      push(", ", sl);
+      push(rat_tostring iv_rb iv, sl);
+      push("[", sl);
+      return lto_sconcat reversip sl
+   end;
 
 asserted procedure iv_neg(iv: RatInterval): RatInterval;
    % Returns $-[i]$, i.e., the interval mirrored at 0.
@@ -256,26 +259,26 @@ asserted procedure iv_mapadd(ivl: RatIntervalList): RatInterval;
 
 asserted procedure iv_mult(iv1: RatInterval, iv2: RatInterval): RatInterval;
    % Interval multiplication.
-   iv_mk(rat_min4(rr,rl,lr,ll),rat_max4(rr,rl,lr,ll)) where
-      rr = multsq(iv_rb iv1,iv_rb iv2),
-      rl = multsq(iv_rb iv1,iv_lb iv2),
-      lr = multsq(iv_lb iv1,iv_rb iv2),
-      ll = multsq(iv_lb iv1,iv_lb iv2);
+   iv_mk(rat_min4(rr, rl, lr, ll), rat_max4(rr, rl, lr, ll)) where
+      rr = multsq(iv_rb iv1, iv_rb iv2),
+      rl = multsq(iv_rb iv1, iv_lb iv2),
+      lr = multsq(iv_lb iv1, iv_rb iv2),
+      ll = multsq(iv_lb iv1, iv_lb iv2);
 
 asserted procedure iv_med(iv: RatInterval): Rational;
    % Point in the middle of an interval.
-   rat_mult(rat_add(iv_lb iv,iv_rb iv),rat_mk(1,2));
+   rat_mult(rat_add(iv_lb iv, iv_rb iv), rat_mk(1, 2));
 
 asserted procedure iv_tothen(iv: RatInterval, n: Integer): RatInterval;
    % Interval to the n.
-   if n=0 then
-      iv_mk(rat_mk(1,1),rat_mk(1,1))
+   if eqn(n, 0) then
+      iv_mk(rat_mk(1, 1), rat_mk(1, 1))
    else
-      iv_mult(iv,iv_tothen(iv,n-1));
+      iv_mult(iv, iv_tothen(iv, n-1));
 
 asserted procedure iv_containszero(iv: RatInterval): Boolean;
    % Interval contains zero.
-   if rat_leq(iv_lb iv,rat_0()) and rat_leq(rat_0(),iv_rb iv) then
+   if rat_leq(iv_lb iv, rat_0()) and rat_leq(rat_0(), iv_rb iv) then
       t
    else
       nil;
@@ -284,30 +287,31 @@ asserted procedure iv_comp(iv1: RatInterval, iv2: RatInterval): Integer;
    % Compare intervals. Returns -1, if [iv1] is below [iv2], 1, if [iv2] is
    % above [iv1] and 0, if the intersection of [iv1] and [iv2] is non- empty.
    % [iv1], [iv2] are regarded as open intervals.
-   if rat_leq(iv_rb iv1,iv_lb iv2) then
+   if rat_leq(iv_rb iv1, iv_lb iv2) then
       -1
-   else if rat_leq(iv_rb iv2,iv_lb iv1) then
+   else if rat_leq(iv_rb iv2, iv_lb iv1) then
       1
-   else 0;
+   else
+      0;
 
 asserted procedure iv_maxabs(iv: RatInterval): Rational;
    % Interval maximal absolute value.
-   rat_max(rat_abs iv_lb iv,rat_abs iv_rb iv);
+   rat_max(rat_abs iv_lb iv, rat_abs iv_rb iv);
 
 asserted procedure iv_minabs(iv: RatInterval): Rational;
    % Interval minimal absolute value.
    if iv_containszero iv then
       rat_0()
    else
-      rat_min(rat_abs iv_lb iv,rat_abs iv_rb iv);
+      rat_min(rat_abs iv_lb iv, rat_abs iv_rb iv);
 
 asserted procedure iv_minus(iv1: RatInterval, iv2: RatInterval): RatIntervalList;
    % Returns a list of IV, resulting from subtracting [iv2] from [iv1].
    nconc(
-      if rat_less(iv_lb iv1,iv_lb iv2) then
-	 {iv_mk(iv_lb iv1,rat_min(iv_lb iv2,iv_rb iv1))},
+      if rat_less(iv_lb iv1, iv_lb iv2) then
+	 {iv_mk(iv_lb iv1, rat_min(iv_lb iv2, iv_rb iv1))},
       if rat_less(iv_rb iv2,iv_rb iv1) then
-	 {iv_mk(rat_max(iv_rb iv2,iv_lb iv1),iv_rb iv1)});
+	 {iv_mk(rat_max(iv_rb iv2, iv_lb iv1), iv_rb iv1)});
 
 asserted procedure iv_minuslist(iv: RatInterval, ivl: RatIntervalList): RatIntervalList;
    % Interval minus list of intervals. [ivl] is a list of distinct
@@ -315,13 +319,13 @@ asserted procedure iv_minuslist(iv: RatInterval, ivl: RatIntervalList): RatInter
    if null ivl then
       {iv}
    else
-      iv_listminuslist(iv_minus(iv,car ivl),cdr ivl);
+      iv_listminuslist(iv_minus(iv, car ivl), cdr ivl);
 
 asserted procedure iv_listminuslist(ivl1: RatIntervalList, ivl2: RatIntervalList): RatIntervalList;
    % Interval list minus interval list. [ivl1] and [ivl2] are each lists of
    % distinct intervals.
    for each iv1 in ivl1 join
-      iv_minuslist(iv1,ivl2);
+      iv_minuslist(iv1, ivl2);
 
 % TODO: Rename and move these procedures to sfto module.
 
@@ -515,21 +519,27 @@ asserted procedure aex_bvarl(ae: Aex): List;
    ctx_idl aex_ctx ae;
 
 asserted procedure aex_bind(ae: Aex, x: Kernel, a: Anu): Aex;
-   begin scalar ctx, fvarl, r, nctx, nx, rp;
+   % Bind variable [x] to [a]. NOTE: There are no restrictions on [x]
+   % w.r.t. the current kernel order.
+   begin scalar ctx, fvarl, r, oo, res, nctx, nx, rp;
       ctx := aex_ctx ae;
       if ctx_get(ctx, x) then
 	 return ae;
       fvarl := aex_fvarl ae;
       if not (x memq fvarl) then
 	 return ae;
-      r := anu_ratp a;  % Test whether [a] is rational. If yes, use aex_subrp.
-      if r then
-	 return aex_subrp(ae, x, r);
+      r := anu_ratp a;
+      if r then <<  % [a] is rational and equals [r]
+      	 oo := updkorder x;
+	 res := aex_subrat(aex_reorderex ae, x, r);
+	 setkorder oo;
+      	 return res
+      >>;
       if x eq lto_maxkl fvarl then <<  % [x] is the biggest free variable in [ae]
 	 nctx := ctx_add(aex_ctx ae, x . anu_rename(a, x));
 	 return aex_mk(aex_ex ae, nctx)
       >>;
-      nx := mkbigid();
+      nx := ofsf_mkbigid();
       nctx := ctx_add(aex_ctx ae, nx . anu_rename(a, nx));
       rp := aex_ex ae;
       return aex_mk(quotsq(!*f2q sfto_renamef(numr rp, x, nx), !*f2q denr rp), nctx)
@@ -538,6 +548,26 @@ asserted procedure aex_bind(ae: Aex, x: Kernel, a: Anu): Aex;
 asserted procedure aex_unbind(ae: Aex, x: Kernel): Aex;
    % Delete assignment to [x].
    aex_mk(aex_ex ae, ctx_remove(aex_ctx ae, x));
+
+asserted procedure aex_reorderex(ae: Aex): Aex;
+   % Reorder the expression [aex_ex ae] of [aex] w.r.t. current
+   % [kord!*].
+   begin scalar rp;
+      rp := aex_ex ae;
+      return aex_mk(reorder numr rp ./ denr rp, ctx_fromial ctx_ial aex_ctx ae)
+   end;
+
+asserted procedure aex_reorder(ae: Aex): Aex;
+   % Reorder [aex] (both its expression and context) w.r.t. current
+   % [kord!*].
+   begin scalar rp, res;
+      rp := aex_ex ae;
+      rp := reorder numr rp ./ denr rp;
+      res := aex_fromrp rp;
+      for each pr in ctx_ial aex_ctx ae do
+	 res := aex_bind(res, car pr, anu_reorder cdr pr);
+      return res
+   end;
 
 asserted procedure aex_print(ae: Aex): Any;
    <<
@@ -928,6 +958,37 @@ asserted procedure aex_evalop(ae: Aex, op: Id): Boolean;
       return ofsf_evalatp(op, sgn)
    end;
 
+asserted procedure aex_realtype(ae: Aex): List;
+   % Compute real type (i.e., the sequence of different signs assumed
+   % by [ae] from -infty to +infty) of the univariate polynomial [ae].
+   % Returns a list containing -1, 0, 1.
+   begin scalar x, rootl, sgnl, r1, r2, w;
+      % TODO: Multiplicity of the roots!!!
+      assert(aex_fvarl ae and null cdr aex_fvarl ae);  % one free variable
+      x := aex_mvar ae;
+      rootl := aex_findroots(ae, x);
+      sgnl := {aex_sgnatminfty(ae, x)};
+      if null rootl then  % [ae] has no real roots
+	 return sgnl;
+      if null cdr rootl then <<  % [ae] has exactly on real root
+	 push(0, sgnl);
+	 push(aex_sgnatinfty(ae, x), sgnl);
+	 return reversip sgnl
+      >>;
+      % [ae] has at least two different real roots
+      r1 := pop rootl;
+      while rootl do <<
+	 r2 := pop rootl;
+	 w := iv_med iv_mk(iv_rb anu_iv r1, iv_lb anu_iv r2);
+	 push(0, sgnl);
+	 push(aex_sgn aex_bind(ae, x, anu_fromrat(x, w)), sgnl);
+	 r1 := r2
+      >>;
+      push(0, sgnl);
+      push(aex_sgnatinfty(ae, x), sgnl);
+      return reversip sgnl
+   end;
+
 % Exact arithmetic with multiplicative inverses.
 
 asserted procedure aex_quotrem(f: Aex, g: Aex, x: Kernel): DottedPair;
@@ -1192,7 +1253,7 @@ asserted procedure aex_findroots(ae: Aex, x: Kernel): AnuList;
    % Aex find roots. [ae] is a univariate Aex. If [ae]'s ldeg is not positive,
    % the empty list will be returned.
    begin scalar cb, rootlist;
-      if aex_deg(ae,x) < 1 then
+      if aex_deg(ae, x) < 1 then
 	 return nil;
       cb := aex_cauchybound(ae, x);
       rootlist := aex_findrootsiniv1(ae, x, iv_mk(rat_neg cb, cb),
@@ -1206,9 +1267,9 @@ asserted procedure aex_findrootsiniv(ae: Aex, x: Kernel, iv: RatInterval): AnuLi
    aex_findrootsiniv1(ae, x, iv, aex_stdsturmchain(ae, x));
 
 asserted procedure aex_findrootsiniv1(ae: Aex, x: Kernel, iv: RatInterval, sc: AexList): AnuList;
-   % Aex find roots in interval. [ae] is a univariate Aex with positive ldeg,
-   % [sc] is [ae]'s Sturm chain. Returns an ordered list of Anu: all roots of
-   % [ae] in open interval [iv].
+   % Aex find roots in interval. [ae] is a univariate Aex with
+   % positive ldeg, [sc] is [ae]'s Sturm chain. Returns a sorted list
+   % of Anu: all roots of [ae] in open interval [iv].
    begin scalar lb, rb, sclb, scrb, m, ml, mr, r, retl;
       lb := iv_lb iv;
       rb := iv_rb iv;
@@ -1565,7 +1626,7 @@ asserted procedure anu_compare1(a1: Anu, a2: Anu): Integer;
       v1 := aex_mvar anu_dp a1;
       v2 := aex_mvar anu_dp a2;
       if v1 eq v2 then <<
-      	 v2 := mksmallid();
+      	 v2 := ofsf_mksmallid();
       	 a2 := anu_rename(a2, v2);
       >>;
       ctx := ctx_fromial {v1 . a1, v2. a2};
@@ -1610,44 +1671,102 @@ asserted procedure anu_refineip(a: Anu, s: AexList): Anu;
       return a
    end;
 
-asserted procedure anu_evalf(a: Anu): Floating;
-   % Algebraic number evaluate floating point. Returns a floating point
-   % approximation of [a], which is precise up to [anu_precision!*] decimal
-   % places.
+asserted procedure anu_approx(a: Anu): Rational;
+   % Algebraic number approximate with a rational. Returns a rational
+   % approximation of [a], which is precise up to [anu_precision!*]
+   % decimal places.
    begin scalar iv, ra, lb, ub;
       ra := a;
       repeat <<
       	 ra := anu_refine ra;
 	 iv := anu_iv ra;
-	 lb := float(numr car iv or 0)/float denr car iv;
-	 ub := float(numr cdr iv or 0)/float denr cdr iv
-      >> until anu_approxEqualEnough(lb, ub);
+	 lb := iv_lb iv;
+	 ub := iv_rb iv
+      >> until anu_approxEnough(lb, ub);
       return lb
    end;
+
+asserted procedure anu_approxEnough(lb: Rational, ub: Rational): Boolean;
+   rat_less(rat_minus(ub, lb), 1 ./ (10^anu_precision!*));
+
+asserted procedure anu_evalf(a: Anu): Any;
+   % Algebraic number evaluate floating point. Returns a floating point
+   % approximation of [a], which is precise up to [anu_precision!*] decimal
+   % places. Machine floats are used for this computation. Returns !*NaN!* in
+   % case of overflow.
+   begin scalar iv, ra, lb, ub;
+      ra := a;
+      repeat <<
+      	 ra := anu_refine ra;
+	 iv := anu_iv ra;
+	 lb := errorset({'anu_sq2float, mkquote car iv}, nil, nil);
+	 if errorp lb then
+ 	    lb := !*NaN!*
+ 	 else <<
+ 	    lb := car lb;
+	    ub := errorset({'anu_sq2float, mkquote cdr iv}, nil, nil);
+	    ub := if errorp ub then !*NaN!* else car ub
+	 >>;
+%% 	 lb := float(numr car iv or 0)/float denr car iv;
+%% 	 ub := float(numr cdr iv or 0)/float denr cdr iv
+      >> until lb = !*NaN!* or ub = !*NaN!* or anu_approxEqualEnough(lb, ub);
+      return if ub = !*NaN!* then ub else lb
+   end;
+
+asserted procedure anu_sq2float(b: SQ): Floating;
+   float(numr b or 0)/float denr b;
 
 asserted procedure anu_approxEqualEnough(lb: Floating, ub: Floating): Boolean;
    eqn(fix(lb * 10^anu_precision!*) - fix(ub * 10^anu_precision!*), 0);
 
-asserted procedure anu_rename(a: Anu, xnew: Kernel);
+asserted procedure anu_evalfR(a: Anu): Any;
+   % Algebraic number evaluate floating point. Returns a floating
+   % point approximation of [a], which is precise up to [precision(0)]
+   % decimal places. Reduce floats are used for this computation.
+   begin scalar iv, ra, lb, ub;
+      ra := a;
+      repeat <<
+      	 ra := anu_refine ra;
+	 iv := anu_iv ra;
+	 lb := evalf0 {{'quotient, numr iv_lb iv or 0, denr iv_lb iv}};
+	 ub := evalf0 {{'quotient, numr iv_rb iv or 0, denr iv_rb iv}};
+      >> until anu_approxEqualEnoughR(lb, ub);
+      return lb
+   end;
+
+asserted procedure anu_approxEqualEnoughR(lb: Floating, ub: Floating): Boolean;
+   begin integer l, u, p;
+      p := 10^precision(0);
+      l := ((p * sfto_sf2int numr w) / denr w) where w = simp lb;
+      u := ((p * sfto_sf2int numr w) / denr w) where w = simp ub;
+      return eqn(l, u)
+   end;
+
+asserted procedure anu_rename(a: Anu, xnew: Kernel): Anu;
+   % Rename the main variable of [a] to [xnew].
    begin scalar aex, rp, varl, x, varal, rpnew, ialnew, w;
+      if x eq xnew then
+	 return a;
       aex := anu_dp a;
       rp := aex_ex aex;
       varl := kernels numr rp;
       x := car varl;
-      if x eq xnew then
-	 return a;
       rpnew := quotsq(!*f2q sfto_renamealf(numr rp, {x . xnew}), !*f2q denr rp);
       if ordop(xnew, x) then
 	 return anu_mk(aex_mk(rpnew, aex_ctx aex), anu_iv a);
       varal := for each var in cdr varl collect
-	 var . mkbigid();
-      rpnew := quotsq(!*f2q sfto_renamealf(numr rpnew, {x . xnew}), !*f2q denr rpnew);
+	 var . ofsf_mkbigid();
+      rpnew := quotsq(!*f2q sfto_renamealf(numr rpnew, varal), !*f2q denr rpnew);
       ialnew := for each pr in ctx_ial aex_ctx aex collect <<
 	 w := cdr atsoc(car pr, varal);
 	 w . anu_rename(cdr pr, w)
       >>;
       return anu_mk(aex_mk(rpnew, ctx_fromial ialnew), anu_iv a)
    end;
+
+asserted procedure anu_reorder(a: Anu): Anu;
+   % Reorder [a] w.r.t. current [kord!*].
+   anu_mk(aex_reorder anu_dp a, anu_iv a);
 
 asserted procedure anu_check(a: Anu): Boolean;
    % Algebraic number check.

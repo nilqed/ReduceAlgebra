@@ -3,7 +3,7 @@
 *   T e x t   w i n d o w   t h a t   a l l o w s   s i m p l e   I / O       *
 *                                                                             *
 *******************************************************************************
-* Copyright (C) 2003-15 by Arthur Norman, Codemist Ltd. All Rights Reserved.  *
+* Copyright (C) 2003-17 by Arthur Norman, Codemist. All Rights Reserved.      *
 *******************************************************************************
 * This library is free software; you can redistribute it and/or               *
 * modify it under the terms of the GNU Lesser General Public                  *
@@ -45,8 +45,6 @@
 #ifndef FXTERMINAL_H
 #define FXTERMINAL_H
 
-/* Signature: 0c4a475b 07-Jul-2010 */
-
 #include "FXText.h"
 
 #include "FXDCNativePrinter.h"
@@ -64,6 +62,7 @@
 #include <unistd.h>
 #endif
 
+extern int windowed;
 
 namespace FX {
 
@@ -111,10 +110,6 @@ extern FXMenuBar *main_menu_bar;
 extern char **modules_list, **switches_list;
 
 extern const char *fwin_maths;
-extern "C" 
-{
-extern int showmathInitialised;
-}
 
 //
 // I derive a sub-class from MainWindow just so I can notice when the
@@ -133,20 +128,15 @@ public:
 };
 
 
-extern "C" {
-extern int windowed;
-}
 extern const char *colour_spec;
 extern FXApp *application_object;
 extern FXMainWindow1 *main_window;
 extern const char *reduceMenus[];
-extern "C" {
 #ifdef WIN32
 extern DWORD __stdcall worker_thread(void *);
 #else
 extern void *worker_thread(void *);
 #endif
-}
 extern FXTimer *timer;
 extern char mid_stuff[32], full_title[90];
 
@@ -472,22 +462,24 @@ public:
   };
 
 
-extern "C"
-{
 extern FXTerminal *text;
-}
 
 #ifdef WIN32
 #define DEFAULT_FONT_NAME "Courier New"
 #else
 #ifdef __APPLE__
-#define DEFAULT_FONT_NAME "Courier New"
+// As of April 2016 it seems that Menlo is probably a better
+// default font to use on a Macintosh than Courier...
+#define DEFAULT_FONT_NAME "Menlo"
 #else
 #define DEFAULT_FONT_NAME "courier"
 #endif
 #endif
 
 } // namespace
+
+extern int showmathInitialised;
+
 
 #endif
 

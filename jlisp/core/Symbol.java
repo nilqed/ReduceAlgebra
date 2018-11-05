@@ -36,7 +36,7 @@ package uk.co.codemist.jlisp.core;
  *************************************************************************/
 
 
-// $Id$
+// $Id: Symbol.java 3127 2015-06-11 16:17:22Z arthurcnorman $
 
 
 // Class to represent Lisp symbols

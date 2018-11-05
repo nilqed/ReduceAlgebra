@@ -2,7 +2,39 @@
 ; Create RLISP.  Use this via mkrlisp0.lsp or mkrlisp1.lsp
 ;
 
-% $Id$
+; /**************************************************************************
+;  * Copyright (C) 2017, Codemist.                         A C Norman       *
+;  *                                                                        *
+;  * Redistribution and use in source and binary forms, with or without     *
+;  * modification, are permitted provided that the following conditions are *
+;  * met:                                                                   *
+;  *                                                                        *
+;  *     * Redistributions of source code must retain the relevant          *
+;  *       copyright notice, this list of conditions and the following      *
+;  *       disclaimer.                                                      *
+;  *     * Redistributions in binary form must reproduce the above          *
+;  *       copyright notice, this list of conditions and the following      *
+;  *       disclaimer in the documentation and/or other materials provided  *
+;  *       with the distribution.                                           *
+;  *                                                                        *
+;  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS    *
+;  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT      *
+;  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS      *
+;  * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE         *
+;  * COPYRIGHT OWNERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,   *
+;  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,   *
+;  * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS  *
+;  * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND *
+;  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR  *
+;  * TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF     *
+;  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH   *
+;  * DAMAGE.                                                                *
+;  *************************************************************************/
+
+
+
+
+% $Id: rlisp.lsp 4136 2017-08-02 12:56:14Z arthurcnorman $
 
 ; Standard LISP equivalent of BOOT.RED.
 
@@ -310,7 +342,11 @@ a     (setq hold (nconc hold (list (xread1 nil))))
 %
 % This file is "rlisp.red" taken from the REDUCE 3.3 sources, and can be
 % used to reconstruct the CSL files compiler.lsp and ccomp.lsp from
-% the associated RLISP source files.
+% the associated RLISP source files. Being from such an old version of
+% REDUCE means that it may not support all syntax that a more modern
+% copy would, so during an initial bootstrap build it will be necessary
+% to be cautious and stick to a coding style that can be coped with by
+% this parser.
 %
 
 % module module; % Support for module use.

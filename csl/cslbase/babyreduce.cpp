@@ -1,8 +1,8 @@
-//  babyreduce.cpp                          Copyright (C) 2016 Codemist    
+// babyreduce.cpp                          Copyright (C) 2016-2017 Codemist    
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -31,7 +31,7 @@
  *************************************************************************/
 
 
-// $Id$
+// $Id: babyreduce.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
 
 //
 // This is for use via the "new-embedded" structure and it provides a

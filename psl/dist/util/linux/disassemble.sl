@@ -5,6 +5,29 @@
 % Author: H. Melenk , ZIB Berlin
 %
 % Date :  4-May-1994
+% Status: Open Source: BSD License
+%
+% Redistribution and use in source and binary forms, with or without
+% modification, are permitted provided that the following conditions are met:
+%
+%    * Redistributions of source code must retain the relevant copyright
+%      notice, this list of conditions and the following disclaimer.
+%    * Redistributions in binary form must reproduce the above copyright
+%      notice, this list of conditions and the following disclaimer in the
+%      documentation and/or other materials provided with the distribution.
+%
+% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+% THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+% PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNERS OR
+% CONTRIBUTORS
+% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+% INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+% POSSIBILITY OF SUCH DAMAGE.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Revisions:
@@ -132,6 +155,8 @@
 
 (fi 16#61 popa  nil)
 
+(fi 16#68 push ((I v)))
+
 (fi 16#70 jo ((j b)))
 (fi 16#71 jno ((j b)))
 (fi 16#72 jb ((j b)))
@@ -165,11 +190,11 @@
 
 (fi 16#a0 mov (AL (O b)) (eax (O v)) ((O b) AL) ((O v) EAX))
 
-(fi 16#b0 mov ((I b) AL)((I b) CL)((I b) DL)((I b) BL)
-              ((I b) AH)((I b) CH)((I b) DH)((I b) BH))
+(fi 16#b0 mov (AL (I b))(CL (I b))(DL (I b))(BL (I b))
+              (AH (I b))(CH (I b))(DH (I b))(BH (I b)))
 
-(fi 16#b8 mov ((I v) EAX)((I v) ECX)((I v) ECX)((I v) EBX)
-              ((I v) ESP)((I v) EBP)((I v) ESI)((I v) EDI))
+(fi 16#b8 mov (EAX (I v))(ECX (I v))(EDX (I v))(EBX (I v))
+              (ESP (I v))(EBP (I v))(ESI (I v))(EDI (I v)))
 
 (fi 16#c0 shift ((E b)(I b)) ((E v)(I b)))
 
@@ -182,6 +207,8 @@
 (fi 16#e8 call ((A v)))
 
 (fi 16#e9 jmp ((J v)) ((A p)) ((J b)))
+
+(fi 16#f6  Grp3 ((E b)) ((E v)))
 
 (fi 16#ff  Grp5 ((E v)))   % grp5
 
@@ -277,10 +304,10 @@
          (setq  lth* (add1 lth*))
 	 (setq w (pop bytes*))
 	 (when (greaterp w 127)(setq w (difference w 256)))
-         (plus addr* w))
+         (plus addr* w 2))
         ((equal p '(J v))
          (setq  lth* (plus 4 lth*))
-         (plus addr* (bytes2word)))
+         (plus addr* (bytes2word) 5))
            % mod R/M
         ((eqcar p 'E) (decode-modrm p))
         ((eqcar p 'R) (decode-modrm p))
@@ -329,7 +356,10 @@
               (bldmsg "[%w+%w]" (reg-m rm)(pop bytes*)))
         ((eq mod 2) 
               (setq  lth* (plus 4 lth*))
-              (bldmsg "[%w+%w]" (reg-m rm) (bytes2word)))
+	      (setq w (bytes2word))
+	      (cond ((equal w 16#C0000000) (setq *comment " -> car"))
+		    ((equal w 16#C0000004) (setq *comment " -> cdr")))	      
+              (bldmsg "[%w+%x]" (reg-m rm) (int2sys w)))
         ((eq mod 3)  (bldmsg "%w" (reg-m rm)))) )))
               
 (de decode-sib(p mod)
@@ -385,23 +415,36 @@
      (when (stringp w) 
        (setq *comment (bldmsg """%w""" w))
        (return 'string))
-     (when (eq (wand w 16#ffffff) 0) (return 'CAR))
-     (when (eq (wand w 16#ffffff) 4) (return 'CDR))
+%     (when (eq (wand w 16#ffffff) 0) (return 'CAR))
+%     (when (eq (wand w 16#ffffff) 4) (return 'CDR))
      (return (sys2int w))))
 
 (de xgreaterp(a b)(and (numberp a)(numberp b)(greaterp a b)))
 
 (de namegrp1()
  (cond ((eq regnr* 000) 'add)
+       ((eq regnr* 2#001) 'or)
        ((eq regnr* 2#010) 'adc)
-       ((eq regnr* 2#101) 'sub)
        ((eq regnr* 2#011) 'sbb)
+       ((eq regnr* 2#100) 'and)
+       ((eq regnr* 2#101) 'sub)
+       ((eq regnr* 2#110) 'xor)
        ((eq regnr* 2#111) 'cmp)))
 
 (de namegrp5()
  (cond 
        ((eq regnr* 2#010) 'call)
        ((eq regnr* 2#100) 'jump)
+       ))
+
+(de namegrp3()
+ (cond ((eq regnr* 000) 'test)
+       ((eq regnr* 2#010) 'not)
+       ((eq regnr* 2#011) 'neg)
+       ((eq regnr* 2#100) 'mul)
+       ((eq regnr* 2#101) 'imul)
+       ((eq regnr* 2#110) 'div)
+       ((eq regnr* 2#111) 'idiv)
        ))
 
 (de nameshift()
@@ -426,13 +469,12 @@
                ((idp fkt)
                       (when (not (getd fkt)) (error 99 "not compiled"))
                       (when (not (codep (cdr (getd fkt))))(return nil))
-                      (setq base (getfunctionaddress fkt))
+                      (setq base (sys2int (getfunctionaddress fkt)))
          )     )
-         (when (wgreaterp base nextbps) (return (error 99 "out of range")))
+         (when (greaterp base (sys2int nextbps)) (return (error 99 "out of range")))
          (setq argumentblockhigh (plus2 argumentblock (word2addr 15)))
          (setq symvalhigh (plus2 (sys2int symval) (word2addr maxsymbols)))
          (setq symfnchigh (plus2 (sys2int symfnc) (word2addr maxsymbols)))
-	 (prinblx (list symvalhigh  " " symfnchigh))
          (terpri)
    %     (putmem nextbps 0)            % safe endcondition
          (setq bstart base)
@@ -440,7 +482,7 @@
 (go erstmal)  % erstmal nur ein lauf
   % first pass: find label references
 loop1
-         (setq p1 (getwrd base))
+         (setq p1 (getwrd (int2sys base)))
          (setq !*hardjump nil)
          (when (eq p1 0)(go continue1))
          (setq lth (atsoc 'LTH instr))
@@ -449,11 +491,11 @@ loop1
          (when jmem (setq jmem (cdr jmem)))
          (cond ((not (assoc jmem labels))
                      (setq labels (cons (list jmem) labels)) ))
- next    (setq base (wplus2 base lth))
-         (when (and !*hardjump fktend (wgreaterp base fktend))
+ next    (setq base (plus2 base lth))
+         (when (and !*hardjump fktend (greaterp base fktend))
                (go continue1))
          (cond ((not bend ) (go loop1))
-               ((wgreaterp base bend) (go continue1))
+               ((greaterp base bend) (go continue1))
                (t (go loop1)))
  continue1
   % second pass: assign symbolic labels to jump targets
@@ -472,7 +514,7 @@ loop1
   % third pass: print instructions
 erstmal
          (setq base bstart)
-         (prinblx (list "function: " fkt " base: " (sys2int base)))
+         (prinblx (list "function: " fkt " base: " base))
          (terpri)
          (setq lc 0)
 loop
@@ -480,19 +522,19 @@ loop
                 (ttab 22) (prin2 (cdr (assoc base labels)))
                 (setq lc (add1 lc))
                 (prin2t ":")))
-         (setq p1 (wand 255 (byte base 0)))
+         (setq p1 (wand 255 (byte(int2sys base) 0)))
          (cond((eq p1 0)(return nil)))
      
          (setq pp  
-            (list (wand 255 (byte base 1))
-                  (wand 255 (byte base 2))
-                  (wand 255 (byte base 3))
-                  (wand 255 (byte base 4))
-                  (wand 255 (byte base 5))
-                  (wand 255 (byte base 6))
-                  (wand 255 (byte base 7))
-                  (wand 255 (byte base 8))
-                  (wand 255 (byte base 9))
+            (list (wand 255 (byte (int2sys base) 1))
+                  (wand 255 (byte (int2sys base) 2))
+                  (wand 255 (byte (int2sys base) 3))
+                  (wand 255 (byte (int2sys base) 4))
+                  (wand 255 (byte (int2sys base) 5))
+                  (wand 255 (byte (int2sys base) 6))
+                  (wand 255 (byte (int2sys base) 7))
+                  (wand 255 (byte (int2sys base) 8))
+                  (wand 255 (byte (int2sys base) 9))
          ))
          (setq *curradr* base *currinst* pp)
          (setq !*comment nil)
@@ -502,6 +544,7 @@ loop
 
          (when (eq name 'grp1) (setq name (namegrp1)))
          (when (eq name 'grp5) (setq name (namegrp5)))
+         (when (eq name 'grp3) (setq name (namegrp3)))
          (when (eq name 'shift)(setq name ( nameshift)))
 
          (cond ((atsoc 'op2 instr)
@@ -518,7 +561,7 @@ loop
                     (setq instr (cons (cons '!<effa!> jmem) instr)))
 
          (ttab 1)
-         (prinbnx (sys2int base) 8)
+         (prinbnx base 8)
          (prin2 " ")
          (prinbnx p1 2)   % binary first parcel
          (when (greaterp lth 1) (prin2 "  ") (prinbnx (pop pp) 2))
@@ -532,11 +575,11 @@ loop
          (prinblx (subla instr pat))
          (prin2 "    ")
 
-         (when *comment (ttab 55) (prin2 *comment))
+         (when *comment (ttab 60) (prin2 *comment))
          (setq *comment nil)
-         (setq base (wplus2 base lth))
+         (setq base (plus2 base lth))
          (setq lc (add1 lc))
-         (when (or (not (numberp bend)) (weq base bend))(go loop))
+         (when (or (not (numberp bend)) (leq base bend))(go loop))
 )   )
 
 
@@ -576,15 +619,15 @@ loop
 (de prinbn (it n)                % print an octal number
      (cond ((and (eq it 0) (leq n 0)) nil)
            (t (progn
-                (prinbn (wshift it -3) (plus2 n -1))
-                (prindig (wand it 7))
+                (prinbn (lshift it -3) (plus2 n -1))
+                (prindig (logand it 7))
 )    )     )  )
 
 (de prinbnx (it n)                % print a hexa number
      (cond ((and (eq it 0) (leq n 0)) nil)
            (t (progn
-                (prinbnx (wquotient it 16) (plus2 n -1))
-                (prindigx (wand it 15))
+                (prinbnx (quotient it 16) (plus2 n -1))
+                (prindigx (logand it 15))
 )    )     )  )
 
 

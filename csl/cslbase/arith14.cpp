@@ -1,4 +1,4 @@
-//  arith14.cpp                                Copyright (C) 2016 Codemist
+//  arith14.cpp                                 Copyright (C) 2017 Codemist
 
 //
 // Support for 128-bit floats using the SoftFloat-3a package - this
@@ -9,7 +9,7 @@
 //
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -37,113 +37,69 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: arith01.cpp 3480 2016-02-25 18:10:02Z arthurcnorman $
+// $Id: arith14.cpp 3984 2017-04-02 20:35:01Z arthurcnorman $
 
 #include "headers.h"
 
 // It is convenient to have a number of constants available. The
-// values I have here are 0, 1, 10, 0.1, 10^17, 10^18 and 2^4096
+// values I have here are 0, 1/2, -1/2, 1, 10, 0.1, 10^17, 10^18 and 2^4096
 // all as 128-bit numbers, and 1, 10 and 0.1 as 256-bit ones.
 
 #ifdef LITTLEENDIAN
 
-float128_t f128_0      = {0, 0x0000000000000000},
-           f128_1      = {0, 0x3fff000000000000},
-           f128_10_16  = {0, 0x40341c37937e0800},
-           f128_10_17  = {0, 0x40376345785d8a00},
-           f128_10_18  = {0, 0x403abc16d674ec80},
-           f128_N1     = {0, 0x4fff000000000000}; // 2^4096
+float128_t f128_0      = {{0, INT64_C(0x0000000000000000)}},
+           f128_half   = {{0, INT64_C(0x3ffe000000000000)}},
+           f128_mhalf  = {{0, INT64_C(0xbffe000000000000)}},
+           f128_1      = {{0, INT64_C(0x3fff000000000000)}},
+           f128_10_16  = {{0, INT64_C(0x40341c37937e0800)}},
+           f128_10_17  = {{0, INT64_C(0x40376345785d8a00)}},
+           f128_10_18  = {{0, INT64_C(0x403abc16d674ec80)}},
+           f128_scale  = {{INT64_C(0x0080000000000000),
+                           INT64_C(0x4038000000000000)}},
+           f128_N1     = {{0, INT64_C(0x4fff000000000000)}}; // 2^4096
 
-float256_t f256_5      = {{0,0}, {0, 0x4001400000000000}},
-           f256_10     = {{0,0}, {0, 0x4002400000000000}},
-           f256_r5     = {{0x999999999999999a, 0xbf8a999999999999},
-                          {0x999999999999999a, 0x3ffc999999999999}},
-           f256_r10    = {{0x999999999999999a, 0xbf89999999999999},
-                          {0x999999999999999a, 0x3ffb999999999999}};
+float256_t f256_5      = {{{0,0}}, {{0, INT64_C(0x4001400000000000)}}},
+           f256_10     = {{{0,0}}, {{0, INT64_C(0x4002400000000000)}}},
+           f256_r5     = {{{INT64_C(0x999999999999999a), INT64_C(0xbf8a999999999999)}},
+                          {{INT64_C(0x999999999999999a), INT64_C(0x3ffc999999999999)}}},
+           f256_r10    = {{{INT64_C(0x999999999999999a), INT64_C(0xbf89999999999999)}},
+                          {{INT64_C(0x999999999999999a), INT64_C(0x3ffb999999999999)}}},
+           f256_10_16  = {{{0,0}}, {{0, INT64_C(0x40341c37937e0800)}}};
 #else
 
-float128_t f128_0      = {0x0000000000000000, 0},
-           f128_1      = {0x3fff000000000000, 0},
-           f128_10_16  = {0x40341c37937e0800, 0},
-           f128_10_17  = {0x40376345785d8a00, 0},
-           f128_10_18  = {0x403abc16d674ec80, 0},
-           f128_N1     = {0x4fff000000000000, 0};
+float128_t f128_0      = {{INT64_C(0x0000000000000000), 0}},
+           f128_half   = {{INT64_C(0x3ffe000000000000), 0}},
+           f128_mhalf  = {{INT64_C(0xbffe000000000000), 0}},
+           f128_1      = {{INT64_C(0x3fff000000000000), 0}},
+           f128_10_16  = {{INT64_C(0x40341c37937e0800), 0}},
+           f128_10_17  = {{INT64_C(0x40376345785d8a00), 0}},
+           f128_10_18  = {{INT64_C(0x403abc16d674ec80), 0}},
+           f128_scale  = {{INT64_C(0x4038000000000000),
+                           INT64_C(0x0080000000000000)}},
+           f128_N1     = {{INT64_C(0x4fff000000000000), 0}};
 
-float256_t f256_5      = {{0x4001400000000000, 0}, {0,0}},
-           f256_10     = {{0x4002400000000000, 0}, {0,0}},
-           f256_r5     = {{0x3ffc999999999999, 0x999999999999999a},
-                          {0xbf8a999999999999, 0x999999999999999a}},
-           f256_r10    = {{0x3ffb999999999999, 0x999999999999999a},
-                          {0bf899999999999999, 0x999999999999999a}};
+float256_t f256_5      = {{{INT64_C(0x4001400000000000), 0}}, {{0,0}}},
+           f256_10     = {{{INT64_C(0x4002400000000000), 0}}, {{0,0}}},
+           f256_r5     = {{{INT64_C(0x3ffc999999999999), INT64_C(0x999999999999999a)}},
+                          {{INT64_C(0xbf8a999999999999), INT64_C(0x999999999999999a)}}},
+           f256_r10    = {{{INT64_C(0x3ffb999999999999), INT64_C(0x999999999999999a)}},
+                          {{INT64_C(0xf899999999999999), INT64_C(0x999999999999999a)}}},
+           f256_10_16  = {{{INT64_C(0x40341c37937e0800), 0}}, {{0,0}}};
 #endif
-
-#ifdef LITTLEENDIAN
-#define HIPART 1
-#define LOPART 0
-#else
-#define HIPART 0
-#define LOPART 1
-#endif
-
-bool f128M_zero(const float128_t *p)
-{
-    return ((p->v[HIPART] & 0x7fffffffffffffff) == 0) &&
-            (p->v[LOPART] == 0);
-}
-
-bool f128M_infinite(const float128_t *p)
-{
-    return (((p->v[HIPART] >> 48) & 0x7fff) == 0x7fff) &&
-            ((p->v[HIPART] & 0xffffffffffff) == 0) &&
-            (p->v[LOPART] == 0);
-}
-
-// Here I do not count 0.0 (or -0.0) as sub-normal.
-
-bool f128M_subnorm(const float128_t *p)
-{
-    return (((p->v[HIPART] >> 48) & 0x7fff) == 0) &&
-            (((p->v[HIPART] & 0xffffffffffff) != 0) ||
-             (p->v[LOPART] != 0));
-}
-
-bool f128M_nan(const float128_t *p)
-{
-    return (((p->v[HIPART] >> 48) & 0x7fff) == 0x7fff) &&
-            (((p->v[HIPART] & 0xffffffffffff) != 0) ||
-             (p->v[LOPART] != 0));
-}
-
-bool f128M_negative(const float128_t *x)
-{
-    if (f128M_nan(x)) return false;
-    return ((int64_t)x->v[HIPART]) < 0;
-}
-
-int f128M_exponent(const float128_t *p)
-{
-    return ((p->v[HIPART] >> 48) & 0x7fff) - 0x3fff;
-}
-
-void f128M_set_exponent(float128_t *p, int n)
-{
-    p->v[HIPART] = (p->v[HIPART] & 0x8000ffffffffffff) | (((uint64_t)n + 0x3fff) << 48);
-}
 
 void f128M_ldexp(float128_t *p, int x)
-{
-    if (f128M_zero(p) ||
+{   if (f128M_zero(p) ||
         f128M_infinite(p) ||
         f128M_nan(p)) return;  // special cases!
     x = ((p->v[HIPART] >> 48) & 0x7fff) + x;
 // In case of overflow leave an infinity of the right sign.
     if (x >= 0x7fff)
-    {   p->v[HIPART] |= 0x7fff000000000000;
-        p->v[HIPART] &= 0xffff000000000000;
+    {   p->v[HIPART] |= INT64_C(0x7fff000000000000);
+        p->v[HIPART] &= INT64_C(0xffff000000000000);
         p->v[LOPART] = 0;
     }
     if (x < -114) // Without doubt underflowing to zero
-    {   p->v[HIPART] &= 0x7fffffffffffffff; // preserve sign of input
+    {   p->v[HIPART] &= INT64_C(0x8000000000000000); // preserve sign of input
         p->v[LOPART] = 0;
         return;
     }
@@ -152,18 +108,37 @@ void f128M_ldexp(float128_t *p, int x)
 // I deal with this by first forcing the exponent to be one that will
 // not lead to a sub-norm and then using a multiply to scale it down.
     if (x <= 0)
-    {   p->v[HIPART] = (p->v[HIPART] & 0x8000ffffffffffff) | ((uint64_t)(x+4096) << 48);
+    {   p->v[HIPART] = (p->v[HIPART] & INT64_C(0x8000ffffffffffff)) |
+            ((uint64_t)(x+4096) << 48);
         float128_t w1;
         f128M_div(p, &f128_N1, &w1);
         *p = w1;
     }
-    else p->v[HIPART] = (p->v[HIPART] & 0x8000ffffffffffff) | ((uint64_t)x << 48);
+    else p->v[HIPART] = (p->v[HIPART] & INT64_C(0x8000ffffffffffff)) |
+        ((uint64_t)x << 48);
 }
 
-void f128M_negate(float128_t *x)
-{
-    x->v[HIPART] ^= 0x8000000000000000;
-}
+void f128M_frexp(float128_t *p, float128_t *r, int *x)
+{   if (f128M_zero(p) ||
+        f128M_infinite(p) ||
+        f128M_nan(p))
+    {   *r = *p;
+        *x = 0;
+        return;
+    }
+    int px = ((p->v[HIPART] >> 48) & 0x7fff);
+// If I had a sub-normalized number I will multiply if by 2^4096 before
+// forcing its exponent. Doing that will have turned any non-zero sub-norm
+// into a legitimate normalized number.
+    if (px == 0)
+    {   f128M_mul(p, &f128_N1, r);
+        px = ((r->v[HIPART] >> 48) & 0x7fff) - 4096;
+    }
+    else *r = *p;
+    r->v[HIPART] = (r->v[HIPART] & INT64_C(0x8000ffffffffffff)) |
+        ((uint64_t)0x3ffe << 48);
+    *x = px - 0x3ffe;
+}    
 
 // I will want working precision even higher than 128-bits. I will
 // arrange that using pairs of 128-bit floats such that the value
@@ -174,14 +149,13 @@ void f128M_negate(float128_t *x)
 // I am following the scheme from T J Dekker, Numer Math 18 224-242 (1971).
 
 
-// f256M_add adds two long numbers. As noted avove you should keep the
+// f256M_add adds two long numbers. As noted above you should keep the
 // arguments well away from cases where the result might underflow or
 // overflow. The result should end up with almost 224 bits of precision,
 // but it does not pretend to get rounding utterly correct.
 
 void f256M_add(const float256_t *x, const float256_t *y, float256_t *z)
-{
-    float128_t r, s, w1, w2, w3;
+{   float128_t r, s, w1, w2, w3;
 // r = x->hi + y->hi
     f128M_add(&x->hi, &y->hi, &r);
 // compute abs(x->hi) and abs(y->hi)
@@ -208,13 +182,21 @@ void f256M_add(const float256_t *x, const float256_t *y, float256_t *z)
     f128M_add(&w1, &s, &z->lo);
 }
 
+static void f128X_print(const float128_t *v)
+{   printf("%.16" PRIx64 " %.16" PRIx64, v->v[HIPART], v->v[LOPART]);
+}
+
+// This helper function splits a 113-bit float X into two parts H & L each
+// of which only uses 56 bits such that H+L = X. You may worry that 56+56
+// is only 112 not 113 - the extra bit is recovered because L can be
+// negative! The object of this step is so that numbers such as H and L can
+// then be multiplied without introducing any rounding at all.
+
 void f128M_split(const float128_t *x, float128_t *yhi, float128_t *ylo)
-{
-    *yhi = *x;
-// I clear 57 bits at the low end of yhi. This leaves 56 bits (maximum) in
-// the mantissa, and if you multiply two values each of which have just 56
-// bits the result as a float128 should be exact.
-    yhi->v[LOPART] &= ~0x1ffffffffffffff;
+{   float128_t p, q;
+    f128M_mul(x, &f128_scale, &p);  // 2^58+1
+    f128M_sub(x, &p, &q);
+    f128M_add(&q, &p, yhi); 
     f128M_sub(x, yhi, ylo);
 }
 
@@ -222,11 +204,10 @@ void f128M_split(const float128_t *x, float128_t *yhi, float128_t *ylo)
 // is almost correct to the full precision of a 256-bit float.
 
 static void f128M_mul2(const float128_t *x, const float128_t *y, float256_t *z)
-{
-    float128_t xhi, xlo, yhi, ylo, p, q, w1, w2;
+{   float128_t xhi, xlo, yhi, ylo, p, q, w1, w2;
     f128M_split(x, &xhi, &xlo);
     f128M_split(y, &yhi, &ylo);
-// p is a fully accurate product of the top halves of x and y
+// p will be a fully accurate product of the top halves of x and y
     f128M_mul(&xhi, &yhi, &p);
 // q will be xhi*ylo+xlo*yhi
     f128M_mul(&xhi, &ylo, &w1);
@@ -244,14 +225,15 @@ static void f128M_mul2(const float128_t *x, const float128_t *y, float256_t *z)
 // f256M_mul multiplies two 256-bit values to get a 256-bit result.
 
 void f256M_mul(const float256_t *x, const float256_t *y, float256_t *z)
-{
-    float256_t c;
+{   float256_t c;
     float128_t w1, w2, w3;
 // mul2 generates a double-precision product of the high parts.
     f128M_mul2(&x->hi, &y->hi, &c);
-// c.lo = x->hi*y->lo + x->lo*y->hi + c.lo
-    f128M_mul(&x->hi, &y->lo,  &w1);
-    f128M_mul(&x->lo,  &y->hi, &w2);
+// c.lo = x->lo*y->lo + x->hi*y->lo + x->lo*y->hi + c.lo
+    f128M_mul(&x->lo, &y->lo, &w3);
+    f128M_mul(&x->hi, &y->lo, &w2);
+    f128M_add(&w2, &w3, &w1);
+    f128M_mul(&x->lo, &y->hi, &w2);
     f128M_add(&w1, &w2, &w3);
     f128M_add(&w3, &c.lo, &w1);
     c.lo = w1;
@@ -264,9 +246,8 @@ void f256M_mul(const float256_t *x, const float256_t *y, float256_t *z)
 
 // y := x^n where n is a positive integer.
 
-static void f256M_pow(const float256_t *x, unsigned int n, float256_t *y)
-{
-    if (n == 0)
+void f256M_pow(const float256_t *x, unsigned int n, float256_t *y)
+{   if (n == 0)
     {   y->hi = f128_1;
         y->lo = f128_0;
         return;
@@ -287,21 +268,14 @@ static void f256M_pow(const float256_t *x, unsigned int n, float256_t *y)
 // it stands a chance of avoiding loss of accuracy.
 
 
-// This converts a number from foating point to character representation.
+// This converts a number from floating point to character representation.
 // The reult is true if the original number was negative, and *pdecexp gets
 // the decimal exponent. The buffer s is filled with 34 digits (or one of the
-// strings "inf" or "nan" plus a terminating nul.In a printed representation
+// strings "inf" or "nan" plus a terminating nul. In a printed representation
 // these digits need displaying as [-]d.dddddddddExxx
-
-static void f128X_print(float128_t *v)
-{
-    printf("%.16" PRIx64 " %.16" PRIx64, v->v[HIPART], v->v[LOPART]);
-}
 
 bool f128M_sprint(char *s, float128_t *p, int *pdecexp)
 {
-//  char *ssave = s;
-//  printf("raw data: %.16" PRIx64 " %.16" PRIx64 "\n", p->v[HIPART], p->v[LOPART]);
 // I deal with a number of special cases first. +0.0 and -0.0 ...
     if (f128M_eq(p, &f128_0))
     {   for (int i=0; i<34; i++) *s++ = '0';
@@ -381,27 +355,20 @@ bool f128M_sprint(char *s, float128_t *p, int *pdecexp)
         f256M_mul(&w1, &w3, &w2);
     }
     else w2 = w1;
-//  printf("roughly scaled: ");
-//  f128X_print(&w2.hi); printf(" : "); f128X_print(&w2.lo);
-//  printf("\n");
 // Now I rather expect that w2 is not that far from 1.0e17. Further the
 // above scaling will have performed at most around 30 multiplications
 // so can not have wrecked accuracy TOO much. I will do the final adjustment
 // simply. If I scale the the range [1.0e17, 10.0e18) then I think that the
 // tests are reasonably easy to perform provided I believe that the
 // high part of a float256_t is rounded properly.
-//  printf("near 1.0: %.16" PRIx64 " %.16" PRIx64 " %.16" PRIx64 " %.16" PRIx64 "\n",
-//          w2.hi.v[HIPART], w2.hi.v[LOPART], w2.lo.v[HIPART], w2.lo.v[LOPART]);
+//
 // while hi<1.0e17 or (hi==1.0e17 && lo<0.0) ...
     while (f128M_lt(&w2.hi, &f128_10_17) ||
            (f128M_eq(&w2.hi, &f128_10_17) &&
             f128M_lt(&w2.lo, &f128_0)))
     {   float256_t w3;
-//      printf("Multiply by 10\n");
         f256M_mul(&w2, &f256_10, &w3);
         w2 = w3;
-//      printf("times 10: %.16" PRIx64 " %.16" PRIx64 " %.16" PRIx64 " %.16" PRIx64 "\n",
-//              w2.hi.v[HIPART], w2.hi.v[LOPART], w2.lo.v[HIPART], w2.lo.v[LOPART]);
         decexp--;
     }
 // while hi>=10.0e18 or (hi==10.0e18 && lo>0.0) ...
@@ -409,38 +376,23 @@ bool f128M_sprint(char *s, float128_t *p, int *pdecexp)
            (f128M_eq(&w2.hi, &f128_10_18) &&
             !f128M_lt(&w2.lo, &f128_0)))
     {   float256_t w3;
-//      printf("Multiply by 0.1\n");
-//      printf("my num: ");
-//      f128X_print(&w2.hi); printf(" : "); f128X_print(&w2.lo);
-//      printf("\n0.1: ");
-//      f128X_print(&f256_r10.hi); printf(" : "); f128X_print(&f256_r10.lo);
         f256M_mul(&w2, &f256_r10, &w3);
-//      printf("\nproduct: ");
-//      f128X_print(&w3.hi); printf(" : "); f128X_print(&w3.lo);
-//      printf("\n");
         w2 = w3;
-//      printf("div 10: %.16" PRIx64 " %.16" PRIx64 " %.16" PRIx64 " %.16" PRIx64 "\n",
-//              w2.hi.v[HIPART], w2.hi.v[LOPART], w2.lo.v[HIPART], w2.lo.v[LOPART]);
         decexp++;
     }
 // Now w2 should be neatly in the range 1.0e17 to 9.99999999999...e17. I will
 // consolidate all of it into the 128-bit top half.
-//  printf("[1,10): %.16" PRIx64 " %.16" PRIx64 " %.16" PRIx64 " %.16" PRIx64 "\n",
-//          w2.hi.v[HIPART], w2.hi.v[LOPART], w2.lo.v[HIPART], w2.lo.v[LOPART]);
     float128_t v;
     f128M_add(&w2.hi, &w2.lo, &v);
-//  printf("[1.0e17,1.0e18) as single: %.16" PRIx64 " %.16" PRIx64 "\n", v.v[HIPART], v.v[LOPART]);
     uint64_t d = f128M_to_ui64(&v, softfloat_round_min, false);
     s += sprintf(s, "%.17" PRIu64, d);
     float128_t w3, w4;
     i64_to_f128M(-d, &w3);
     f128M_add(&v, &w3, &w4);
-//  printf("sub digit: %.16" PRIx64 " %.16" PRIx64 "\n", w4.v[HIPART], w4.v[LOPART]);
     f128M_mul(&w4, &f128_10_17, &v);
     d = f128M_to_ui64(&v, softfloat_round_near_even, false);
     s += sprintf(s, "%.17" PRIu64, d);
     *pdecexp = decexp + 17;
-//  printf("%c<%s> L %d\n", result ? '-' : '+', ssave, *pdecexp);
     return result;
 }
 
@@ -462,8 +414,7 @@ void f128M_print(float128_t *p)
 // Rounding to 0 digits should yield either "0" or "1". 
 
 static bool round_at(char *s, int ndigits)
-{
-    if (ndigits < 0 || ndigits >= 34) return false;
+{   if (ndigits < 0 || ndigits >= 34) return false;
 // If the digits just beyond where I am is < '5' I will truncate down.
     if (s[ndigits] < '5') return false;
 // If the digits beyond where I am are "50000...0" and I the digit I would
@@ -491,8 +442,7 @@ static bool round_at(char *s, int ndigits)
 // This is used to put in blanks to fill to the specified width.
 
 static char *pad_by(char *r, int n)
-{
-    while (n-- > 0) *r++ = ' ';
+{   while (n-- > 0) *r++ = ' ';
     *r = 0;
     return r;
 }
@@ -515,8 +465,7 @@ static char *pad_by(char *r, int n)
 //
 
 static char *pad_by_zero(char *r, int n)
-{
-    if (n >= 14) r += sprintf(r, "00000{%d}00000", n-10);
+{   if (n >= 14) r += sprintf(r, "00000{%d}00000", n-10);
     else while (n-- > 0) *r++ = '0';
     *r = 0;
     return r;
@@ -545,6 +494,7 @@ int f128M_sprint_E(char *r, int width, int prec, float128_t *p)
 // I format the exponent so I can see how many characters that uses.
         width -= sprintf(ebuf, "e%02d", decexp);
         r = pad_by(r, width - prec - 1);
+        if (sign) *r++ = '-';
         if (prec >= 34)
         {   r += sprintf(r, "%c.%.33s", s[0], &s[1]);
             r = pad_by_zero(r, prec-33);
@@ -587,7 +537,6 @@ int f128M_sprint_F(char *r, int width, int prec, float128_t *p)
     bool sign = f128M_sprint(s, p, &decexp);
     if (prec < 0) prec = 0;
     else if (prec > 9999) prec = 9999;
-//  printf("sprint_F %d,%d: %s\n", prec, decexp, s);
     if (sign) width--;
 // Infinities and NaNs are displayed with scant regard to the requested
 // precision, but they do honour the width request.
@@ -632,23 +581,23 @@ int f128M_sprint_F(char *r, int width, int prec, float128_t *p)
 // and the number of sigits after the decimal point that F notation has
 // asked for.
     if (round_at(s, decexp+prec+1)) decexp++;
-//  printf("after rounding at decexp+prec decexp=%d:%s\n", decexp, s);
     if (decexp >= 34)
-    {   r += sprintf(r, "%.34s", s);
+    {   if (sign) *r++ = '-';
+        r += sprintf(r, "%.34s", s);
         r = pad_by_zero(r, decexp-33);
         *r++ = '.';
         r = pad_by_zero(r, prec);
     }
     else if (decexp >= 0)
-    {   // printf("decexp=%d prec=%d s=%s ####1\n", decexp, prec, s);
-        int fdig = 33-decexp;
+    {   int fdig = 33-decexp;
         if (fdig > prec) fdig = prec;
+        if (sign) *r++ = '-';
         r += sprintf(r, "%.*s.%.*s",
             decexp+1, s, fdig, &s[decexp+1]);
         r = pad_by_zero(r, prec-fdig);
     }
     else if (prec+decexp+1 <= 34)
-    {   // printf("decexp=%d prec=%d s=%s ####2\n", decexp, prec, s);
+    {   if (sign) *r++ = '-';
         r += sprintf(r, "0.");
         int pp = -decexp-1;
         if (pp > prec) pp = prec;
@@ -657,7 +606,7 @@ int f128M_sprint_F(char *r, int width, int prec, float128_t *p)
             r += sprintf(r, "%.*s", prec+decexp+1, s);
     }
     else
-    {   // printf("decexp=%d prec=%d s=%s ####3\n", decexp, prec, s);
+    {   if (sign) *r++ = '-';
         r += sprintf(r, "0.");
         r = pad_by_zero(r, -decexp-1);
         r += sprintf(r, "%.34s", s);
@@ -692,8 +641,7 @@ int f128M_sprint_G(char *r, int width, int prec, float128_t *p)
 // no digits beyond the decimal point. This asks the F printer to print
 // as 999.[999] and I expect it will round this to 1000. which ought to
 // have been rendered as 1.e03.
-    f128M_sprint(s, p, &decexp);
-//  printf("G measure sprint_g %d,%d: %s\n", prec, decexp, s); //@@@
+    (void)f128M_sprint(s, p, &decexp);
     if (prec < 1) prec = 1;
     else if (prec > 9999) prec = 9999;
     if (decexp < -4 || decexp > prec)
@@ -715,6 +663,32 @@ int f128M_print_G(int width, int prec, float128_t *p)
 }
 
 // I also want to be able to read float128_t values...
+
+#ifdef UNUSED_IDFPLUS
+
+static LispObject idfplus(LispObject a, LispObject b)
+{   LispObject ai = qcar(a), ax = qcar(qcdr(a)), asgn = qcar(qcdr(qcdr(a)));
+    LispObject bi = qcar(b), bx = qcar(qcdr(b)), bsgn = qcar(qcdr(qcdr(b)));
+    if (ax < bx)
+    {   bi = times2(bi, make_power_of_two(int_of_fixnum(bx) - int_of_fixnum(ax)));
+        bx = ax;
+    }
+    if (bx < ax)
+    {   ai = times2(ai, make_power_of_two(int_of_fixnum(ax) - int_of_fixnum(bx)));
+        ax = bx;
+    }
+    if (asgn == fixnum_of_int(-1)) ai = negate(ai); // GC safe?
+    if (bsgn == fixnum_of_int(-1)) bi = negate(bi);
+    ai = plus2(ai, bi);
+    if (minusp(ai))
+    {   ai = negate(ai);
+        asgn = fixnum_of_int(-1);
+    }
+    else asgn = fixnum_of_int(1);
+    return list3(ai, ax, asgn);
+}
+
+#endif
 
 float128_t atof128(const char *s)
 {   int x = 0;
@@ -765,9 +739,9 @@ float128_t atof128(const char *s)
     switch (*s)
     {
 // I allow all even slightly plausible exponent signifiers.
-    case 'e': case 'E':
     case 's': case 'S':
     case 'f': case 'F':
+    case 'e': case 'E':
     case 'd': case 'D':
     case 'l': case 'L':
         s++;
@@ -780,52 +754,34 @@ float128_t atof128(const char *s)
 // Where I am now is that I have z[0]:z[1] . z[2] where each digit is
 // 16 decimals. The bit before the "." will be exactly representable as
 // an integer in the 128-bit format.
-//  printf("atof128 %.16" PRId64 " %.16" PRId64 " %.16" PRId64 " E%d\n",
-//     z[0], z[1], z[2], x);
     float128_t u, v, w;
+    float256_t uu, vv, ww;
     ui64_to_f128M(z[0], &u);          // u = (float128_t)z[0];
     f128M_mul(&u, &f128_10_16, &v);   // v = u * 10^16;
     ui64_to_f128M(z[1], &u);          // u = (float128_t)z[1];
     f128M_add(&u, &v, &w);            // w = u + v;
+    f128M_to_f256M(&w, &ww);          // expand to 256 bit
     ui64_to_f128M(z[2], &u);          // u = (float128_t)z[2];
-    f128M_div(&u, &f128_10_16, &v);   // v = u / 10^16;
-//  printf("w: "); f128X_print(&w); printf("\n");
-//  printf("v: "); f128X_print(&v); printf("\n");
-// Now (w,v) are a pair of 128-bit floats that can be viewed as a 256-bit
-// value which just needs scaling by 10^(x-32) to get my final result.
-    float256_t j, k, l;
-    j.hi = w;
-    j.lo = v;
-    if (x >= 32)
-    {   f256M_pow(&f256_5, x-32, &k);
-        f128M_ldexp(&k.hi, x-32);
-        f128M_ldexp(&k.lo, x-32);
-    }
-    else
-    {   f256M_pow(&f256_r5, 32-x, &k);
-        f128M_ldexp(&k.hi, x-32);
-        f128M_ldexp(&k.lo, x-32);
-    }
-//  printf("10^%d: ", x-32);
-//  f128X_print(&k.hi);
-//  printf(" : ");
-//  f128X_print(&k.lo);
-//  printf("\n");
-    f256M_mul(&j, &k, &l);
-//  printf("res_256: ");
-//  f128X_print(&l.hi);
-//  printf(" : ");
-//  f128X_print(&l.lo);
-//  printf("\n");
+    f128M_to_f256M(&u, &uu);
+    f256M_mul(&ww, &f256_10_16, &vv); // v = w * 10^16;
+    f256M_add(&uu, &vv, &ww);         // collect final integer in 256-bit form
+    float256_t k, l;
+// I now need to multiply by 10^(x-48). The 48 is because of the way I have
+// collected a 48-bit integer. I will scale my multiplying by a power of
+// 5 or (1/5) [which will not overflow or underflow in any reasonable case]
+// then using ldexp to scale by the right power of 2 in a way that knows how
+// to cope with inifinities and subnormal numbers.
+// I branch the code because f256M_pow can only cope with positive exponents.
+    if (x >= 48) f256M_pow(&f256_5, x-48, &k);
+    else f256M_pow(&f256_r5, 48-x, &k);
+    f256M_mul(&ww, &k, &l);
+    f128M_ldexp(&l.hi, x-48);
+    f128M_ldexp(&l.lo, x-48);
+// Probably just l.hi is the correct result here, but just to be safe I will
+// ad din l.lo...
     float128_t r;
     f128M_add(&l.hi, &l.lo, &r);
     if (sign) f128M_negate(&r);
-//  printf("res128: ");
-//  f128X_print(&r);
-//  printf("\n");
-//  printf("Final: "); f128M_print_E(0, 35, &r); printf("\n");
-//  printf("Final: "); f128M_print_F(0, 45, &r); printf("\n");
-//  printf("Final: "); f128M_print_G(0, 40, &r); printf("\n");
     return r;
 }
 

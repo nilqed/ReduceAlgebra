@@ -1,0 +1,272 @@
+This is a prototype and demonstration ".snapshots" file. The machine
+names and addreses used here are relevant to me, but not to anybody else,
+so you will need to adapt it to your own needs before using it.
+The machine names shown are in general the ones reported by "uname -n".
+
+--------------------------------------------------------------------------
+# $HOME/.snapshots
+
+# A C Norman, 2018
+
+# This file customises the Reduce snapshot builder by indicating private
+# or local machines that can be used for building snapshots. For each
+# system for which a snapshot may be generated there is a function here
+# called "hosts_<architecture>". This can test the identify of the machine
+# it is running on (so that a user can put exactly the same .snapshots files
+# on multiple computers - I expect that this will generally simplify
+# maintenance). It then sets a variable MODE together with some further
+# variables.
+
+# It can use this to override the snapshot building regime for macintosh,
+# windows, linux32 (ie i686), linux64 (ie x86_64) and rpi (ie a Raspberry Pi
+# running 32-bit Raspbian). It does not need to override all of these.
+# So a very simple file content would be if a Windows machine was available
+# as a server, but otherwise default behaviour was wanted. In that case this
+# file might contain just
+#     hosts_windows() {
+#       MODE=ssh
+#       HOST=windows.machine.some.network
+#     }
+# where the HOST setting gives the network identity of the Windows server -
+# which will be accessed using ssh.
+#
+# It is possible to set PORT here to indicate a port to be used in redirection
+# when accessing a virtual machine. However doing so is not especially
+# recommended because the main script takes steps to choose a port that
+# it has just detected as not being in use.
+#
+# When remote systems are accessed using ssh it is required that public key
+# authentication without the need for further manual intervention is set up so
+# that commends such as
+#     ssh remote.host.machine some-command
+# are executed without any need to quote further passwords. This may be
+# achieved using the .ssh/authorized_keys scheme and possibly using the
+# ssh-agent. 
+#
+# More elaborate options are illustrated in what follows:
+
+case `uname -n` in
+
+#######################################################################
+panamint)
+
+  hosts_macintosh() {
+    MODE=ssh
+    HOST=192.168.1.8
+  }
+
+  hosts_windows() {
+# panamint is a Windows computer.
+# A windows host muct have both 32- and 64-bit versions of cygwin installed,
+# and run from each of those two environments the necessary set of cygwin
+# build tools can be sorted out using scripts/cygwin-sanity-check.sh. In
+# addition to that the inno setup tool must be installed.
+    MODE=local
+  }
+
+  hosts_linux32() {
+# Using a virtual machine. I make the VM use Ubuntu 12.04 (which has,
+# at the time of writing this, recently gone beyond support) in the hope
+# that binaries created on that will work on any later system.
+# To build on such a release of Linux I needed to take special steps to
+# install various newer software tools:
+# (1) I identified extra software repositories from which I could
+#     install a series 5 release of gcc/g++. Specifically I use a
+#     repository ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu in
+#     dists/precise.
+# (2) I fetch source archives of (gnu) make, autoconf, automake, libtool
+#     and rsync from the nearest GNU mirror, and in each case go
+#     ./configure --prefix=/usr; make; sudo make install
+# to replace older system-provided versions.
+#
+# Note: scripts/ubuntu-sanity-check.sh now performs (1) as part of its
+# regular processing, while for (2) an easy scheme is to unpack the
+# archive csl/support-packages/necessary-updates.tar.bz2 into a fairly
+# arbitrary directy and then run the "build-them.sh" script included in it.
+#
+# If you build on a more modern Linux release you may not need all that!
+    MODE=virtual
+    VM="REDUCE-pkg-factory-Ubuntu32"
+  }
+
+  hosts_linux64() {
+    MODE=virtual
+    VM="REDUCE-pkg-factory-Ubuntu"
+  }
+
+  hosts_rpi() {
+# As before, use a remote machine. If I had DNS set up in a more
+# elaborate way it would become more obvious that this host is "rpi3-32".
+    MODE=ssh
+    HOST=192.168.1.179
+  }
+  ;;
+
+#######################################################################
+gauguin)
+
+  hosts_macintosh() {
+# gauguin does not have a macintosh directly available, but by tunneling
+# via codemist.dynu.com it can gain access to the private macintosh on the
+# local network used above.
+    MODE=ssh+ssh
+    HOST1=codemist.dynu.com
+    HOST2=192.168.1.8
+  }
+
+  hosts_windows() {
+# On this machine I have virtualbox set up so that a VM called
+# REDUCE-pkg-factory-windows runs Windows 10 and has the cygwin environment
+# set up so that I can build on it. The VM runs an ssh server and this script
+# sets up port forwarding in virtualbox so that it can be accessed.
+    MODE=virtual
+    VM="REDUCE-pkg-factory-Windows"
+  }
+
+  hosts_linux32() {
+# More cases of using a virtual machine.
+    MODE=virtual
+    VM="REDUCE-pkg-factory-Ubuntu32"
+  }
+
+  hosts_linux64() {
+# gauguin is a computer running 64-bit Linux, so you might imagine that
+# I would use MODE=local here. However that would use whichever Linux release
+# the system is running, and for a snapshot that has the best chance of
+# working on older sytems I want to build on a somewjat old release of
+# Linux. So I install that in a VM and use it here.
+    MODE=virtual
+    VM="REDUCE-pkg-factory-Ubuntu"
+  }
+
+  hosts_rpi() {
+# Another new option - access using ssh via a gateway system. HOST1 is
+# the gateway and HOST2 the system used for the build.
+    MODE=ssh+ssh
+    HOST1=codemist.dynu.com
+    HOST2=192.168.1.179
+# OR MODE=ssh
+#    HOST=acn1a.trin.private.cam.ac.uk
+# if I had that machine set up for Reduce building...
+  }
+  ;;
+
+#######################################################################
+math-smreduce.mat.brocku.ca)
+
+# math-smreduce is a Macintosh, but it needs the file-space used during
+# snapshot builds to be put on a separate volume rather than within the
+# main Reduce tree.
+  REDUCE_DISTRIBUTION="/Volumes/DATA/reduce-distribution"
+  REDUCE_BUILD="/Volumes/DATA/reduce-build"
+  SNAPSHOTS="/Volumes/DATA/snapshots"
+
+
+  hosts_macintosh() {
+    MODE=local
+  }
+
+  hosts_windows() {
+    MODE=virtual
+    VM="REDUCE-pkg-factory-Windows"
+  }
+
+hosts_linux32() {
+    MODE=virtual
+    VM="REDUCE-pkg-factory-Ubuntu32"
+  }
+
+hosts_linux64() {
+    MODE=virtual
+    VM="REDUCE-pkg-factory-Ubuntu"
+  }
+
+  hosts_rpi() {
+# Not supported here. It seems tidy to put in a function definition that
+# does nothing just to document that fact. Note that an empty function body
+# is not acceptable to bash, so I put in a return statement.
+    return 0
+  }
+  ;;
+
+#######################################################################
+rpi3-32)
+  hosts_macintosh() {
+    MODE=ssh
+    HOST=192.168.1.8
+  }
+
+  hosts_windows() {
+# From the private network I can access panamint using its private address.
+    MODE=ssh
+    HOST=192.168.1.10
+  }
+
+hosts_linux32() {
+# In this case virtualbox will be run on the host 192.168.1.10 so access
+# to it is somewhat at arm's length.
+    MODE=ssh+virtual
+    HOST=192.168.1.10
+    VM="REDUCE-pkg-factory-Ubuntu32"
+  }
+
+hosts_linux64() {
+# As before, a virtual machine running on a remote system.
+    MODE=ssh+virtual
+    HOST=192.168.1.10
+    VM="REDUCE-pkg-factory-Ubuntu"
+  }
+
+hosts_rpi() {
+# As before, use the machine directly.
+    MODE=local
+  }
+  ;;
+
+#######################################################################
+OlderMacBook | acn1macbook)
+
+  hosts_macintosh() {
+# All these hosts are macintoshes and so the build of a macintosh snapshot
+# can be performed on them directly.
+    MODE=local
+  }
+
+  hosts_windows() {
+# From the private network I can access panamint using its private address.
+    MODE=ssh
+    HOST=192.168.1.10
+  }
+
+  hosts_linux32() {
+# In this case virtualbox will be run on the host 192.168.1.10 so access
+# to it is somewhat at arm's length.
+    MODE=ssh+virtual
+    HOST=192.168.1.10
+    VM="REDUCE-pkg-factory-Ubuntu32"
+  }
+
+  hosts_linux64() {
+# As before, a virtual machine running on a remote system.
+    MODE=ssh+virtual
+    HOST=192.168.1.10
+    VM="REDUCE-pkg-factory-Ubuntu"
+  }
+
+  hosts_rpi() {
+# As before, use a remote machine. If I had DNS set up in a more
+# elaborate way it would become more obvious that this host is "rpi3-32".
+    MODE=ssh
+    HOST=192.168.1.179
+  }
+  ;;
+
+#######################################################################
+*)
+  printf "Current host (`uname -n`) not recognized here\n"
+  ;;
+
+esac
+
+
+# end of .snapshots

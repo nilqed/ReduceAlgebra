@@ -35,7 +35,7 @@ package uk.co.codemist.jlisp.core;
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: Fns1.java 3338 2015-12-27 20:04:49Z arthurcnorman $
 
 
 // Fns1.java

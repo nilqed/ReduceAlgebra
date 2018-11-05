@@ -1,4 +1,4 @@
-module cde; % CDIFF package main file
+module cde; % CDE package main file
 
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
@@ -28,18 +28,12 @@ module cde; % CDIFF package main file
 % Dipartimento di Matematica, Universita' del Salento (Lecce, Italy)
 % email: raffaele.vitolo@unisalento.it
 % web: http://poincare.unisalento.it/vitolo
-
-%
-% Version and Date:  2.0, October 2015.
-%
 % ===============================================================
 
-%
-% write "This is CDE, a REDUCE package for calculus on differential equations";
-% write "version 2.0, October 2015";
-% write "by Raffaele Vitolo";
+prin2t "This is CDE, a REDUCE package for calculus on differential equations";
+prin2t "version 2.1, October 2017";
+prin2t "by Raffaele Vitolo";
 
-%
 %-----------------------------------------------------------------------------%
 % Initialization
 %-----------------------------------------------------------------------------%
@@ -48,9 +42,9 @@ module cde; % CDIFF package main file
 % NOTATION: identifiers which end with !* are symbolic mode lists,
 % for internal use only.
 % Identifiers with names both ending with !* and without are lists
-% which are the same and are usable in both modes, provided that the lists
-% that are declared in one mode are shared in order to make them accessible
-% under the other mode.
+% which are the same and are shared between symbolic and algebraic mode.
+% Identifiers whose name begins with n_ are integers and
+% are accessible in both modes.
 fluid '(indep_var dep_var odd_var total_order
  principal_der de principal_odd de_odd
  deg_indep_var deg_dep_var deg_odd_var % end of input variables
@@ -58,7 +52,7 @@ fluid '(indep_var dep_var odd_var total_order
  deg_indep_var!* deg_dep_var!* deg_odd_var!*
     % end of internal version of input variables
  id_tot_der!*
- n_indep_var all_mind_table!* all_der_mind!* all_odd_mind!*
+ n_indep_var all_mind_table!* all_der_mind!* all_odd_mind!* all_mind!*
  all_der_id!* all_odd_id!*
  all_der_id all_odd_id
  n_all_ext
@@ -99,8 +93,9 @@ switch expand_td;
 load_package cdiff;
 
 create!-package('(cde cde_tools cde_jetspace cde_parametric
-                  cde_totalder cde_diffcon cde_varcalc cde_cdiff
-                  cde_cdcalc cde_ansatz cde_init), nil);
+                  cde_totalder cde_diffcon cde_cdiff cde_superfun
+                    cde_varcalc cde_vectorfield cde_cdcalc cde_ansatz
+ 		      cde_init), nil);
 
 endmodule;
 

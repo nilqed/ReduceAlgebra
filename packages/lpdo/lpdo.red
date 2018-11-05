@@ -1,8 +1,11 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 2008-2010 Thomas Sturm
-% ----------------------------------------------------------------------
+module lpdo;
+% Approximate factorization of linear partial differential operators.
+% Experimental.
+
+revision('lpdo, "$Id: lpdo.red 3816 2016-10-18 01:09:24Z schoepf $");
+
+copyright('lpdo, "(c) 2008-2016 Thomas Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -27,10 +30,6 @@
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
-
-module lpdo;
-% Approximate factorization of linear partial differential operators.
-% Still under development.
 
 fluid '(!*utf8);
 
@@ -747,9 +746,15 @@ procedure lpdo_mykernp(id);
       expl := reversip explode id;
       if car expl neq '!_ then
 	 return nil;
-      expl := reversip cdr expl;
+      % _ character may be escaped with !, so take care to handle that
+      expl := cdr expl;
+      if car expl eq '!! then
+ 	 expl := cdr expl;
+      expl := reversip expl;
       v := car expl;
       expl := cdr expl;
+      % Again, protect against _ being escaped by !
+      if car expl eq '!! and eqcar(cdr expl,'!_) then expl := cdr expl;
       if car expl neq '!_ then
 	 return nil;
       expl := cdr expl;
@@ -1040,7 +1045,7 @@ procedure lpdo_factorizex!$(l);
    end;
 
 procedure lpdo_factorizex(f,psi,p,q,eps);
-   begin scalar ff,so,p0,q0,res,w,gamma,al,ww;%,!*rlverbose;
+   begin scalar ff, so, p0, q0, res, w, gamma, ww;
       on1 'rlqeaprecise;
       if not lpdo_templp() then
  	 rederr "lpdo_fac: use lpdoset to fix delta ring";
@@ -1051,14 +1056,13 @@ procedure lpdo_factorizex(f,psi,p,q,eps);
       ff := lpdo_facx(f,psi,p,q,eps,'y);
       so := rl_qea(ff,nil);
       for each bra in so do <<
-	 al := for each eqn in cadr bra collect cadr eqn . caddr eqn;
-      	 p0 := lpdo_subst(al,p);
-      	 q0 := lpdo_subst(al,q);
 	 gamma := car bra;
 	 if gamma neq 'false then <<
-	    ww := lpdo_fixsign0(p0,q0);
-	    w := {gamma,{car ww,cdr ww}};
-	    res := lto_insert(w,res)
+      	    p0 := lpdo_subst(cdr bra, p);
+      	    q0 := lpdo_subst(cdr bra, q);
+	    ww := lpdo_fixsign0(p0, q0);
+	    w := {gamma,{car ww, cdr ww}};
+	    res := lto_insert(w, res)
 	 >>
       >>;
       return reversip res

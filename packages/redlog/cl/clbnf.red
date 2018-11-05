@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2009 A. Dolzmann, A. Seidl, and T. Sturm
-% ----------------------------------------------------------------------
+module clbnf;  % Common logic boolean normal forms
+
+revision('clbnf, "$Id: clbnf.red 4055 2017-05-21 20:03:42Z thomas-sturm $");
+
+copyright('clbnf, "(c) 1995-2009 A. Dolzmann, A. Seidl, T. Sturm, 2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -28,16 +29,6 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
 
-lisp <<
-   fluid '(cl_bnf_rcsid!* cl_bnf_copyright!*);
-   cl_bnf_rcsid!* := "$Id$";
-   cl_bnf_copyright!* := "(c) 1995-2009 by A. Dolzmann, A. Seidl, and T. Sturm"
->>;
-
-module clbnf;
-% Common logic boolean normal forms. Submodule of [cl]. This module
-% provides CNF and DNF computation.
-
 %DS
 % <SG-DNF> ::= <GOR> . <SGCL>
 % <SGCL> ::= (<SGCONJ>,...)
@@ -46,10 +37,16 @@ module clbnf;
 % <GAND> ::= ['and] | ['or] "opposite to <GOR>"
 % <SATOTVL> ::= (<TRUTH VALUE>) | (<ATOMIC FORMULA>, ...)
 
+rl_provideService rl_dnf = cl_dnf
+   using rl_subsumption, rl_bnfsimpl, rl_sacat, rl_sacatlp;
+
 procedure cl_dnf(f);
    % Common logic disjunctive normal form. [f] is a formula. Returns a
    % DNF of [f].
    rl_simpl(cl_gdnf0(f,'or),nil,-1);
+
+rl_provideService rl_cnf = cl_cnf
+   using rl_subsumption, rl_bnfsimpl, rl_sacat, rl_sacatlp;
 
 procedure cl_cnf(f);
    % Common logic conjunctive normal form. [f] is a formula. Returns a
@@ -533,6 +530,10 @@ procedure cl_sacat(a1,a2,gor);
 % TODO: rl_simpl beschraenken oder eigenes.
 % TODO: Substituierende Simplifikation
 
+rl_provideService rl_quine = cl_quine using
+   rl_negateat, rl_qscsaat, rl_qssubat, rl_qsconsens, rl_qstrycons, rl_qssiadd,
+   rl_qsimpltestccl, rl_qssubsumepd, rl_qstautp, rl_qssusua, rl_qssimpl;
+
 procedure cl_quine(f);
    % Common logic Quine simplification. [f] is a a formula in a BNF. Returns a
    % formula in BNF.
@@ -600,11 +601,11 @@ procedure cl_bnf2set2(fl,op);
 	    {f}
 	 else if rl_op f eq xop then <<
 	    flg := t;
-	    sort(list2set rl_argn f,'rl_ordatp)
+	    sort(lto_list2set rl_argn f,'rl_ordatp)
 	 >> else
 	    rederr {"cl_bnf2set1: not in bnf: ",f}
       >>;
-      return flg . list2set w
+      return flg . lto_list2set w
    end;
 
 procedure cl_set2bnf(ll,op);
@@ -672,7 +673,7 @@ procedure cl_qssisu(l,op);
    % Simplify by subsumtion. [l] is a list of clauses. Returns a list
    % of clauses.
    for each x in l join
-      if not(cl_qssubsumelp(x,delq(x,l),op)) then
+      if not(cl_qssubsumelp(x,lto_delq(x,l),op)) then
 	 {x};
 
 procedure cl_qssisutwo(l1,l2,op);
@@ -758,7 +759,7 @@ procedure cl_qsselect2(core,dcs,op);
 procedure cl_qsspltcore(s,op);
    begin scalar core,dcs;
       for each x in s do
-	 if rl_qsimpltestccl(x,delq(x,s),op) then
+	 if rl_qsimpltestccl(x,lto_delq(x,s),op) then
       	    dcs := x . dcs
 	 else
 	    core := x . core;
@@ -1065,7 +1066,7 @@ procedure cl_qstrycons(a,c1,c2,op);
    % [c1] and [c2] are clauses, op is one of ['and], ['or]. Returns
    % [T], [nil] or [break].
    begin scalar na,sc1,r,cc1;
-      cc1 := delete(a,c1);  % Copy... % TODO: delq or delete?
+      cc1 := delete(a,c1);  % Copy... % TODO: lto_delq or delete?
       na := rl_negateat a;
       if not(na member c2) then
 	 return nil;
@@ -1078,7 +1079,7 @@ procedure cl_qstrycons(a,c1,c2,op);
       >>;
       if not r then
 	 return nil;
-      r := sort(list2set append(cc1,delete(na,c2)),'rl_ordatp); %TODO: nconc
+      r := sort(lto_list2set append(cc1,delete(na,c2)),'rl_ordatp); %TODO: nconc
       if null r then
 	 return 'break;
       return r

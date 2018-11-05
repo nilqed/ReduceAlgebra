@@ -56,7 +56,7 @@
 // have clarified that only they may do that, hence this code has to fall
 // under just LGPL, and any changes I have made I release under LGPL 2.1.
 
-/* $Id$ */
+/* $Id: FXDCNativePrinter.cpp 4189 2017-09-08 08:05:40Z arthurcnorman $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -667,7 +667,7 @@ void FXDCNativePrinter::drawHashBox(FXint x, FXint y, FXint w, FXint h,
                                     FXint b)
 {
   // FIXME: Scaling border by horizontal resolution,
-  // what when logpixelsx != logpixelsy ??
+  // what when logpixelsx != logpixelsy ?
     pdc->drawHashBox(ScaleX(x), ScaleY(y), ScaleX(w), ScaleY(h), ScaleX(b));
 }
 
@@ -696,7 +696,7 @@ void FXDCNativePrinter::setDashes(FXuint dashoffset, const FXchar *dashpattern, 
 
 void FXDCNativePrinter::setLineWidth(FXuint linewidth)
 {
-    // FIXME: Scaling by X resolution, what if Xdpi != Ydpi ????
+    // FIXME: Scaling by X resolution, what if Xdpi != Ydpi ?
     pdc->setLineWidth(ScaleX(linewidth));
 }
 

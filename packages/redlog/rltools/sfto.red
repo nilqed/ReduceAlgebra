@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2009 A. Dolzmann, T. Sturm, 2010 T. Sturm
-% ----------------------------------------------------------------------
+module sfto;  % Standard form tools.
+
+revision('sfto, "$Id: sfto.red 4032 2017-05-11 08:56:40Z mkosta $");
+
+copyright('sfto, "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -28,16 +29,11 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
 
-lisp <<
-   fluid '(sfto_rcsid!* sfto_copyright!*);
-   sfto_rcsid!* := "$Id$";
-   sfto_copyright!* := "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010 T. Sturm"
->>;
-
-module sfto;
-% Standard form tools.
-
 fluid '(!*ezgcd !*gcd !*rldavgcd !*rational);
+
+fluid '(sfto_fctrflimit!*);
+
+sfto_fctrflimit!* := 3;
 
 switch sfto_yun,sfto_tobey,sfto_musser;
 !*sfto_yun := t;
@@ -58,9 +54,31 @@ operator coefficients;
 struct AmList asserted by am_listp;
 struct AmPoly asserted by am_polyp;
 
+procedure am_listp(x);
+   t;
+
+procedure am_polyp(x);
+   t;
+
 declare addf: (SF,SF) -> SF;
 declare multf: (SF,SF) -> SF;
 declare negf: (NoOrdSF) -> NoOrdSF;
+
+#if (memq 'csl lispsystem!*)
+
+copyd('sfto_lcmn, 'lcmn);
+
+#else
+
+asserted procedure sfto_lcmn(a: Integer, b: Integer): Integer;
+   if eqn(a,1) then
+      b
+   else if eqn(b,1) then
+      a
+   else
+      a * (b / gcdn(a,b));
+
+#endif
 
 asserted procedure sfto_dcontentf(u: SF): Domain;
    % Domain content standard form. Returns the (non-negative) content of [u]
@@ -324,9 +342,25 @@ asserted procedure sfto_pdec!$(argl: List): AmList;
    {'list,prepf car w,prepf cdr w}
       where w=sfto_pdecf numr simp car argl;
 
+asserted procedure sfto_dgcdf(f: SF, x: Kernel): Integer;
+   % Degree GCD. Returns the GCD of the exponents of [x] in [f]. If
+   % [x] does not occur in [f], then [0] is returned.
+   begin scalar oo; integer g;
+      if domainp f then
+	 return 0;
+      oo := setkorder {x};
+      f := reorder f;
+      while sfto_mvartest(f, x) and not eqn(g, 1) do <<
+	 g := gcdn(g, ldeg f);
+	 f := red f
+      >>;
+      setkorder oo;
+      return g
+   end;
+
 asserted procedure sfto_decdegf(u: SF, k: Kernel, n: Integer): SF;
-   % Decrement degree standard form. Replace each occurence of $[k]^d$ by
-   % $k^(d/n)$.
+   % Decrement degree standard form. Replace each occurence of $k^d$
+   % in [u] by $k^(d/n)$.
    begin scalar sal,hit,newkk;
       if !*rlbrkcxk then <<
 	 for each kk in kernels u do
@@ -678,13 +712,42 @@ asserted procedure sfto_varIsNumP(f: SF): ExtraBoolean;
    if not domainp f and domainp lc f and domainp red f and eqn(ldeg f,1) then
       mvar f;
 
-asserted procedure sfto_fctrf(f: SF): List;
-   begin scalar w;
-      w := errorset({'fctrf, mkquote f}, t, !*backtrace);
-      if errorp w then
-	 return {1, f . 1};
+operator rlfaclimit;
+
+asserted procedure rlfaclimit(n: Integer): Integer;
+   begin scalar old;
+      if not fixp n or n leq 0 then
+      	 rederr {"rlfaclimit", n, "is not a non-negative integer"};
+      old := sfto_fctrflimit!*;
+      if not eqn(n, 0) then
+      	 sfto_fctrflimit!* := n;
+      return old
+   end;
+
+asserted procedure sfto_fctrf(f: SF): DottedPair;
+   % A wrapper for fctrf catching errors and recomputing with a different random seed.
+   begin
+      scalar w, e;
+      integer n;
+      repeat <<
+	 random_new_seed(n + 1);
+      	 w := errorset({'fctrf, mkquote f}, t, !*backtrace);
+	 if errorp w then
+	    e := t;
+	 n := n + 1
+      >> until not errorp w or eqn(n, sfto_fctrflimit!*);
+      if errorp w then <<
+	 lprim {"sfto_fctrf: factorization failed after", sfto_fctrflimit!*, "attempts"};
+      	 return 1 . {f . 1}
+      >>;
+      if !*rlverbose and e then
+	 ioto_tprin2t {"+++ sfto_fctrf: factorization successful after", n, "attempts"};
       return car w
    end;
+
+asserted procedure sfto_fctrfProperP(u: DottedPair): Boolean;
+   % [nil] if content is 1, and there is exactly one factor with multiplicity 1.
+   not(eqn(car u, 1) and cdr u and null cddr u and eqn(cdadr u, 1));
 
 asserted procedure sfto_int2sf(n: Integer): SF;
    if n neq 0 then n;
@@ -806,7 +869,7 @@ asserted procedure sfto_renamealf(f: SF, al: Alist): SF;
       mv := mvar f;
       if (w := atsoc(mv, al)) then <<
 	 mv := cdr w;
-	 al1 := delq(w, al)
+	 al1 := lto_delq(w, al)
       >> else
 	 al1 := al;
       return addf(multf(exptf(!*k2f mv, ldeg f), sfto_renamealf(lc f, al1)),
@@ -948,9 +1011,10 @@ asserted procedure sfto_fsub1(f: SF, al: Alist): SF;
    end;
 
 asserted procedure sfto_qsubhor(f: SF, x: Kernel, q: SQ): SQ;
-   % Substitute a rational number by Horner's scheme. Correctness is guaranteed
-   % iff [x] is geq than [mvar f] under the current kernel ordering, i.e., [x]
-   % occurs in [f] iff it is [mvar f].
+   % Substitute a rational number by Horner's scheme. Correctness is
+   % guaranteed only when [x] is the smallest variable in the current
+   % kernel ordering and [f] is ordered accordingly. More precisely we
+   % have: [x] occurs in [f] iff [x eq mvar f].
    begin scalar coeffl, res;
       if not sfto_mvartest(f, x) then
 	 return !*f2q f;
@@ -962,10 +1026,11 @@ asserted procedure sfto_qsubhor(f: SF, x: Kernel, q: SQ): SQ;
    end;
 
 asserted procedure sfto_qsubhor1(f: SF, x: Kernel, q: SQ): SQ;
-   % Substitute a rational number by Horner's scheme. The result is exact up to
-   % multiplication by a positive rational number. Correctness is guaranteed iff
-   % [x] is geq than [mvar f] under the current kernel ordering, i.e., [x]
-   % occurs in [f] iff it is [mvar f].
+   % Substitute a rational number by Horner's scheme. The result is
+   % exact up to multiplication by a positive rational number.
+   % Correctness is guaranteed only when [x] is the smallest variable
+   % in the current kernel ordering and [f] is ordered accordingly.
+   % More precisely we have: [x] occurs in [f] iff [x eq mvar f].
    begin scalar coeffl, res; integer n, d, dd;
       if not sfto_mvartest(f, x) then
    	 return !*f2q f;
@@ -1162,6 +1227,33 @@ asserted procedure sfto_qsubq(x: SQ, al: Alist): SQ;
    % Substitute SQs into SQ to obtain SQ.
    quotsq(sfto_qsub(numr x, al), sfto_qsub(denr x, al));
 
+asserted procedure sfto_symbolify(x: SF): DottedPair;
+   sfto_symbolify1(x, 'i, 0, nil);
+
+asserted procedure sfto_symbolify1(x: SF, b: Id, c: Integer, subl: Alist): List3;
+   begin scalar l, r, res, sym, w;
+      if null x or x = 1 then
+	 return {x, c, subl};
+      if domainp x then <<
+	 res := 1;
+	 for each f in zfactor x do <<
+	    w := lto_cdrassoc(car f, subl);
+	    if w then <<
+	       sym := car w
+	    >> else <<
+	       c := c + 1;
+	       sym := intern mkid(b, c);
+	       push(sym . car f, subl)
+	    >>;
+	    res := multf(res, exptf(!*k2f !*a2k sym, cdr f))
+	 >>;
+	 return {res, c, subl}
+      >>;
+      {l, c, subl} := sfto_symbolify1(lc x, b, c, subl);
+      {r, c, subl} := sfto_symbolify1(red x, b, c, subl);
+      return {addf(multf(l, exptf(!*k2f mvar x, ldeg x)), r), c, subl}
+   end;
+   
 endmodule;  % [sfto]
 
 end;  % of file

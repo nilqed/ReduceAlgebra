@@ -6,6 +6,7 @@
 % Created:      ??? 
 % Modified:     22-Mar-84 09:23:19 (Brian Beach) 
 % Package:      Kernel 
+% Status:       Open Source: BSD License
 %
 % (c) Copyright 1982, University of Utah
 %
@@ -79,7 +80,8 @@
 	       (wminus
 		(wtimes2 addressingunitsperitem
 			 stackdirection)))
-	 (do (cond ((weq (tag (getmem i)) btr-tag)
+	 (do (cond ((and (weq (tag (getmem i)) btr-tag)
+                         (wlessp (inf (getmem i)) maxsymbols))
 		    (backtrace1 (mkid (inf (getmem i))) interpflag))
 		   ((setq x (returnaddressp (getmem i)))
 		    (backtrace1 x interpflag)))))

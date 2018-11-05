@@ -1,4 +1,4 @@
-// wxfontdemo.cpp                                Copyright A C Norman 2015.
+// wxfontdemo.cpp                                Copyright A C Norman 2017.
 
 // A sample wxWidgets application to display fonts.
 //
@@ -16,7 +16,7 @@
 // wxWidgets.
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -44,7 +44,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: wxfontdemo.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
 
 
 // Driving instructions:
@@ -853,6 +853,13 @@ void fontPanel::OnKeyDown(wxKeyEvent &event)
     if (n >= 0) page = n*0x1000/0x80;
     else switch (c)
     {
+    case 'q':
+    case 'Q':
+#ifdef WIN32
+        TerminateProcess(GetCurrentProcess(), 1);
+#else
+        exit(0);
+#endif
     case 'x':
     case 'X':
         page ^= 0x10000/0x80; // Second plane
@@ -1054,7 +1061,6 @@ printf("OnPaint invoked\n");
     else printf("gc=NULL\n");
     return;
 }
-
 
 // end of wxfontdemo.cpp
 

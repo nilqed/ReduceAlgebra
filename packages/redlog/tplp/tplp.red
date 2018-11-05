@@ -1,8 +1,12 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 2007-2009 Thomas Sturm
-% ----------------------------------------------------------------------
+module tplp;
+% Theorem proving lisp prefix. Main module. Algorithms on first-order
+% formulas over a finite language. The terms are represented in lisp
+% prefix.
+
+revision('tplp, "$Id: tplp.red 4049 2017-05-16 06:38:49Z thomas-sturm $");
+
+copyright('tplp, "(c) 2007-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -28,24 +32,13 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
 
-lisp <<
-   fluid '(tplp_rcsid!* tplp_copyright!*);
-   tplp_rcsid!* := "$Id$";
-   tplp_copyright!* := "Copyright (c) 2007-2009 T. Sturm"
->>;
-
-module tplp;
-% Theorem proving lisp prefix. Main module. Algorithms on first-order
-% formulas over a finite language. The terms are represented in lisp
-% prefix.
+% The following is from the old rlsched.red:
+%% rl_mkserv('skolemize,'(rl_simp),{function(lambda x; x)},'(nil),'rl_mk!*fof,t);
 
 create!-package('(tplp tplpkapur),nil);
 
 load!-package 'redlog;  % for rl_texmacsp()
 loadtime load!-package 'cl;
-loadtime load!-package 'rltools;
-
-imports rltools,cl;
 
 global '(tplp_fsyml!* tplp_rsyml!*);
 
@@ -72,7 +65,6 @@ put('tplp,'rl_services,'(
    (rl_cnf!* . tplp_cnf)
    (rl_dnf!* . tplp_dnf)
    (rl_pnf!* . cl_pnf)
-   (rl_apnf!* . cl_apnf)
    (rl_nnf!* . cl_nnf)
    (rl_nnfnot!* . cl_nnfnot)
    (rl_bnfsimpl!* . cl_bnfsimpl)

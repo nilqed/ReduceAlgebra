@@ -1,8 +1,10 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 2008, 2011 Thomas Sturm
-% ----------------------------------------------------------------------
+module breduce;
+% Reduce code for the breduce batch system located in trunk/generic/breduce.
+
+revision('breduce, "$Id: breduce.red 4088 2017-06-21 21:41:58Z arthurcnorman $");
+
+copyright('breduce, "(c) 2008, 2011, 2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -27,15 +29,6 @@
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
-lisp <<
-   fluid '(breduce_rcsid!* breduce_copyright!*);
-   breduce_rcsid!* := "$Id$";
-   breduce_copyright!* := "(c) 2008, 2011 T. Sturm"
->>;
-
-module breduce;
-% Supporting code for the breduce batch system located in
-% trunk/generic/breduce.
 
 load!-package 'redlog;
 load!-package 'tri;
@@ -47,7 +40,7 @@ flag('(breduce_unset breduce_instance
 
 operator breduce_output;
 
-procedure breduce_output(item,tab);
+procedure breduce_output(item,tab_);
    <<
       item := if item eq 'breduce_unset then
 	 "\textsc{sigint}"
@@ -57,8 +50,8 @@ procedure breduce_output(item,tab);
  	 {item};
       breduce_tprin2t "<output>";
       breduce_prin2 item;
-      if eqn(tab,1) then breduce_prin2 " & ";
-      if eqn(tab,2) then breduce_prin2 "\\";
+      if eqn(tab_,1) then breduce_prin2 " & ";
+      if eqn(tab_,2) then breduce_prin2 "\\";
       breduce_tprin2t "</output>"
    >>;
 
@@ -135,7 +128,7 @@ procedure breduce_verbatim(sol);
    {'list,"\verb@",aeval sol,"@"};
 
 procedure breduce_flush();
-#if (memq 'psl lispsystem!*)
+#if (and (getd 'flushbuffer) (getd 'channelflush))
    <<
       flushbuffer out!*;
       channelflush out!*
@@ -196,16 +189,7 @@ procedure breduce_str2int(s);
    compress reversip cdr reversip cdr explode s;
 
 procedure breduce_datestamp();
-   % Input/Output datestamp. No parameter. Returns an integer; the
-   % number of seconds since the epoch.
-#if (memq 'psl lispsystem!*)
-   <<
-      date();
-      sys2int wgetv(datebuffer,0)
-   >>;
-#else
-   datestamp();
-#endif
+   systo_datestamp();
 
 endmodule;
 

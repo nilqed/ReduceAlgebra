@@ -3,7 +3,7 @@
 *   D i s p l a y   o f   M a t h s   i n   a   w i n d o w .                 *
 *                                                                             *
 *******************************************************************************
-* Copyright (C) 2003-14 by Arthur Norman, Codemist Ltd.  All Rights Reserved. *
+* Copyright (C) 2003-14 by Arthur Norman, Codemist.  All Rights Reserved.     *
 *******************************************************************************
 * This library is free software; you can redistribute it and/or               *
 * modify it under the terms of the GNU Lesser General Public                  *
@@ -45,7 +45,7 @@
 #ifndef FXSHOWMATH_H
 #define FXSHOWMATH_H
 
-/* $Id$ */
+/* $Id: FXShowMath.h 3621 2016-04-24 16:44:01Z arthurcnorman $ */
 
 namespace FX {
 

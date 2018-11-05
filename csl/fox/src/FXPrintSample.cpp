@@ -22,7 +22,7 @@
  
 
 
-/* $Id$ /*
+/* $Id: FXPrintSample.cpp 3297 2015-12-14 20:30:04Z arthurcnorman $ /*
 
 
 #include <stdarg.h>

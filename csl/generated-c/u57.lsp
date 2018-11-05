@@ -1,63 +1,101 @@
 
 % u57.lsp           Machine generated Lisp
 
-(c!:install "u57" 11840 2675529 4084844)
+(c!:install "u57" 165096 1138343 7637029)
 
-(c!:install 'comcom3 '(comcom3 l_k l_a plus expt ff times minus
-difference det "Is " nil first ">0 and " ">0 ? (y/n) and press <RETURN>"
-last y lie4so3 lie4so21 liemat mat bb quotient cc !*tr_lie
-"[W,X]=Y, [W,Y]=-X, [X,Y]=W" only lie_class list liealg comtab
-"[W,X]=Y, [W,Y]=X, [X,Y]=W" matrix aeval setk evalnumberp evalgreaterp
-revalx boolvalue!* assgnpri clear aeval!* evalequal) 449270489247826737)
+(c!:install 'distri_pol '(distri_pol addfd multf) 13109417853935887981)
 
-(c!:install 'lexorder '(lexorder nil gv!* !*g2lex gcdout ljet insert) 
-1576949871607660531)
+(c!:install 'zfactor '(zfactor zfactor1) 2511242439935552506)
 
-(c!:install 'quotfail '(quotfail polyzero "UNEXPECTED DIVISION FAILURE"
-quotf errorf) 1594334677508816826)
+(c!:install 'anu_mk '(anu_mk anu) 3254050022557752615)
 
-(c!:install 'lto_hmember '(lto_hmember apply lto_hmember1) 
-1905637738227880727)
+(c!:install 'monomispommaretdivisibleby '(monomispommaretdivisibleby) 
+15831018813323069051)
 
-(c!:install 'evalleq '(evalleq evalgreaterp) 1431629446096259862)
+(c!:install 'available!*p '(available!*p "this is no group identifier"
+available rederr) 3388754601504852178)
 
-(c!:install 'taysimpsq!* '(taysimpsq!* nil !*taylorautoexpand taysimpsq)
- 2248755144385674747)
+(c!:install 'talp_raf '(talp_raf equal neq and or talp_op talp_arg2l
+talp_tcfrp talp_arg2r talp_getinvfsym talp_mkinv talp_mk2 talp_simpat
+talp_getl talp_fargl nth talp_rnf1 talp_mkn) 15957899528406532110)
 
-(c!:install 'pasf_exprng!-gball '(pasf_exprng!-gball t
-"pasf_exprng: bad bound " " with free variables " !*rlexprngnatural nil
-and true false cl_fvarl rederr pasf_exprng pasf_qff2ivl pasf_sisub) 
-269965458363782836)
+(c!:install 'pasf_qff2ivl '(pasf_qff2ivl
+"pasf_qff2ivl : uniform Presburger arithmetic formula in input"
+pasf_uprap rederr pasf_dnf pasf_qff2ivl1) 8801269133230318599)
 
-(c!:install 'aex_lc '(aex_lc aex_mvartest aex_ex sfto_lcx quotsq kernels
-aex_ctx ctx_filter aex_mk) 1824200743412597136)
+(c!:install 'subsqnew '(subsqnew prepsq subf quotsq) 
+12642540119680760180)
 
-(c!:install 'rnfloor!* '(rnfloor!*) 833451730533008425)
+(c!:install 'remove_root_item '(remove_root_item setcar setcdr) 
+10602874536531986244)
 
-(c!:install 'codfac '(codfac rowmin nil codmat maxvar t times commonfac
-samefar) 1024486698922874800)
+(c!:install 'calc_map_2d '(calc_map_2d mk_names_map_2 mk_binding
+coeff_calc) 4378061536774923404)
 
-(c!:install 'qsimpcomb_standard_qexp_part_sf '(
-qsimpcomb_standard_qexp_part_sf nil expt times simp addsq) 
-546438383342275915)
+(c!:install '!*sf2ex '(!*sf2ex nreverse) 12934913102930594307)
 
-(c!:install 'rm_neg_pow '(rm_neg_pow t nil to multsq addsq) 
-613999024558537082)
+(c!:install 'mo_deletecomp '(mo_deletecomp mo!=deglist) 
+12018199225992509237)
 
-(c!:install 'mkuniquewedge1 '(mkuniquewedge1 wedgemtch!* wedge wedgemtch
-partitop mkupf) 882086248870702565)
+(c!:install 'crn!:zerop '(crn!:zerop) 14471836097984589314)
 
-(c!:install 'rand_functionp '(rand_functionp lambda getd) 
-918742695220211816)
+(c!:install 'get!-min!-degreelist '(get!-min!-degreelist confusion
+tayexp!-plus2 taymindegreel) 8744899286662908442)
 
-(c!:install '!:dmexpt '(!:dmexpt !*complex !:dm2fix !:expt force!-to!-dm
-crexpt!* rdexpt!*) 55387169460792112)
+(c!:install 'talp_get!-minfct '(talp_get!-minfct talp_invp talp_fop
+talp_mktn) 10298220219146545044)
 
-(c!:install 'partdff '(partdff t !*product!-rule nil addsq multsq
-partdfpow partdft) 1367082714225540413)
+(c!:install 'mri_irsplit '(mri_irsplit floor to simp mri_simplfloor
+mri_irsplit1 prepf !*a2k) 11148388974111862795)
 
-(c!:install 'new_edge '(new_edge nil new_edge_list mk_edge_name) 
-1785637529940774812)
+(c!:install 'applyml '(applyml char rdlist!* (i d e n t !/) (c o m p o s
+e !/) (i n v e r s e !/) lex compress!* apply errorml) 
+3404595783190816155)
+
+(c!:install 'implicitdec '(implicitdec !*decs!* symtabget isimplicit
+firstmatch implicittype) 7614714412425999913)
+
+(c!:install 'vdplsortin '(vdplsortin vdplsortin1) 7299351269199537602)
+
+(c!:install 'xnormalise '(xnormalise invsq multpfsq) 
+11085071778112155648)
+
+(c!:install 'quotient!: '(quotient!: !:rd!: ashift) 11143916748928433989
+)
+
+(c!:install 'preproc1 '(preproc1 !:rd!: !:dn!: !*sq procedure !*params!*
+!*getdecs (real integer) deftype!* declare (subroutine function)
+!*type!* setq (cond progn) (plus times difference quotient minus) (
+!:cr!: !:crn!: !:gi!:) quotient (!~for for) (integer) fl2bf read!:num
+normbf decimal2internal prepsq symtabput lastpair preprocdec
+migrate!-setqs simp!*) 6528805567621417354)
+
+(c!:install 'basisvectorp '(basisvectorp basisvectorl!*) 
+18044454894974143165)
+
+(c!:install 'simpabs '(simpabs abs revlis mksq sign!-abs simp!* simpabs1
+quotsq) 3087722267708201599)
+
+(c!:install 'compactf3 '(compactf3 mv!-vars!* sf2mv mv!-compact mv2sf) 
+10919652603236884479)
+
+(c!:install 'extodd '(extodd ext
+"the argument of extodd must be an ext variable" n_all_parametric_ext
+all_principal_odd!* all_parametric_odd!* rederr nth) 5870015481548055222
+)
+
+(c!:install 'imports '(imports importslist!* union) 14856359103180957613
+)
+
+(c!:install 'aex_red '(aex_red aex_mvartest aex_ex sfto_redx quotsq
+kernels aex_ctx ctx_filter aex_mk aex_0) 2223543837281795953)
+
+(c!:install 'preptaylor!*2 '(preptaylor!*2 quotient minus prepsq!*
+preptaycoeff retimes) 11121049249434556751)
+
+(c!:install 'gcdlist1 '(gcdlist1 reduction!-count lesspcdr vunion
+vintersection vdelete sort mapcarcar setkorder reorder gcdlist3 gcdlist2
+split!-wrt!-variables total!-degree!-in!-powers) 10504323934466736076)
 
 
 % End of generated Lisp code

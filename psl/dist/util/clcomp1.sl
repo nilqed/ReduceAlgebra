@@ -6,6 +6,7 @@
 % Created:      12 April 1982
 % Modified:     05-Sep-84 10:45:56 (Brian Beach)
 % Mode:         Lisp
+% Status:       Open Source: BSD License
 %
 % (c) Copyright 1982, University of Utah
 %
@@ -105,8 +106,8 @@
 (put '!#M 'LispReadMacro 'throw-away-next-form)
 (put '!#Q 'LispReadMacro 'throw-away-next-form)
 
-(push '(M . !#M) (get '!# (getv LispScanTable* 128)))
-(push '(Q . !#Q) (get '!# (getv LispScanTable* 128)))
+(push '(M . !#M) (get '!# (getv LispScanTable* 256)))
+(push '(Q . !#Q) (get '!# (getv LispScanTable* 256)))
 
 (comment "So we can add #+psl to maclisp code")
 

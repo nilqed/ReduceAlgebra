@@ -1,13 +1,13 @@
-// version.h                              Copyright (C) 1990-2016 Codemist
+// version.h                               Copyright (C) 1990-2018 Codemist
 
 #ifndef header_version_h
 #define header_version_h 1
 
-// $Id$
+// $Id: version.h 4765 2018-09-18 08:00:31Z arthurcnorman $
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2018, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -35,29 +35,11 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+// Rather than having a simple version I will cause my script
+// (scripts/commit.sh) that is used to update the subversion repository to
+// update the revision number here.
 
-//
-// VERSION is used to control the version number displayed when CSL/CCL
-// is started up in verbose mode (command line option -v). Version numbers
-// are also recorded in image files. But NOTE NOTE NOTE that the macro
-// VERSION gets set in config.h based on the version number established in
-// "configure.ac" and so the value set here is merely a fall-back. Indeed
-// this whole file is a bit of a joke! Well to prevent it from being a joke
-// I make it undefine anything that config.h has established and set up its
-// own value explictly.
-//
-
-#undef VERSION
-
-#define VERSION     "8.00"
-
-// As of February 2016 I am making the file scripts/commit.sh update the
-// revision number stored here...
-
-#define REVISION 3566
+#define REVISION 4765
 
 #endif // header_version_h
 

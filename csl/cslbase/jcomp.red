@@ -1,4 +1,4 @@
-% "jcomp.red"                 Copyright 1991-2016,  Codemist
+% "jcomp.red"                            Copyright (C) 1991-2017,  Codemist
 %
 % Compiler that turns Lisp code into Java in a way that fits in
 % with the conventions used with Jlisp
@@ -10,7 +10,7 @@
 % generate Java over time.
 
 %%
-%% Copyright (C) 2016, following the master REDUCE source files.          *
+%% Copyright (C) 2017, following the master REDUCE source files.          *
 %%                                                                        *
 %% Redistribution and use in source and binary forms, with or without     *
 %% modification, are permitted provided that the following conditions are *
@@ -38,7 +38,7 @@
 %% DAMAGE.                                                                *
 %%
 
-% $Id$
+% $Id: jcomp.red 3884 2017-02-05 19:17:16Z arthurcnorman $
 
 symbolic;
 
@@ -1469,46 +1469,46 @@ symbolic procedure j!:pigreaterp(op, r1, r2, r3, depth);
 put('igreaterp, 'j!:opcode_printer, function j!:pigreaterp);
 flag('(igreaterp), 'j!:uses_nil);
 
-% The "int32_t" here is deliberate, and ensures that if the intereg-mode
+% The "intptr_t" here is deliberate, and ensures that if the intereg-mode
 % arithmetic strays outside 32-bits that truncation is done at that
 % level even on 64-bit architectures.
 
 symbolic procedure j!:piminus(op, r1, r2, r3, depth);
-   j!:printf("    %v = (Lisp_Object)(2-((int32_t)(%v)));\n", r1, r3);
+   j!:printf("    %v = (Lisp_Object)(2-((intptr_t)(%v)));\n", r1, r3);
 
 put('iminus, 'j!:opcode_printer, function j!:piminus);
 
 symbolic procedure j!:piadd1(op, r1, r2, r3, depth);
-   j!:printf("    %v = (Lisp_Object)((int32_t)(%v) + 0x10);\n", r1, r3);
+   j!:printf("    %v = (Lisp_Object)((intptr_t)(%v) + 0x10);\n", r1, r3);
 
 put('iadd1, 'j!:opcode_printer, function j!:piadd1);
 
 symbolic procedure j!:pisub1(op, r1, r2, r3, depth);
-   j!:printf("    %v = (Lisp_Object)((int32_t)(%v) - 0x10);\n", r1, r3);
+   j!:printf("    %v = (Lisp_Object)((intptr_t)(%v) - 0x10);\n", r1, r3);
 
 put('isub1, 'j!:opcode_printer, function j!:pisub1);
 
 symbolic procedure j!:piplus2(op, r1, r2, r3, depth);
- << j!:printf("    %v = (Lisp_Object)(int32_t)((int32_t)%v +", r1, r2);
-    j!:printf(" (int32_t)%v - TAG_FIXNUM);\n", r3) >>;
+ << j!:printf("    %v = (Lisp_Object)(intptr_t)((intptr_t)%v +", r1, r2);
+    j!:printf(" (intptr_t)%v - TAG_FIXNUM);\n", r3) >>;
 
 put('iplus2, 'j!:opcode_printer, function j!:piplus2);
 
 symbolic procedure j!:pidifference(op, r1, r2, r3, depth);
- << j!:printf("    %v = (Lisp_Object)(int32_t)((int32_t)%v - (int32_t)%v", r1, r2, r3);
+ << j!:printf("    %v = (Lisp_Object)(intptr_t)((intptr_t)%v - (intptr_t)%v", r1, r2, r3);
     j!:printf(" + TAG_FIXNUM);\n") >>;
 
 put('idifference, 'j!:opcode_printer, function j!:pidifference);
 
 symbolic procedure j!:pitimes2(op, r1, r2, r3, depth);
- << j!:printf("    %v = fixnum_of_int((int32_t)(int_of_fixnum(%v) *", r1, r2);
+ << j!:printf("    %v = fixnum_of_int((intptr_t)(int_of_fixnum(%v) *", r1, r2);
     j!:printf(" int_of_fixnum(%v)));\n", r3) >>;
 
 put('itimes2, 'j!:opcode_printer, function j!:pitimes2);
 
 symbolic procedure j!:pmodular_plus(op, r1, r2, r3, depth);
  <<
-    j!:printf("    {   int32_t w = int_of_fixnum(%v) + int_of_fixnum(%v);\n",
+    j!:printf("    {   intptr_t w = int_of_fixnum(%v) + int_of_fixnum(%v);\n",
                     r2, r3);
     j!:printf("        if (w >= current_modulus) w -= current_modulus;\n");
     j!:printf("        %v = fixnum_of_int(w);\n", r1);
@@ -1519,7 +1519,7 @@ put('modular!-plus, 'j!:opcode_printer, function j!:pmodular_plus);
 
 symbolic procedure j!:pmodular_difference(op, r1, r2, r3, depth);
  <<
-    j!:printf("    {   int32_t w = int_of_fixnum(%v) - int_of_fixnum(%v);\n",
+    j!:printf("    {   intptr_t w = int_of_fixnum(%v) - int_of_fixnum(%v);\n",
                     r2, r3);
     j!:printf("        if (w < 0) w += current_modulus;\n");
     j!:printf("        %v = fixnum_of_int(w);\n", r1);
@@ -1530,7 +1530,7 @@ put('modular!-difference, 'j!:opcode_printer, function j!:pmodular_difference);
 
 symbolic procedure j!:pmodular_minus(op, r1, r2, r3, depth);
  <<
-    j!:printf("    {   int32_t w = int_of_fixnum(%v);\n", r3);
+    j!:printf("    {   intptr_t w = int_of_fixnum(%v);\n", r3);
     j!:printf("        if (w != 0) w = current_modulus - w;\n");
     j!:printf("        %v = fixnum_of_int(w);\n", r1);
     j!:printf("    }\n")
@@ -1588,14 +1588,14 @@ put('get, 'j!:opcode_printer, function j!:pget);
 symbolic procedure j!:pqgetv(op, r1, r2, r3, depth);
  << j!:printf("    %v = *(Lisp_Object *)((char *)%v + (CELL-TAG_VECTOR) +",
               r1, r2);
-    j!:printf(" ((int32_t)%v/(16/CELL)));\n", r3) >>;
+    j!:printf(" ((intptr_t)%v/(16/CELL)));\n", r3) >>;
 
 put('qgetv, 'j!:opcode_printer, function j!:pqgetv);
 
 symbolic procedure j!:pqputv(op, r1, r2, r3, depth);
  <<
   j!:printf("    *(Lisp_Object *)((char *)%v + (CELL-TAG_VECTOR) +", r2);
-  j!:printf(" ((int32_t)%v/(16/CELL))) = %v;\n", r3, r1) >>;
+  j!:printf(" ((intptr_t)%v/(16/CELL))) = %v;\n", r3, r1) >>;
 
 put('qputv, 'j!:opcode_printer, function j!:pqputv);
 
@@ -1669,7 +1669,6 @@ symbolic procedure j!:pcall(op, r1, r2, r3, depth);
     if not flagp(car r3, 'j!:no_errors) then <<
        if null cadr r3 and depth = 0 then j!:printf("    errexit();\n")
        else <<
-           j!:printf("    nil = C_nil;\n");
            j!:printf("    if (exception_pending()) ");
            j!:pgoto(j!:find_error_label(nil, cadr r3, depth) , depth) >> >>;
     if boolfn then j!:printf("    %v = %v ? lisp_true : nil;\n", r1, r1);
@@ -1735,12 +1734,12 @@ symbolic procedure j!:pifequal(s, depth);
 put('ifequal, 'j!:exit_helper, function j!:pifequal);
 
 symbolic procedure j!:pifilessp(s, depth);
-  j!:printf("((int32_t)(%v)) < ((int32_t)(%v))", car s, cadr s);
+  j!:printf("((intptr_t)(%v)) < ((intptr_t)(%v))", car s, cadr s);
 
 put('ifilessp, 'j!:exit_helper, function j!:pifilessp);
 
 symbolic procedure j!:pifigreaterp(s, depth);
-  j!:printf("((int32_t)(%v)) > ((int32_t)(%v))", car s, cadr s);
+  j!:printf("((intptr_t)(%v)) > ((intptr_t)(%v))", car s, cadr s);
 
 put('ifigreaterp, 'j!:exit_helper, function j!:pifigreaterp);
 
@@ -2141,8 +2140,6 @@ symbolic procedure j!:optimise_flowgraph(j!:startpoint, j!:all_blocks,
     j!:startpoint := j!:branch_chain(j!:startpoint, t); % ... AGAIN to tidy up
     remflag(j!:all_blocks, 'j!:visited);
     if does_call then nil_used := t;
-    if nil_used then j!:printf "    Lisp_Object nil = C_nil;\n"
-    else if nilbase_used then j!:printf "    nil_as_base\n";
     if locs then <<
       j!:printf("    Lisp_Object %s", car locs);
       for each v in cdr locs do j!:printf(", %s", v);
@@ -2173,7 +2170,6 @@ symbolic procedure j!:optimise_flowgraph(j!:startpoint, j!:all_blocks,
        j!:pushpop('push, args);
        j!:printf "        env = reclaim(env, \qstack\q, GC_STACK, 0);\n";
        j!:pushpop('pop, reverse args);
-       j!:printf "        nil = C_nil;\n";
        j!:printf "        if (exception_pending()) return nil;\n";
        j!:printf "    }\n" >>;
     if reloadenv then j!:printf("    push(env);\n")

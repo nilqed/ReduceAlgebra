@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 2000-2009 A. Dolzmann, A. Seidl, and T. Sturm
-% ----------------------------------------------------------------------
+module ofsfcad;  % Cylindcrical algebraic decomposition.
+
+revision('ofsfcad, "$Id: ofsfcad.red 3961 2017-03-19 08:24:03Z thomas-sturm $");
+
+copyright('ofsfcad, "(c) 2000-2009 A. Dolzmann, A. Seidl, T. Sturm, 2010-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -27,15 +28,6 @@
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
-
-lisp <<
-   fluid '(ofsf_cad_rcsid!* ofsf_cad_copyright!*);
-   ofsf_cad_rcsid!* :=
-      "$Id$";
-   ofsf_cad_copyright!* := "(c) 2000-2009 A. Dolzmann, A. Seidl, T. Sturm"
->>;
-
-module ofsfcad;
 
 fluid '(ofsf_wd!*);
 
@@ -77,11 +69,14 @@ asserted procedure ofsf_gcad(phi: Formula, prjordl: List, aaplus: List): DottedP
    % that $\bigwedge\theta$ implies ([phi] equivalent to [phip])$.
    begin scalar !*rlqegen;
       !*rlqegen := t;
-      return ofsf_cad(phi, prjordl, aaplus)
+      return ofsf_cad1(phi, prjordl, aaplus)
    end;
 
 % rlcad entry point
-asserted procedure ofsf_cad(phi: Formula, prjordl: List, aaplus: List): Any;
+asserted procedure ofsf_cad(phi: Formula, prjordl: List, aaplus: List): Formula;
+   cdr ofsf_cad1(phi, prjordl, aaplus);
+
+asserted procedure ofsf_cad1(phi: Formula, prjordl: List, aaplus: List): DottedPair;
    % Ordered field standard form cylindrical algebraic decomposition. [phi] is a
    % formula, [prjordl] is a list of variables (projection order), and [aaplus]
    % is a list of SF. Returns a pair [theta . phip], where [theta] is a list of
@@ -93,8 +88,8 @@ asserted procedure ofsf_cad(phi: Formula, prjordl: List, aaplus: List): Any;
    % prenex normal form.
    begin scalar cd;
       cd := ofsf_cadpreparation(phi, prjordl, aaplus);
-      if !*rlverbose then
-	 caddata_print cd;
+      if ofsf_cadverbosep() then
+      	 caddata_print cd;
       if !*rlcadpreponly then <<
 	 if !*rlverbose then
 	    ioto_tprin2t "+ rlcadpreponly is on: Jump into finish.";
@@ -117,11 +112,14 @@ asserted procedure ofsf_cad(phi: Formula, prjordl: List, aaplus: List): Any;
    end;
 
 % rlcadproj entry point
-asserted procedure ofsf_cadproj(phi: Formula, prjordl: List): DottedPair;
+asserted procedure ofsf_cadproj(phi: Formula, prjordl: List): List;
+   cdr ofsf_cadproj1(phi, prjordl);
+
+asserted procedure ofsf_cadproj1(phi: Formula, prjordl: List): DottedPair;
    begin scalar cd, theo, ffl;
       cd := ofsf_cadpreparation(phi, prjordl, nil);
-      if !*rlverbose then
-	 caddata_print cd;
+      if ofsf_cadverbosep() then
+      	 caddata_print cd;
       ofsf_cadprojection cd;
       % if !*rlverbose then
       for each f in caddata_theo cd do
@@ -140,8 +138,8 @@ asserted procedure ofsf_cadpnum(phi: Formula, prjordl: List): List;
    begin scalar cd, dd, resl;
       scalar !*rlcadtrimtree;
       cd := ofsf_cadpreparation(phi, prjordl, nil);
-      if !*rlverbose then
-	 caddata_print cd;
+      if ofsf_cadverbosep() then
+      	 caddata_print cd;
       ofsf_cadprojection cd;
       ofsf_cadextension cd;
       ofsf_restorekord cd;
@@ -272,7 +270,7 @@ asserted procedure ofsf_cadprojection(cd: CadData): Any;
 	 else <<
 	    % ioto_tprin2t {"+ (#F1,...,#Fr)=",
 	    %    for each ffi in ffl collect length ffi};
-	    ioto_tprin2 "+ Number of projection factors of level r,...,1: ";
+	    ioto_tprin2 "+ number of projection factors of level r,...,1: ";
       	    for i := 0 : r - 2 do
 	       ioto_prin2 {length getv(ff, r-i), ","};
 	    ioto_prin2t length getv(ff, 1)
@@ -289,17 +287,17 @@ asserted procedure ofsf_cadextension(cd: CadData): Any;
       dd := ofsf_partialtree cd;
       if !*rlverbose then <<
 	 r := caddata_r cd;
-	 ioto_tprin2 "+ Number of partial CAD tree nodes of level 0,...,r: ";
+	 ioto_tprin2 "+ number of partial CAD tree nodes of level 0,...,r: ";
 	 for i := 0 : r - 1 do
 	    ioto_prin2 {length atree_childrenatlevel(dd, i), ","};
 	 ioto_prin2t length atree_childrenatlevel(dd, r)
       >>;
       if !*rlcadtree2dot then
-	 atree_2dot(dd, lto_sconcat{ofsf_wd!*, "cadtree.dot"});
+	 atree_2dot(dd, lto_sconcat {ofsf_wd!*, "cadtree.dot"});
       if !*rlcadtree2tgf then
-	 atree_2dot(dd, lto_sconcat{ofsf_wd!*, "cadtree.tgf"});
+	 atree_2dot(dd, lto_sconcat {ofsf_wd!*, "cadtree.tgf"});
       if !*rlcadtree2gml then
-	 atree_2gml(dd, lto_sconcat{ofsf_wd!*, "cadtree.gml"});
+	 atree_2gml(dd, lto_sconcat {ofsf_wd!*, "cadtree.gml"});
       caddata_putdd(cd, dd);
       % if !*rlverbose then <<
       % 	 ioto_tprin2t {"+ CAD tree:"};
@@ -354,7 +352,7 @@ asserted procedure ofsf_restorekord(cd: CadData): Any;
       if oldorder neq 'undefined then
 	 setkorder oldorder;
       if !*rlverbose then
-	 ioto_tprin2 {"+ Kernel order was restored."};
+	 ioto_tprin2t "+ Kernel order was restored.";
       return nil
    end;
 
@@ -465,7 +463,7 @@ asserted procedure ofsf_cadfnum1(ff: List, varl: List): List;
       hh := for each ffj in ff collect
 	 for each f in ffj collect
 	    'dummytag . f;
-      w := ofsf_fulltree(list2vector(nil . hh), varl);
+      w := ofsf_fulltree(lto_list2vector(nil . hh), varl);
       return for i := 0 : length varl collect
 	 length atree_childrenatlevel(w, i)
    end;
@@ -1016,16 +1014,19 @@ asserted procedure ofsf_nextcell(ncbuffer: List, sp: AnuList, iri: Iri, xj: Kern
 	 ncb_put('finished, ncbuffer);
 	 return nil
       >>;
-      if cell then <<
-	 if not ((!*rlcadfulldimonly and j > k) or (!*rlqegen1 and j <= min2(1, k))) then
-	    return cell;
-      	 if ofsf_cadverbosep() then <<
-	    if !*rlcadfulldimonly and j > k then
-	       ioto_prin2 {"(", j, ":F)"};
-	    if !*rlqegen1 and j <= min2(1, k) then
+      if cell then
+	 % parameter space has indices j = 1, ..., k
+	 if !*rlcadfulldimonly and j > k then <<
+	    % we are in quantified space
+      	    if ofsf_cadverbosep() then
+	       ioto_prin2 {"(", j, ":F)"}
+	 >> else if !*rlqegen1 and k neq 0 and eqn(j, 1) then <<
+	    % there are parameters and we are in the base phase, i.e., the first variable
+	    % originally this condition was [j <= min2(1, k)]
+      	    if ofsf_cadverbosep() then
 	       ioto_prin2 {"(", j, ":G)"}
-	 >>
-      >>;
+	 >> else
+	    return cell;
       % There is no cell left, we need to get a root to get the next two cells.
       tgroot := iri_nextroot iri;
       cind := 2*(length iri_rootl iri);
@@ -1144,6 +1145,14 @@ asserted procedure atree_childrenatlevel(tt: Atree, n: Integer): List;
    else
       for each child in atree_childl tt join
       	 atree_childrenatlevel(child, n-1);
+
+asserted procedure atree_getleaves(tt: Atree): List;
+   % Returns the list of all Acells that are leaves of [tt].
+   if null atree_childl tt then
+      {atree_rootcell tt}
+   else
+      for each c in atree_childl tt join
+ 	 atree_getleaves c;
 
 asserted procedure atree_setchildl(tt: Atree, cl: List): Any;
    nth(tt, 3) := cl;
@@ -1373,6 +1382,9 @@ asserted procedure atree_2gml_node_xml(tt: Atree, number: Integer): Any;
 	 ioto_prin2t "<rb>";
 	 mathprint prepsq iv_rb anu_iv anu;
 	 ioto_prin2t "</rb>";
+	 ioto_prin2t "<floatapp>";
+	 mathprint anu_evalfR anu;
+	 ioto_prin2t "</floatapp>";
 	 ioto_prin2t "</assignment>"
       >>;
       ioto_prin2t "</tp>";
@@ -1380,33 +1392,48 @@ asserted procedure atree_2gml_node_xml(tt: Atree, number: Integer): Any;
       ioto_prin2t {"<tl>", acell_gettl c, "</tl>"};
       ioto_prin2t "</node>";
       ioto_prin2t """";
-      ioto_prin2t {"graphics [", "fill """, color, """]"};
+      % color and shape
+      ioto_prin2t "graphics [";
+      ioto_prin2t {"fill """, color, """"};
+      if evenp acell_getidx c then  % even index denotes a full-dimensional cell
+      	 ioto_prin2t "type ""ellipse"""
+      else
+      	 ioto_prin2t "type ""rectangle""";
+      ioto_prin2t "]";
       ioto_prin2t "]";
       if nat then on1 'nat
    end;
 
 asserted procedure atree_2gml_node(tt: Atree, number: Integer): Any;
-   begin scalar c, tv, anul, n, color;
+   begin scalar c, tv, anul, varl, n, color, tpl;
       ioto_prin2t "node [";
       ioto_prin2t {"id ", number};
       c := atree_rootcell tt;
       ioto_prin2t "label """;
-      ioto_prin2t {"idx: ", acell_getidx c};
-      ioto_prin2 "tp: (";
-      anul := reverse acell_getsp c;
-      n := length anul;
-      for i := 1 : (n - 1) do
-      	 ioto_prin2 {anu_evalf nth(anul, i), ", "};
-      if n > 0 then ioto_prin2 anu_evalf nth(anul, n);
-      ioto_prin2t ")";
-      ioto_prin2t {"desc: ", acell_getdesc c};
-      ioto_prin2t {"tl: ", acell_gettl c};
+      ioto_prin2t {"idx = ", acell_getidx c};
+      anul := for each anu in reverse acell_getsp c collect
+	 anu_evalfR anu;
+      varl := for each anu in reverse acell_getsp c collect
+	 aex_mvar anu_dp anu;
+      mathprint {'equal, 'list . varl, 'list . anul};
+      % ioto_prin2t {"desc = ", acell_getdesc c};
+      mathprint {'equal, 'tl, 'list . acell_gettl c};
       ioto_prin2t """";
-      % color
+      % color and shape
       tv := acell_gettv c;
-      color := if tv eq 'true then "#00FF00"
-      else if tv eq 'false then "#FF0000" else "#C0C0C0";
-      ioto_prin2t {"graphics [", "fill """, color, """]"};
+      color := if tv eq 'true then
+	 "#00FF00"
+      else if tv eq 'false then
+	 "#FF0000"
+      else
+	 "#C0C0C0";
+      ioto_prin2t "graphics [";
+      ioto_prin2t {"fill """, color, """"};
+      if evenp acell_getidx c then  % even index denotes a full-dimensional cell
+      	 ioto_prin2t "type ""ellipse"""
+      else
+      	 ioto_prin2t "type ""rectangle""";
+      ioto_prin2t "]";
       ioto_prin2t "]"
    end;
 
@@ -1427,6 +1454,45 @@ asserted procedure atree_2gml_edge(efrom: Integer, eto: Integer): Any;
       ioto_prin2t {"source ", efrom};
       ioto_prin2t {"target ", eto};
       ioto_prin2t "]"
+   end;
+
+asserted procedure atree_deleteFalseLeaves(tt: Atree): Atree;
+   % Prune [tt] by removing all leaves of maximal depth that are [false].
+   begin scalar w;
+      if !*rlverbose then
+	 ioto_tprin2 "+ deleting false leaves ...";
+      w := atree_deleteFalseLeaves1(tt, 0, atree_depth tt);
+      if !*rlverbose then
+	 ioto_prin2t " done";
+      return w
+   end;
+
+asserted procedure atree_deleteFalseLeaves1(tt: Atree, n: Integer, dpth: Integer): ExtraBoolean;
+   % Returns a pruned sub-Atree, possibly [nil].
+   begin scalar r, cl, ntt, w;
+      r := atree_rootcell tt;
+      if eqn(n, dpth) and acell_gettv r eq 'false then
+ 	 return nil;
+      cl := for each c in atree_childl tt join <<
+	 w := atree_deleteFalseLeaves1(c, n+1, dpth);
+	 if w then {w}
+      >>;
+      ntt := atree_mk r;
+      atree_setchildl(ntt, cl);
+      return ntt
+   end;
+
+asserted procedure atree_depth(tt: Atree): Integer;
+   atree_depth1(tt, 0);
+
+asserted procedure atree_depth1(tt: Atree, n: Integer): Integer;
+   begin integer d; scalar cl;
+      cl := atree_childl tt;
+      if null cl then
+      	 return n;
+      for each c in cl do
+	 d := max2(d, atree_depth1(c, n+1));
+      return d
    end;
 
 % CAD solution formula
@@ -1467,7 +1533,7 @@ asserted procedure ofsf_solutionformula_old(cd: CadData): Any;
       phiprime := ofsf_sfchong(ffk, ddk);
       if phiprime eq 'ssfcfailed then <<
 	 if !*rlverbose then
-	    ioto_tprin2t "+ Solution formula construction ssfc failed. ";
+	    ioto_tprin2t "+ Solution formula construction ssfc failed.";
 	 return nil
       >> else <<
 	 if !*rlverbose then
@@ -1514,13 +1580,13 @@ asserted procedure ofsf_solutionformula(cd: CadData): Any;
 	 w := for each cell in yy join
 	    if acell_gettv cell eq 'true then
 	       {atsoc('answers, acell_gettl cell)};
-	 for each c in list2set w do
+	 for each c in lto_list2set w do
 	    ioto_prin2t {"+ ANSWERS: ", c}
       >>;
-      yyi := list2set for each cell in yy collect
+      yyi := lto_list2set for each cell in yy collect
       	 length acell_getsp cell;
       if !*rlverbose then
-	 ioto_prin2t {"+ Levels to be considered: ", yyi};
+	 ioto_prin2t {"+ levels to be considered: ", yyi};
       ffl := caddata_ffl cd;
       fflk := for each i in yyi join
 	 append(nth(ffl, i), nil);
@@ -1561,7 +1627,7 @@ asserted procedure ofsf_solutionformula1(dd: Atree, ffk: List, yy: List, k: Inte
       >>;
       for each cell in yy do <<
 	 acell_putdesc(cell, ofsf_signature4(ffk, acell_getsp cell));
-	 if !*rlverbose then <<
+	 if ofsf_cadverbosep() then <<
 	    ioto_prin2 {"[", cellstogo, " ",
 	       "sig", acell_getdesc cell, " ",
 	       (if acell_gettv cell eq 'true then "true" else "false"), "] "};

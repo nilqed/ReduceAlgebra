@@ -38,7 +38,7 @@
 # 
 ###############################################################################
 
-PSL     = $(PROOT)
+PSL     = $(PROOT)/dist
 PSYS    = $(PROOT)/bin
 PK      = $(PSL)/kernel
 PXK     = $(PK)/$(MACHINE)
@@ -51,7 +51,7 @@ PU      = $(PSL)/util
 PXU     = $(PU)/$(MACHINE)
 PDIST   = $(PSL)/distrib
 PXDIST  = $(PDIST)/$(MACHINE)
-PL      = $(PSL)/lap
+PL      = $(PSL)/lap/$(MACHINE)
 
 all: \
 	$(PL)/fc-indirect.b $(PL)/get-options.b \
@@ -128,13 +128,13 @@ $(PL)/mbarith-woco.b: $(PXU)/mbarith.sl $(PL)/muls.b $(PL)/mbarith.b
 	copy $(PL)/mbarith.b $(PL)/mbarith-woco.b
 
 $(PL)/memio.b: $(PXU)/memio.sl
-       $(PDIST)/make-lap $(PXU) memio
+	$(PDIST)/make-lap $(PXU) memio
 
 $(PL)/termio.b: $(PXU)/termio.sl
-       $(PDIST)/make-lap $(PXU) termio
+	$(PDIST)/make-lap $(PXU) termio
 
 $(PL)/w-pipes.b: $(PXU)/w-pipes.sl
-       $(PDIST)/make-lap $(PXU) w-pipes
+	$(PDIST)/make-lap $(PXU) w-pipes
 
 
 

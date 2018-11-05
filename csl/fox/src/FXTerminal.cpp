@@ -8,7 +8,7 @@
 //
 
 /******************************************************************************
-* Copyright (C) 2003-14 by Arthur Norman, Codemist Ltd.  All Rights Reserved. *
+* Copyright (C) 2003-14 by Arthur Norman, Codemist.  All Rights Reserved.     *
 *******************************************************************************
 * This library is free software; you can redistribute it and/or               *
 * modify it under the terms of the GNU Lesser General Public                  *
@@ -47,7 +47,7 @@
 // potential detriment of those whose choice differs).
 
 
-/* $Id$ */
+/* $Id: FXTerminal.cpp 4189 2017-09-08 08:05:40Z arthurcnorman $ */
 
 // Apple no longer support the FinderLaunch sample code that they
 // published and that explained to me how to open an HTML document
@@ -321,11 +321,6 @@ void FXTerminal::create()
 
 }
 
-extern "C"
-{
-int showmathInitialised = 0;
-}
-
 void FXTerminal::setupShowMath()
 {
 // Note that the terminal must have been created before I set up the
@@ -539,7 +534,7 @@ long FXTerminal::onCmdSave(FXObject *c, FXSelector sel, void *ptr)
 {
     UNUSED_ARG(c); UNUSED_ARG(sel); UNUSED_ARG(ptr);
     keyFlags &= ~ESC_PENDING;
-// Use FXFileDialog::getSaveFilename() here ???
+// Use FXFileDialog::getSaveFilename() here ?
     FXFileDialog d(this, "Save", DECOR_BORDER|DECOR_TITLE);
     d.setFilename(most_recent_save_file);
     d.setPatternList(
@@ -1543,12 +1538,12 @@ long FXTerminal::onCmdFont(FXObject *c, FXSelector s, void *ptr)
     keyFlags &= ~ESC_PENDING;
     FXFontDialog d(this, "Font", DECOR_BORDER|DECOR_TITLE);
     FXFontDesc description;
-FILE *f = fopen("/tmp/font.log", "a");
-fprintf(f, "onCmdFont\n"); fflush(f);
+//FILE *f = fopen("/tmp/font.log", "a");
+//fprintf(f, "onCmdFont\n"); fflush(f);
     font->getFontDesc(description);    // information about the current font ..
-fprintf(f, "onCmdFont current face as requested <%s>\n", description.face); fflush(f);
+//fprintf(f, "onCmdFont current face as requested <%s>\n", description.face); fflush(f);
     strcpy(description.face, font->getActualName().text());
-fprintf(f, "onCmdFont actual face in use <%s>\n", description.face); fflush(f);
+//fprintf(f, "onCmdFont actual face in use <%s>\n", description.face); fflush(f);
     description.flags =
         (description.flags & ~FXFont::Variable) | FXFont::Fixed;
     d.setFontSelection(description);   // .. and make that default choice!
@@ -1558,21 +1553,21 @@ fprintf(f, "onCmdFont actual face in use <%s>\n", description.face); fflush(f);
     if (d.execute())
     {   FXFont *o = font;
         d.getFontSelection(description);
-fprintf(f, "new face <%s>\n", description.face); fflush(f);
+//fprintf(f, "new face <%s>\n", description.face); fflush(f);
         FXFont *newFont = new FXFont(application_object, description);
         newFont->create();
-fprintf(f, "new actual name = %s\n", newFont->getActualName().text());
+//fprintf(f, "new actual name = %s\n", newFont->getActualName().text());
         if (!newFont->isFontMono())
         {   delete newFont;
             FXMessageBox::error(this, MBOX_OK, "Error",
                 "You must select a fixed-pitch font");
-fclose(f);
+//fclose(f);
             return 1;
         }
         setFont(newFont);
         delete o;                     // I must delete the old font.
     }
-fclose(f);
+//fclose(f);
     setFocus();   // I am uncertain, but without this I lose focus...
     return 1;
 }
@@ -2259,7 +2254,13 @@ void FXTerminal::setFont(FXFont *font0)
 // the same font and screen configuration will apply
     FXRegistry *reg = &(application_object->reg());
     reg->writeStringEntry("screen", "fontname",  font0->getName().text());
-    reg->writeIntEntry("screen", "fontsize",     font0->getSize());
+    int fs = font0->getSize();
+    fs = 10*((fs + 5)/10); // Round to a multiple of 10
+    if (fs < 80) fs = 80;
+    else if (fs > 200) fs = 200;
+    else if (fs > 120 &&
+             ((fs/10) & 1) != 0) fs += 10;
+    reg->writeIntEntry("screen", "fontsize",     fs);
     reg->writeIntEntry("screen", "fontweight",   font0->getWeight());
     reg->writeIntEntry("screen", "fontslant",    font0->getSlant());
     reg->writeIntEntry("screen", "fontencoding", font0->getEncoding());
@@ -3334,7 +3335,7 @@ int FXTerminal::matchString(const wchar_t *pat, int n, const wchar_t *targettext
 // ^O  abandon pending output. Menu shortcut
 
 // ^P  history previous if we are on bottom line
-//     [else cursor up????]
+//     [else cursor up?]
 // (also uparrow key)
 
 int FXTerminal::editHistoryPrev()
@@ -4698,6 +4699,12 @@ void FXTerminal::drawBufferText(FXDCWindow& dc,FXint x,FXint y,FXint,FXint,FXint
   }
 
 
-}
+} // end of FX namespace
+
+// not in the FX namespace...
+
+int showmathInitialised = 0;
+
+
 
 // End of FXTerminal.cpp

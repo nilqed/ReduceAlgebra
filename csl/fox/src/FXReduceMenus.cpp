@@ -1,11 +1,11 @@
-/* FXReduceMenus.cpp                    Copyright (C) 2014 Codemist Ltd */
+/* FXReduceMenus.cpp                        Copyright (C) 2016 Codemist */
 
 
-/* $Id$ */
+/* $Id: FXReduceMenus.cpp 3621 2016-04-24 16:44:01Z arthurcnorman $ */
 
 
 /**************************************************************************
- * Copyright (C) 2008, Codemist Ltd.                     A C Norman       *
+ * Copyright (C) 2008, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -83,7 +83,7 @@ const char *reduceMenus[] =
         "load_package numeric; num_odesolve($1,$2=$3,$4=($5 .. $6));",
     "Calculus@stationary value@stationary value@"
         "2@expression:ws@variable:x@"
-        "solve(df($1,$2)=0,$2)",
+        "solve(df($1,$2)=0,$2);",
     "Calculus@evaluate at@evaluate at@"
         "3@expression:ws@variable:x@value:0@"
         "sub($2=$3,$1);",
@@ -130,10 +130,10 @@ const char *reduceMenus[] =
         "2@p1:ws@p2:1@"
         "lcm($1,$2);",
     "Algebra@degree@degree@"
-        "2@poly:ws$var:x$"
+        "2@poly:ws$var:x@"
         "deg($1,$2);",
     "Algebra@coefficient@coefficient@"
-        "2@poly:ws$var:x$"
+        "2@poly:ws$var:x@"
         "coeff($1,$2);",
     "Algebra@partial fractions@partial fractions@"
         "2@exprn:ws@var:x@"
@@ -156,8 +156,8 @@ const char *reduceMenus[] =
     "Algebra@exponential -> trig@exponential -> trig@"
         "1@exprn:ws@"
         "trigsimp($1,trig);",
-    "Algebra@sum series@sum series c@"
-        "3@expr:ws@var:$i@nterms:5@"
+    "Algebra@sum series@sum series@"
+        "3@expr:ws@var:n@nterms:5@"
         "sum($1,$2,$3);",
 
 // End of Algebra section

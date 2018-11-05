@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: cgb.red 4088 2017-06-21 21:41:58Z arthurcnorman $
 % ----------------------------------------------------------------------
 % Copyright (c) 1999-2009 Andreas Dolzmann and Thomas Sturm
 % ----------------------------------------------------------------------
@@ -30,7 +30,7 @@
 
 lisp <<
    fluid '(cgb_rcsid!* cgb_copyright!*);
-   cgb_rcsid!* := "$Id$";
+   cgb_rcsid!* := "$Id: cgb.red 4088 2017-06-21 21:41:58Z arthurcnorman $";
    cgb_copyright!* := "Copyright (c) 1999-2009 A. Dolzmann and T. Sturm"
 >>;
 
@@ -49,6 +49,7 @@ create!-package('(cgb gb dp gbsc),nil);
 #if (and (memq 'psl lispsystem!*) (not (getd 'modulep)))
 fluid '(!*lower loadextentions!*);
 
+% This version uses PSL-specific variables...
 procedure modulep(u);
    begin scalar found,ld,le,!*lower;
       !*lower := t;
@@ -779,7 +780,7 @@ procedure cd_gsd(f,cd);
    % Condition Groebner simplifier. [f] is a formula; [cd] is a
    % condition. Simplies [f] wrt. the theory [cd].
    begin scalar !*rlgsvb;
-      return rl_gsd(f,cd)
+      return rl_gsn(f, cd, 'dnf)
    end;
 
 procedure cd_ordp(cd1,cd2);

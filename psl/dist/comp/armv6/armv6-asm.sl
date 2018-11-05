@@ -7,6 +7,7 @@
 % Modified:
 % Mode:         Lisp
 % Package:      
+% Status:       Open Source: BSD License
 %
 % (c) Copyright 1982, University of Utah
 %
@@ -43,7 +44,8 @@
 (global '($eol$))
 
 (Fluid '(CodeFileNameFormat* 
-         DataFileNameFormat* 
+         DataFileNameFormat*
+	 RoDataFileNameFormat* 
          InitFileNameFormat* 
          InputSymFile* 
          OutputSymFile* 
@@ -85,39 +87,35 @@
 (setq *DeclareBeforeUse t)
 
 (setq CodeFileNameFormat* "%w.s")        % The name of the code segment file
-(setq DataFileNameFormat* "d%w.s")       % postfix the "d" so that the files
-                                         % [20] is a reasonable guess at aU
-                                         % size specification
+(setq DataFileNameFormat* "d%w.s")       % The name of the writeable data segment file
+(setq RoDataFileNameFormat* "ro%w.s")    % The name of the readonly data segment file
+(setq InitFileNameFormat* "%w.init")     % 
 
-(setq InitFileNameFormat* "%w.init")     % [20] is a reasonable guess at a
-                                         % size specification; it may need to
-                                         % be changed.
-
-(setq InputSymFile* "sun386.sym")           % default for full-kernel-build
-(setq OutputSymFile* "sun386.sym")
+(setq InputSymFile* "armv6.sym")         % default for full-kernel-build
+(setq OutputSymFile* "armv6.sym")
 
 (setq MainEntryPointName* '!m!a!i!n)     % chose a simple default
-                                          % main procedure name
+                                         % main procedure name
 
-(setq NumericRegisterNames* '[nil "R0" "R1" "R2" "R3" "R4" ])
+(setq NumericRegisterNames* '[nil "r0" "r1" "r2" "r3" "r4" ])
 
 (setq LabelFormat* "%w:%n")             % Labels are in the first column
-(setq CommentFormat* "@ %p%n")          % Comments begin with a slash
+(setq CommentFormat* "@ %p%n")          % Comments begin with at sign
                                         % will group alphabetically
 
 (setq ExportedDeclarationFormat* " .globl %w%n")
 (setq ExternalDeclarationFormat* " .globl %w%n") % All in DATA space
 
 (setq FullWordFormat* " .long %e%n")     % FullWord expects %e for parameter
-(setq HalfWordFormat* " .word %e%n")     % Will EVAL formatter
+(setq HalfWordFormat* " .hword %e%n")     % Will EVAL formatter
 
 (setq ReserveDataBlockFormat* " .bss %w,%e%n")
 % This does *not* make zero blocks, however, the Sun manuals
 % promise that a.out memory is init'ed to 0s
-% Changed below to be like Vax version, so heap will be in bss. bao
+% Changed below to be like Vax version, so heap will be in bss. 
 (setq ReserveZeroBlockFormat* "  .comm %w,%e%n")
 
-(put 'MkItem 'ASMExpressionFormat "[[%e\*0x8000000]+%e]" )
+(put 'MkItem 'ASMExpressionFormat "[[%e*0x8000000]+%e]" )
 
 (setq DefinedFunctionCellFormat* " .long %w%n")   %/ Must be LONG
 
@@ -127,17 +125,42 @@
 %LISTS and CONSTANT DEFINITIONS%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-(setq ASMOpenParen* "[")
-(setq ASMCloseParen* "]")
+(setq ASMOpenParen* "(")
+(setq ASMCloseParen* ")")
 
 (DefList '((LAnd &) 
   (LOr !!)) 'BinaryASMOp)
 
-(DefList '(     (t1 "R5") 
-  		(t2 "R6") 
-          	(fp "fp")
+(DefList '(     (r0 "r0")
+		(r1 "r1")
+		(r2 "r2")
+		(r3 "r3")
+		(r4 "r4")
+		(r5 "r5")
+		(r6 "r6")
+		(r7 "r7")
+		(r8 "r8")
+		(r9 "r9")
+		(r10 "r10")
+		(r11 "r11")
+		(r12 "r12")
+		(r13 "r13")
+		(r14 "r14")
+		(r15 "r15")
+                (t1 "r5") 
+  		(t2 "r6")
+		(t3 "r7")
+          	(fp "fp")		% C frame pointer, R11
+		(pc "pc")		% R15
+		(lr "lr")		% R14
           	(sp "sp")
-          	(st "sp") )                      % Stack Pointer
+          	(st "sp")		% Stack Pointer, R13
+		(heaplast r8)
+		(heaptrapbound r9)
+		(symfnc r10)
+		(symval r11)
+		(nil "r12")
+		)
   'RegisterName)
 
 
@@ -170,7 +193,13 @@
 (de DataFileHeader nil 
   (DataPrintF "        .data%n")) 
 
-(de DataFileTrailer nil 
+(de RoDataFileHeader nil 
+  (RoDataPrintF "        .section .rodata%n")) 
+
+(de DataFileTrailer nil
+    nil)
+
+(de RoDataFileTrailer nil 
   nil)
 
 (de CodeFileTrailer nil 
@@ -187,7 +216,9 @@
 (de CodeBlockTrailer nil nil)
     
 
-(de DataAlignFullWord nil nil)
+(de DataAlignFullWord nil
+    (DataPrintf " .align 4%n")
+    )
   
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%`%%
@@ -204,10 +235,14 @@
 	     (PrintExpression (Indx S 0)) 
 	     (for (from i 1 n 1)
 		  (do (PrintByte!, (Indx S i))))
-	     (PrintByte!, 0) 
+	     (PrintByte!, 0)
+	     % at this point (n+2) bytes (including final 0 byte) have been printed
+	     % fill with 0 bytes to a multiple of 4 if necessary
 	     (cond
-	      ((equal (Remainder n 2) 1)
-	       (PrintByte!, 0)))
+	      ((greaterp (Remainder (plus n 2) 4) 0)
+	       (for (from i (Remainder (plus n 2) 4) 3)
+		    (do (PrintByte!, 0)))	% fill with 0 bytes to multiple of 4
+	       ))
 	     (Terpri)
 	     nil))
      (t 
@@ -297,9 +332,6 @@
 
 (setq *sun-mnemonic-change-table*
   '(
-    (cdq     . cltd )
-    (cwde    . cwtl )
-    (cbw     . cbtw )
    )
 )
 
@@ -346,7 +378,19 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 (de PrintNumericOperand (x) 
-  (printf " #%w" x))
+  (printf "#%w" x))
+
+
+(de OperandPrintRegshifted (x)
+    (progn (setq x (cdr x))
+	   (PrintOperand (if (eqcar (car x) 'reg) (car x) (list 'reg (car x))))
+	   (prin2 ", ")
+	   (prin2 (cadr x))
+	   (princ '! )			% SPACE
+	   (PrintOperand (caddr x)))
+    )
+
+(put 'regshifted 'OperandPrintFunction 'OperandPrintRegshifted)
 
 
 (de OperandPrintIndirect (x)            % (Indirect x)
@@ -361,17 +405,39 @@
 ))
 
 (De OperandPrintDisplacement (x)        % (Displacement (reg x) disp)
-   (progn (setq x (cdr x))
-          (Prin2 " [")
-          (Printoperand (car x))
-          (Prin2 ", #")
-          (PrintExpression (cadr x))
-          (Prin2 "]")))
-
- 'Indirect 'OperandPrintFunction 'OperandPrintIndirect)
-
+   (prog (Rn arg2 rest)
+     (setq x (cdr x))
+     (setq Rn (car x) arg2 (cadr x) rest (cddr x))
+     (Prin2 "[")
+     (Printoperand (car x))
+     (if (eqcar rest 'postindexed) (prin2 "]"))
+     (cond ((zerop arg2))
+	   ((fixp arg2) (prin2 ", #") (prin2 arg2))
+	   ((regp arg2) (prin2 ", ") (PrintOperand arg2))
+	   ((eqcar arg2 'regshifted) (prin2 ", ") (OperandPrintRegshifted arg2))
+	   ((and (eqcar arg2 'plus) (regp (cadr arg2)))
+	    (prin2 ", ") (PrintOperand (cadr arg2)))
+	   ((and (eqcar arg2 'minus) (regp (cadr arg2)))
+	    (prin2 ", -") (PrintOperand (cadr arg2)))
+	   )
+     (cond ((eqcar rest 'postindexed) nil)
+	   ((eqcar rest 'preindexed) (prin2 '!]!!))
+           (t (prin2 "]")))
+))
 
 (put 'displacement 'OperandPrintFunction 'OperandPrintDisplacement)
+
+(De OperandPrintIndirect (x)        % (indirect (reg x)) == (displacement (reg x) 0)
+   (prog (Rn rest)
+     (setq x (cdr x))
+     (setq Rn (car x) rest (cdr x))
+     (Prin2 "[")
+     (Printoperand (car x))
+     (cond ((eqcar rest 'preindexed) (prin2 '!]!!))
+           (t (prin2 "]")))
+))
+
+(put 'indirect 'OperandPrintFunction 'OperandPrintIndirect)
 
 % (Indexed (reg y)(displacement (reg x) disp))
 % or       (times (reg y) 1/2/4/8) (displacement (reg x) disp))
@@ -410,27 +476,20 @@
 (put 'Immediate 'OperandPrintFunction 'OperandPrintImmediate)
 
 
-(de OperandPrintPostIncrement (x)       % (PostIncrement x)
-  (progn (PrintOperand (cadr x)) 
-	 (Prin2 "@+")))
-
-(put 'PostIncrement 'OperandPrintFunction 'OperandPrintPostIncrement)
-
 (de OperandPrintRegList (x)             % (Reglist x)
-  (progn (setq x (cdr x)) 
-	 (PrintOperand (car x)) 
-	 (setq x (cdr x)) 
-	 (While x 
-		(progn (Prin2 "/") 
-		       (PrintOperand (car x)) 
-		       (setq x (cdr x)))) nil))
+    (progn (setq x (cdr x))
+	   (prin2 "{")
+	   (PrintOperand (car x)) 
+	   (setq x (cdr x)) 
+	   (While x 
+		  (progn (Prin2 ",") 
+			 (PrintOperand (car x)) 
+			 (setq x (cdr x))))
+	   (princ "}")
+	   nil))
 
 
 (put 'RegList 'OperandPrintFunction 'OperandPrintRegList)
-
-(de OperandPrintPreDecrement (x)        % (PreDecrement x)
-  (progn (PrintOperand (cadr x)) 
-	 (Prin2 "@-")))
 
 (put 'PreDecrement 'OperandPrintFunction 'OperandPrintPreDecrement)
 
@@ -449,10 +508,10 @@
 (Fluid '(ResultingCode*))
 
 (de MCPrint (x)                         % Echo of MC's
- (CodePrintF "/ %p%n" x))
+ (CodePrintF "@ %p%n" x))
 
 (de InstructionPrint (x) 
- (CodePrintF "/    %p%n" x))
+ (CodePrintF "@    %p%n" x))
 
 (de *cerror (x) 
  (prog (i) 
@@ -476,20 +535,20 @@
 
 
 (de datareserveblock (x)
-  (dataprintf "  .space %w%n" (times x addressingunitsperitem)))
+  (DataPrintF "  .space %w%n" (times x addressingunitsperitem)))
 
-% (for (from i 1 x) (do (dataprintf " .long 0 %n"))))
+% (for (from i 1 x) (do (DataPrintF " .long 0 %n"))))
 % (rplaca printexpressionformpointer*
 %         (list 'times2 (compiler-constant 'addressingunitsperitem) x))
-% (dataprintf reservedatablockformat* (gensym) printexpressionform*))
+% (DataPrintF reservedatablockformat* (gensym) printexpressionform*))
 
 (de datareservefunctioncellblock (x)
-  (dataprintf "  .space %w%n" (times x addressingunitsperitem)))
+  (DataPrintF "  .space %w%n" (times x addressingunitsperitem)))
 
-% (for (from i 1 x) (do (dataprintf " .long 00 %n"))))
+% (for (from i 1 x) (do (DataPrintF " .long 00 %n"))))
 % (rplaca printexpressionformpointer*
 %         (list 'times2 (compiler-constant 'addressingunitsperfunctioncell) x))
-% (dataprintf reservedatablockformat* (gensym) printexpressionform*))
+% (DataPrintF reservedatablockformat* (gensym) printexpressionform*))
 
 % End of file.
 

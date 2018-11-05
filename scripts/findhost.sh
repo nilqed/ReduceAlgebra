@@ -33,7 +33,8 @@ then
 fi
 
 here="$0";while test -L "$here";do here=`ls -ld "$here" | sed 's/.*-> //'`;done
-here=`cd \`dirname "$here"\` ; pwd -P`
+here=`dirname "$here"`
+here=`cd "$here"; pwd -P`
 
 host=$1
 shift
@@ -139,10 +140,10 @@ do
   --enable-debug)
     debug=-debug
     ;;
-  --enable-test=no | --disable-test)
+  --enable-test=no | --disable-test | --enable-experiment=no | disable-experiment)
     test=
     ;;
-  --enable-test)
+  --enable-test* | --enable-experiment* | --enable-conservative*)
     test=-test
     ;;
   --with-mingw64=no | --without-mingw64)

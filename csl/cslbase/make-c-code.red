@@ -1,7 +1,7 @@
-% make-c-code.red
+% make-c-code.red                          Copyright (C) Codemist 2016-2017
 
 %**************************************************************************
-%* Copyright (C) 2016, Codemist.                         A C Norman       *
+%* Copyright (C) 2017, Codemist.                         A C Norman       *
 %*                                                                        *
 %* Redistribution and use in source and binary forms, with or without     *
 %* modification, are permitted provided that the following conditions are *
@@ -29,9 +29,10 @@
 %* DAMAGE.                                                                *
 %*************************************************************************/
 
-% $Id$
+% $Id: make-c-code.red 4191 2017-09-09 10:39:18Z arthurcnorman $
 
-on echo;
+on echo, backtrace;
+off int;
 
 % This file can be run to turn bits of the REDUCE source code
 % into C so that this C can be compiled and linked in to make a
@@ -52,6 +53,11 @@ on echo;
 % for hackers and experimenters.
 
 symbolic;
+
+% If anything goes wrong here I want a backtrace so I can debug it,
+% regardless of any errorsets etc.
+
+enable!-errorset(3, 3);
 
 % Three major parameters are available:
 %
@@ -86,11 +92,12 @@ symbolic;
 % compilation into C causes changes in behaviour... how_many can be used
 % with a binary-chop selection process to discover exactly which function
 % causes upset when compiled into C.  Of course in release quality code I
-% hope there are no such cases!
+% hope there are no such cases! I will also check an environment variable
+% "HOW_MANY".
 
-global '(fnames size_per_file force_count how_many everything);
+fluid '(fnames size_per_file force_count how_many everything cx);
 
-if boundp 'full_c_code then everything := t
+if boundp 'full_c_code and full_c_code then everything := t
 else everything := nil;
 
 fnames := '(      "u01" "u02" "u03" "u04"
@@ -137,6 +144,14 @@ force_count := 5;
 % build of the executable vs. performance. However for use with an embedded
 % system with limited memort I might suggest say 500.
 
+begin
+  scalar e;
+  e := getenv "HOW_MANY";
+  if e then <<
+    fluid '(how_many);
+    how_many := compress explodec e >>
+end;
+
 if not boundp 'how_many then how_many := 3500
 else << how_many := compress explodec how_many;
         if not numberp how_many then how_many := 3500 >>;
@@ -147,8 +162,11 @@ global '(omitted at_start at_end);
 
 % At any stage there may be some things that I must not even try to compile
 % into C because of bugs or limitations. I can list them here. This is very
-% UGLY and delicate, and so ideally I will upgrade the compilation into C
+% UGLY and delicate, and so ideally I will upgrade the compilation into C++
 % to remove most of these limitations eventually.
+
+% It is now some while since I checked all of these - I should review
+% them soon!!!
 
 omitted := '(
     s!:prinl0               % uses unwind-protect
@@ -204,12 +222,15 @@ omitted := '(
 % them as unsuitable for compilation.
 
 for each x in oblist() do
- if eqcar(d := getd(x), 'expr) and
-    consp cdr d and consp cddr d and consp cdddr d then <<
-   d := cadddr d;
-   if eqcar(d, 'do!-autoload) then <<
+  begin
+    scalar d;
+    if eqcar(d := getd(x), 'expr) and
+       consp cdr d and consp cddr d and consp cdddr d then <<
+    d := cadddr d;
+    if eqcar(d, 'do!-autoload) then <<
       princ "+++ "; prin x; printc " looks like an autoload stub. Omit here";
-      omitted := x . omitted >> >>;
+      omitted := x . omitted >> >>
+  end;
    
 at_start := '(
     );
@@ -222,56 +243,6 @@ on comp;
 
 
 load!-module 'remake;
-
-% Here I need to consider the issue of patches.  First consider patches that
-% had been in force when "profile.red" was run. In such cases a patched
-% function f1 has an associated replacement f1_123456789 (the numeric suffix
-% is a checksum on the new definition) and when the profile job was run
-% this replacement will have had its definition copied to f1. The way in
-% which CSL's mapstore function extracts counts will mean that the
-% thing in profile.dat relate to f1_123456789.
-% Usually things in profile.dat are in the form
-%    (function_name . checksum_of_definition)
-% but for these patched things I will instead record
-%    (original_function_name package_involved)
-% This can be distinguished because it has a symbol not a number as
-% the second component. To make this possible each patch function
-% f1_123456789 would have to have this information attached to it
-% when the profiling job was run.
-%
-% But I suppose have now obtained a newer version of the patches file. So
-% now the correct patch for f1 will be f1_abcdef. If f1 was in one of the
-% REDUCE core packages (eg "alg") then both the functions f1_123456789 and
-% f1_abcdef will be in memory now, but it will be the latter that will
-% have been copied to plain old f1.  In other cases f1_123456789 will now
-% have been totally lost and the definition of f1_abcdef will be in the
-% patches module.  Furthermore the new patches file may patch another
-% function f2 that had not previously been subject to patching, but
-% that had been selected for compilation into C. And in a truly bad
-% case the complete REDUCE sources will contain several functions named
-% f2 and of course the patches file identifies which one it is interested
-% in by the name of the package it is in.
-%
-% The response to all this I will use here is intended to make life
-% reasonably SIMPLE for me in a complicated situation. So I first
-% collect the set of names that I think need compiling into C. Then I
-% grab a list of the names of things defined in the current patches file.
-% If a function in the paches file has a name similar enough (!) to one that
-% I have already decided to compile into C then I will schedule it for
-% compilation into C too.  Because of the hash suffix added to names in the
-% patches file defining a C version having those things present in the Lisp
-% kernel should never be a problem - after all the patches file itself is
-% intended to be loaded all the time.  So the main down-side of this is
-% that I will sometimes find that I have compiled into C either patch
-% versions of a function when it was another version of that code that was
-% time-critical or that I have compiled into C two generations of
-% patch function. These waste opportunity and space by having some
-% things compiled into C that might not really justify that, but this
-% seems a modest cost.
-
-% Note that parts of the above may apply if the sources of REDUCE are
-% changed in ANY manner (not just a special patches file) but the C code
-% is not re-created.
 
 fluid '(w_reduce requests);
 
@@ -297,7 +268,6 @@ symbolic procedure read_profile_data file;
       close rds w0 >>
   end;
 
-
 off echo;
 
 read_profile_data "$destdir/profile.dat";
@@ -305,26 +275,17 @@ read_profile_data "$destdir/unprofile.dat";
 
 on echo;
 
-if not everything then <<
+symbolic procedure membercar(a, l);
+  if null l then nil
+  else if a = caar l then t
+  else membercar(a, cdr l);
 
-% As a fairly shameless hack I am going to insist on compiling ALL the
-% things that the "alg" test uses. That is because this one test
-% file has been used for many years to give a single performance
-% figure for REDUCE.  In fact it is not too bad to pay lots of
-% attention to it since it exercises the basic core algebra and so what is
-% good for it is good for quite a lot of everybody else. However by
-% tuning this selection process you can adjust the way REDUCE balances
-% its speed in different application areas.
+symbolic procedure do_partial();
+begin
+  scalar fg, k;
+  requests := for each x in requests collect cdr x$
 
-w_reduce := assoc('alg, requests)$
-requests := for each x in delete(w_reduce, requests) collect cdr x$
-w_reduce := reverse cdr w_reduce$
-d := length w_reduce - force_count;
-if d > 0 then for i := 1:d do w_reduce := cdr w_reduce;
-
-length w_reduce;
-
-% Now I will merge in suggestions from all other modules in
+% Now I will merge in suggestions from all modules in
 % breadth-first order of priority
 % Ie if I have modules A, B, C and D (with A=alg) and each has in it
 % functions a1, a2, a3 ... (in priority odder) then I will make up a list
@@ -336,17 +297,12 @@ length w_reduce;
 % will get about balanced treatment if I have to truncate the list at
 % some stage.
 
-symbolic procedure membercar(a, l);
-  if null l then nil
-  else if a = caar l then t
-  else membercar(a, cdr l);
-
-fg := t;
-while fg do <<
-   fg := nil;
-   for each x on requests do
-     if car x then <<
-       if k := assoc(caaar x, w_reduce) then <<
+  fg := t;
+  while fg do <<
+    fg := nil;
+    for each x on requests do
+      if car x then <<
+        if k := assoc(caaar x, w_reduce) then <<
           if not (cadr k = cadaar x) then <<
              prin caaar x; printc " has multiple definition";
              princ "   keep version with checksum: "; print cadr k;
@@ -355,145 +311,142 @@ while fg do <<
 % ORDP is a special case because I have put a version of it into the
 % CSL kernel by hand, and any redefinition here would be unfriendly and
 % might clash with that.
-       else if caaar x = 'ordp then printc "Ignoring ORDP (!)"	
-       else w_reduce := caar x . w_reduce;
-       fg := t;
-       rplaca(x, cdar x) >> >>;
+        else if caaar x = 'ordp then printc "Ignoring ORDP (!)"	
+        else w_reduce := caar x . w_reduce;
+        fg := t;
+        rplaca(x, cdar x) >> >>;
 
 
 % Now I scan all pre-compiled modules to recover source versions of the
-% selected REDUCE functions. The values put as load!-source properties
-% are checksums of the recovered definitions that I would be prepared
-% to accept.
+% selected REDUCE functions. The values put as load!-selected!-source
+% properties are checksums of the recovered definitions that I would be
+% prepared to accept.
 
-for each n in w_reduce do put(car n, 'load!-source, cdr n);
+  for each n in w_reduce do put(car n, 'load!-selected!-source, cadr n);
 
-w_reduce := for each n in w_reduce collect car n$
+  w_reduce := for each n in w_reduce collect car n$
 
 % Discard things that give trouble...
-for each x in omitted do w_reduce := delete(x, w_reduce);
+  for each x in omitted do w_reduce := delete(x, w_reduce);
 
 % Compile some specific things first and others last. The ability to
 % override the normal priority order may be useful when I want to
 % force-compile some functions for testing purposes.
 
-for each x in append(at_start, at_end) do <<
-   prin x; princ " "; print get(x, '!*savedef) >>;
+  for each x in append(at_start, at_end) do <<
+    prin x; princ " "; print get(x, '!*savedef) >>;
 
-w_reduce := append(at_start, append(nreverse w_reduce, at_end))$
+  w_reduce := append(at_start, append(nreverse w_reduce, at_end))$
 
-for each m in library!-members() do load!-source m;
+  load!-selected!-source()
+end;
 
-% Up through Reduce 3.8 there was a mechanism for distributing patches
-% that could be installed to correct or upgrade a base version. In the
-% Open Source model it seems way easiest for people to fetch or build
-% a full new image, and so I am not going to deal with patches any more.
-
- >>;
-
-if everything then <<
-
-
-% load!-source being true causes a !*savedef to be loaded for every function
-% in the module. Without it a definition only gets picked up if a load!-source
-% property has been set on the name.
-
-load!-source := t;
-for each m in library!-members() do load!-source m;
+symbolic procedure do_total();
+<<load!-source();
 
 % Hah but I really want the core versions of anything that might get redefined
 % to be the one left - so I will re-load all the core modules!
 for each m in loaded!-modules!* do load!-source m;
 
-w_reduce := nil;
+  w_reduce := nil;
 
-for each x in oblist() do
-   if get(x, '!*savedef) and not memq(x, omitted) then
-       w_reduce := x . w_reduce;
+  for each x in oblist() do
+    if get(x, '!*savedef) and not memq(x, omitted) then
+      w_reduce := x . w_reduce;
 
-w_reduce := nreverse w_reduce$ % Now in alphabetic order, which seems neat.
+  w_reduce := nreverse w_reduce$ % Now in alphabetic order, which seems neat.
 
-for each x in at_start do w_reduce := delete(x, w_reduce);
-for each x in at_end do w_reduce := delete(x, w_reduce);
+  for each x in at_start do w_reduce := delete(x, w_reduce);
+  for each x in at_end do w_reduce := delete(x, w_reduce);
 
-w_reduce := append(at_start, append(w_reduce, at_end));
-
->>;
-
-<<
-printc "Top 20 things to compile are...";
-p := w_reduce;
-for i := 1:20 do if p then <<
-   print car p;
-   p := cdr p >>
->>;
-
-verbos nil;
-global '(rprifn!*);
-
-on fastfor, fastvector, unsafecar;
+  w_reduce := append(at_start, append(w_reduce, at_end)) >>;
 
 symbolic procedure listsize(x, n);
    if null x then n
    else if atom x then n+1
    else listsize(cdr x, listsize(car x, n+1));
 
-<<
+symbolic procedure generate_cpp();
+  begin
+    scalar count;
+    count := 0;
 
-count := 0; 
-
-while fnames do begin
-   scalar name, bulk;
-   name := car fnames;
-   princ "About to create "; printc name;
-   c!:ccompilestart(name, name, "$destdir", nil);
-   bulk := 0;
-   while bulk < size_per_file and w_reduce and how_many > 0 do begin
-      scalar name, defn;
-      name := car w_reduce;
-      if null (defn := get(name, '!*savedef)) then <<
-         princ "+++ "; prin name;
-         printc ": no saved definition found";
-         w_reduce := cdr w_reduce >>
-      else <<
-         bulk := listsize(defn, bulk);
-         if bulk < size_per_file then <<
+    while fnames do begin
+      scalar name, bulk, total, defn;
+      name := car fnames;
+      princ "About to create "; printc name;
+      c!:ccompilestart(name, name, "$destdir", nil);
+      bulk := 0;
+      while bulk < size_per_file and w_reduce and how_many > 0 do begin
+        scalar name, defn;
+        name := car w_reduce;
+        if null (defn := get(name, '!*savedef)) then <<
+          princ "+++ "; prin name;
+          printc ": no saved definition found";
+          w_reduce := cdr w_reduce >>
+        else <<
+          bulk := listsize(defn, bulk);
+          if bulk < size_per_file then <<
             count := count+1;
             princ count;
             princ ": ";
             c!:ccmpout1 ('de . name . cdr defn);
             how_many := how_many - 1;
             w_reduce := cdr w_reduce >> >> end;
-   eval '(c!-end);
-   fnames := cdr fnames
-   end;
+      eval '(c!-end);
+      fnames := cdr fnames
+    end;
 
-terpri();
-printc "*** End of compilation from REDUCE into C ***";
-terpri();
+    terpri();
+    printc "*** End of compilation from REDUCE into C ***";
+    terpri();
 
-total := count;
-
-bulk := 0;
+    total := count;
+    bulk := 0;
 % I list the next 50 functions that WOULD get selected - just for interest.
-if null w_reduce then printc "No more functions need compiling into C"
-else while bulk < 50 and w_reduce do
+    if null w_reduce then printc "No more functions need compiling into C"
+    else while bulk < 50 and w_reduce do
+      begin
+        name := car w_reduce;
+        if null (defn := get(name, '!*savedef)) then <<
+          princ "+++ "; prin name; printc ": no saved definition found";
+          w_reduce := cdr w_reduce >>
+        else <<
+          bulk := bulk+1;
+          princ (count := count+1);
+          princ ": ";
+          print name;
+          w_reduce := cdr w_reduce >> end;
+
+    terpri();
+    prin total; printc " functions compiled into C"
+  end;
+
+symbolic procedure completion();
   begin
-     name := car w_reduce;
-     if null (defn := get(name, '!*savedef)) then <<
-        princ "+++ "; prin name; printc ": no saved definition found";
-        w_reduce := cdr w_reduce >>
-     else <<
-        bulk := bulk+1;
-        princ (count := count+1);
-        princ ": ";
-        print name;
-        w_reduce := cdr w_reduce >> end;
+    scalar p;
+    terpri();
+    printc "Top 20 things to compile are...";
+    p := w_reduce;
+    for i := 1:20 do if p then <<
+      print car p;
+      p := cdr p >>;
 
-terpri();
-prin total; printc " functions compiled into C";
+    verbos nil;
+    fluid '(rprifn!*);
+    generate_cpp();
+  end;
 
-nil >>;
+
+% I used to prefer speed to safety. For a while at least I will go the
+% other way.
+
+off fastfor, fastvector, unsafecar;
+
+<<
+  if everything then do_total()
+  else do_partial();
+  completion() >>;
 
 quit;
 

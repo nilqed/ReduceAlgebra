@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: gcref.red 1319 2011-08-25 09:56:37Z thomas-sturm $
 % ----------------------------------------------------------------------
 % (c) 2001 A. Dolzmann and T. Sturm, 2011 T. Sturm
 % ----------------------------------------------------------------------
@@ -30,7 +30,7 @@
 
 lisp <<
    fluid '(gcref_rcsid!* gcref_copyright!*);
-   gcref_rcsid!* := "$Id$";
+   gcref_rcsid!* := "$Id: gcref.red 1319 2011-08-25 09:56:37Z thomas-sturm $";
    gcref_copyright!* := "(c) 2001  A. Dolzmann, T. Sturm, 2011 T. Sturm"
 >>;
 

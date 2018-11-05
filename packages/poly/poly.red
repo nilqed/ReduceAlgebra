@@ -28,7 +28,7 @@ module poly;  % Header module and low-level support for poly package.
 %
 
 
-create!-package('(poly polrep quotf gcd exptf kernel mksp reord dmode
+create!-package('(poly polrep polydiv quotf gcd exptf kernel mksp reord dmode
                  dmodeop rational rnelem gint cpxrn compopr modular
                  facform homog tdconv primfac specfac kronf conj diff
                  polyop decompos interpol subs2q subs3q subs4q horner),
@@ -43,6 +43,8 @@ fluid '(!*mcd !*nosq wtl!*);
 
 % Particular infix operators used in standard forms.
 
+flag('(newtok infix), 'eval); 
+
 newtok '((!. !+) add);
 
 newtok '((!. !*) mult);
@@ -55,10 +57,11 @@ newtok '((!. !/) over);
 
 infix .^,.*,.+,./;
 
-
 % Constructors and selectors for standard forms.
 
-inline procedure u.+v; % Standard (polynomial) addition constructor.
+% Observe a function definition using infix notation here...
+
+inline procedure u .+ v; % Standard (polynomial) addition constructor.
    u . v;
 
 accessors lt . red, (lpow . lc) . !_, ((mvar . ldeg) . !_) . !_;
@@ -69,7 +72,7 @@ accessors !_pvar!_ . pdeg;
 
 accessors numr . denr;
 
-inline procedure u.*v;  % Standard form multiplication constructor.
+inline procedure u .* v;  % Standard form multiplication constructor.
    u . v;
 
 inline procedure u ./ v; % Constructor for standard quotient.

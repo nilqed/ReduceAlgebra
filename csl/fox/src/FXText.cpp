@@ -45,9 +45,9 @@
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.    *
 *********************************************************************************
 #ifndef ORIGINAL_VERSION
-* $Id$                         *
+* $Id: FXText.cpp 3297 2015-12-14 20:30:04Z arthurcnorman $                         *
 #else // ORIGINAL_VERSION
-* $Id$                         *
+* $Id: FXText.cpp 3297 2015-12-14 20:30:04Z arthurcnorman $                         *
 #endif // ORIGINAL_VERSION
 ********************************************************************************/
 #ifndef ORIGINAL_VERSION

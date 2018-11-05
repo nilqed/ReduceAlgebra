@@ -1,10 +1,12 @@
 # Makefile for getting ready to make Macintosh installer package
 
+ifeq ($(REVISION),)
+SNAPSHOT=$(shell LANG=C date "+%Y-%m-%d")
+else
+SNAPSHOT=$(REVISION)
+endif
 BUILDTOPDIR=C
 REVISION=HEAD
-
-# At present this merely make a .tar.bz2 file... not a proper Macintosh
-# installer.
 
 all:	package-mac
 
@@ -29,16 +31,19 @@ $(BUILDTOPDIR).stamp:
 	rm -rf $(BUILDTOPDIR)
 	( time svn export -r $(REVISION) .. $(BUILDTOPDIR) ) > $(BUILDTOPDIR).log
 	( pushd $(BUILDTOPDIR) ; ./autogen.sh -f ; popd )
-	./make.source.sh 
+	./make-source.sh $(SNAPSHOT) 
 	touch $(BUILDTOPDIR).stamp
 
+source-archive:
+	./make-source.sh $(SNAPSHOT) 
+
 csl.stamp:	$(BUILDTOPDIR).stamp
-	( pushd $(BUILDTOPDIR) ; ./configure --with-csl ; \
+	( pushd $(BUILDTOPDIR) ; ./configure --with-csl --without-autogen ; \
 		script ../csl.log time make csl ; popd )
 	touch csl.stamp
 
 psl.stamp:	$(BUILDTOPDIR).stamp
-	( pushd $(BUILDTOPDIR) ; ./configure --with-psl ; \
+	( pushd $(BUILDTOPDIR) ; ./configure --with-psl --without-autogen ; \
 		script ../psl.log time make psl ; popd )
 	touch psl.stamp
 
@@ -70,7 +75,7 @@ package-mac:	$(BUILDTOPDIR).stamp csl.stamp psl.stamp docs.stamp
 # The CSL components will be in the form of application bundles. To run from
 # the command line you "just" need to put reduce.app/Contents/MacOS on
 # your PATH.
-	./copyfiles.sh "$(BUILDTOPDIR)"
+	./copyfiles.sh "$(BUILDTOPDIR)" "$(SNAPSHOT)"
 # At present the PSL material is a mere dump from the pslbuild directory.
 # I guess that transcribing the redpsl script into there and arranging
 # that it detected its own path when run and then set up the various
@@ -78,8 +83,8 @@ package-mac:	$(BUILDTOPDIR).stamp csl.stamp psl.stamp docs.stamp
 # for now I will content myself with putting the directory in place.
 	hdiutil create -volname Reduce-snapshot \
 		-srcfolder distrib \
-		-ov -format UDZO Reduce-snapshot.dmg
-	echo Reduce-snapshot.dmg made, I hope!!
+		-ov -format UDZO Reduce-snapshot_$(SNAPSHOT).dmg
+	echo Reduce-snapshot_$(SNAPSHOT).dmg made, I hope!!
 
 # It will be a really good idea to go "make clean" before any wholesale
 # "make" here - this removes all the working files that get created
@@ -87,6 +92,6 @@ package-mac:	$(BUILDTOPDIR).stamp csl.stamp psl.stamp docs.stamp
 # directory "Output"
 
 clean:
-	rm -rf *.img *.dmg distrib $(BUILDTOPDIR) log *.stamp
+	rm -rf *.img *.dmg distrib $(BUILDTOPDIR) *.log *.stamp
 
 # end of Makefile

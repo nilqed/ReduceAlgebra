@@ -35,7 +35,7 @@ package uk.co.codemist.jlisp.core;
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: BytecodeCore.java 3259 2015-10-23 07:24:34Z arthurcnorman $
 
 
 class BytecodeCore extends FnWithEnv

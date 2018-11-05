@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2009 Andreas Dolzmann and Thomas Sturm
-% ----------------------------------------------------------------------
+module ioto;  % Input/Output tools
+
+revision('ioto, "$Id: ioto.red 4058 2017-05-23 17:12:59Z thomas-sturm $");
+
+copyright('ioto, "(c) 1995-2009 A. Dolzmann, T. Sturm, 2009-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -27,15 +28,6 @@
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
-
-lisp <<
-   fluid '(ioto_rcsid!* ioto_copyright!*);
-   ioto_rcsid!* := "$Id$";
-   ioto_copyright!* := "Copyright (c) 1995-2009 by A. Dolzmann and T. Sturm"
->>;
-
-module ioto;
-% Input/Output tools.
 
 fluid '(ioto_realtime!* datebuffer);
 
@@ -203,6 +195,133 @@ procedure ioto_prtbop(b, op);
       if flagp(op, 'spaced) then
 	 b := ioto_prtb(b, '! );
       b
+   >>;
+
+asserted procedure ioto_sxread(s: String): Any;
+   % Use the RLISP parser xread in rlisp/xread.red to parse a string. The RLISP
+   % syntax within blocks suggests to some extent that !*semicol!* separates
+   % expressions in contrast to terminating them. However, xread heavily relies
+   % on finally coming across a !*semicol!*. We explicitly append a !*semicol!*
+   % to the argument s here and parse only the first expression. That is, the
+   % following all parse as (plus x 1):
+   % (a) s = "x+1"
+   % (b) s = "x+1;"
+   % (c) s = "x+1; y;"
+   % Unparsed characters like "y" in (c) will have no effect on the parser after
+   % termination of ioto_sxread.
+   %
+   begin scalar peekchar!*;
+      % In this particular situation TS feels safer to use {'!;} instead of
+      % '(!;) although the latter should be fine.
+      peekchar!* := nconc(explodec s, {'!;});
+      return xread t
+   end;
+
+asserted procedure ioto_smaprin(u: List): String;
+   % This function is a variant of mathprint that prints into strings instead of
+   % stdout. It is expected to work with both "off nat" and "on nat." utf8 is
+   % ignored, Fortran printing is not supported, and TeX printing via
+   % tri/tri.red has not been considered so far. With "on nat" linelength() is
+   % used. Leading and training newlines are trimmed. The "on nat" string prints
+   % nicely with prin2t.
+   %
+   begin scalar outputhandler!*, rlsmaprinbuf!*, !*utf8;
+      outputhandler!* := 'ioto_smaprinoh;
+      % terpri!*() around maprin appears to be necessary for proper
+      % initialization and finalization; compare mathprint in mathpr/mprint.red.
+      % We use nil as an argument to supress newlines around our string.
+      if !*nat then
+ 	 terpri!* nil;
+      maprin u;
+      if !*nat then
+ 	 terpri!* nil;
+      % Trim one trailing newline (and preceding escape char):
+      if !*nat then
+      	 rlsmaprinbuf!* := cddr rlsmaprinbuf!*;
+      return id2string compress reversip rlsmaprinbuf!*
+   end;
+
+asserted procedure ioto_smaprinoh(m: Any, l: Any): Any;
+   % An output handler for use with ioto_smaprin. It diverts prin2!* output into
+   % a the fluid string rlmaprinbuf!*.
+   %
+   if m eq 'maprin then
+      % Recurse and on rely on what is there ...
+      maprint(l, 0)
+   else if m eq 'prin2!* then
+      if !*nat then
+	 % With "on nat" nothing is really printed. So we can rely on what is
+	 % there. We must lambda bind outputhandler!* to nil to avoind an
+	 % infinite recursion. A cleaner solution would be splitting prin2!*
+	 % into a wrapper that checks for outputhandler!* and calls a work
+	 % horse (as is the case with maprin/maprint above).
+	 prin2!* l where outputhandler!* = nil
+      else
+	 % With "off nat" prin2!* would actually prin2 to stdout. We catch it.
+	 % Luckily there is noting sophisticated to do.
+      	 for each c in explodec l do
+	    ioto_smaprinbuf c
+   else if m eq 'terpri then
+      % Here is where the actual printing takes place with "on nat." We must
+      % catch this.
+      ioto_terpri!* l
+   else
+      % m = 'assignpri might be something to add in the future. TS does not
+      % quite understand whether this would be useful or occur naturally.
+      rederr {"unknown method ", m, " in redfront_oh"};
+
+asserted procedure ioto_terpri!*(u: Boolean);
+   % This is an adapted copy of terpri!*() from mathpr/mprint.red. It would be
+   % nicer not to duplicate code.
+   %
+   begin integer n;
+      if testing!-width!* then
+ 	 return overflowed!* := t;
+      if !*fort then
+ 	 rederr "ioto_smaprin: Fortran output not supported";
+      if !*nat and pline!* then <<
+	 pline!* := reverse pline!*;
+	 for n := ymax!* step -1 until ymin!* do <<
+	    ioto_scprint(pline!*, n);
+	    ioto_smaprinbuf !$eol!$
+ 	 >>;
+	 pline!* := nil
+      >>;
+      if u then
+	 ioto_smaprinbuf !$eol!$;
+      posn!* := orig!*;
+      ycoord!* := ymax!* := ymin!* := 0
+   end;
+
+asserted procedure ioto_scprint(u: List, n: Integer);
+   % This is an adapted copy of scprint() from mathpr/mprint.red. It would be
+   % nicer not to duplicate code. u is one line of "on nat" output as a list
+   % containing strings some compressed encoding of whitespace.
+   %
+   begin scalar m;
+      posn!* := 0;
+      for each v in u do <<
+	 if cdar v = n then <<
+	    m := caaar v - posn!*;
+	    if m geq 0 then
+ 	       for i := 1:m do
+		  ioto_smaprinbuf '! ;
+	    for each c in explodec cdr v do
+	       ioto_smaprinbuf c;
+	    posn!* := cdaar v
+ 	 >>
+      >>
+   end;
+
+asserted procedure ioto_smaprinbuf(c: Id): List;
+   % This flushes characters into our print buffer for later compression into a
+   % string. We preceed every char with a quoting exclamation mark. The chars
+   % originate from explode c, which behaves like explode rather than like
+   % explode2.
+   %
+   <<
+      push('!!, rlsmaprinbuf!*);
+      push(c, rlsmaprinbuf!*)
    >>;
 
 endmodule;  % [ioto]

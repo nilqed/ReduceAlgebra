@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: bcint.red 84 2009-02-07 07:53:22Z thomas-sturm $
 % ----------------------------------------------------------------------
 % Copyright (c) 1999-2009 Andreas Dolzmann and Thomas Sturm
 % ----------------------------------------------------------------------
@@ -30,7 +30,7 @@
 
 lisp <<
    fluid '(bcint_rcsid!* bcint_copyright!*);
-   bcint_rcsid!* := "$Id$";
+   bcint_rcsid!* := "$Id: bcint.red 84 2009-02-07 07:53:22Z thomas-sturm $";
    bcint_copyright!* := "Copyright (c) 1999-2009 A. Dolzmann and T. Sturm"
 >>;
 

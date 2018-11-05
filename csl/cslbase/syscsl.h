@@ -1,4 +1,4 @@
-//  syscsl.h                               Copyright (C) 1992-2016 Codemist
+//  syscsl.h                               Copyright (C) 1992-2017 Codemist
 
 //
 // This file should contain a list of all the functions in CSL that have
@@ -8,7 +8,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -37,32 +37,11 @@
  *************************************************************************/
 
 
-// $Id$
+// $Id: syscsl.h 4611 2018-05-16 20:34:06Z arthurcnorman $
 
 
 #ifndef header_syscsl_h
 #define header_syscsl_h 1
-
-//
-// I provide a hook so that memory allocation can be passed not to the
-// usual C library malloc() function but to some other system-specific code.
-// This is achieved by putting the actual function that is to be called in
-// a variable. Ditto for free(). I have static initialisation that causes
-// use of the ordinary C library and so anybody who needs an alternative
-// must reset the pointers VERY early on.
-//
-
-typedef void *malloc_function(size_t);
-
-extern malloc_function *malloc_hook;
-
-typedef void *realloc_function(void *, size_t);
-
-extern realloc_function *realloc_hook;
-
-typedef void free_function(void *);
-
-extern free_function *free_hook;
 
 //
 // find_image_directory is handed the information that main() sees when
@@ -120,8 +99,8 @@ extern int delete_file(char *filename, const char *old, size_t n);
 
 extern int delete_wildcard(char *filename, const char *old, size_t n);
 
-extern "C" int rename_file(char *from_name, const char *from_old, size_t from_size,
-                       char *to_name,   const char *to_old,   size_t to_size);
+extern int rename_file(char *from_name, const char *from_old, size_t from_size,
+                           char *to_name, const char *to_old, size_t to_size);
 
 //
 // The interfaces to file_readable and file_writable are also similar
@@ -132,13 +111,13 @@ extern "C" int rename_file(char *from_name, const char *from_old, size_t from_si
 // directoryp tests whether its argument is a directory.
 //
 
-extern "C" int file_readable(char *filename, const char *old, size_t n);
+extern bool file_readable(char *filename, const char *old, size_t n);
 
-extern "C" int file_writeable(char *filename, const char *old, size_t n);
+extern bool file_writeable(char *filename, const char *old, size_t n);
 
-extern "C" int file_executable(char *filename, const char *old, size_t n);
+extern bool file_executable(char *filename, const char *old, size_t n);
 
-extern "C" int directoryp(char *filename, const char *old, size_t n);
+extern bool directoryp(char *filename, const char *old, size_t n);
 
 //
 // file_length returns the length of its argument (a file) in bytes.
@@ -156,9 +135,9 @@ extern int current_directory(char *name, int len);
 // The next three are much-like the same... On some operating systems
 // they will be pretty meaningless!
 //
-extern "C" int get_current_directory(char *name, size_t len);
-extern "C" int get_home_directory(char *name, size_t len);
-extern "C" int get_users_home_directory(char *name, size_t len);
+extern int get_current_directory(char *name, size_t len);
+extern int get_home_directory(char *name, size_t len);
+extern int get_users_home_directory(char *name, size_t len);
 
 //
 // Just for Reduce, find_gnuplot fills in the command to launch gnuplot
@@ -218,7 +197,7 @@ extern void list_directory_members(char *filename, const char *old,
 //
 // (f) is an open file - truncate it at position (where).
 //
-extern "C" int truncate_file(FILE *f, long int where);
+extern int truncate_file(FILE *f, long int where);
 
 //
 // If I am to process directories I need a set of routines that will
@@ -278,18 +257,6 @@ extern void unpack_date(unsigned long int r,
 extern unsigned long int pack_date(int year, int mon, int day,
                                    int hour, int min, int sec);
 
-typedef struct date_and_type_
-{   unsigned long int date;
-    unsigned long int type;
-} date_and_type;
-
-// Reinstate date and filetype...
-
-extern void set_filedate(const char *name, unsigned long int datestamp,
-                         unsigned long int ftype);
-
-extern void put_fileinfo(date_and_type *p, const char *name);
-
 //
 // my_getenv() is much like the ANSI getenv(), but exists because
 // it may be useful to perform mappings on the character string given
@@ -303,18 +270,15 @@ extern const char *my_getenv(const char *s);
 // needed.
 //
 
-extern "C" int my_system(const char *s);
+extern int my_system(const char *s);
 
-#if defined HAVE_POPEN || defined HAVE_FWIN
 //
 // my_popen() and my_pclose() are intended to be just like the Unix
 // popen() and pclose functions.
 //
 extern FILE *my_popen(const char *command_name, const char *direction);
 extern void my_pclose(FILE *stream);
-#endif
 
-#ifdef HAVE_FWIN
 //
 // For some systems I send characters to a pipe (possibly
 // only used to support the gnuplot package) through a separate
@@ -322,11 +286,6 @@ extern void my_pclose(FILE *stream);
 //
 extern int my_pipe_putc(int c, FILE *f);
 extern int my_pipe_flush(FILE *f);
-
-#else
-#  define my_pipe_putc(c, f) putc(c, f)
-#  define my_pipe_flush(f)   fflush(f)
-#endif
 
 //
 // batchp() should return true if stdin is NOT from an interactive
@@ -354,22 +313,11 @@ extern void write_profile(const char *filename);
 
 #endif
 
-//
-// Imultiply and Idivide are things that you may want to re-implement in
-// machine code - if so here are their signatures, and you should #define
-// IMULTIPLY/IDIVIDE in machine.h to say what you have done.  See arithXX.c
-// for the portable versions.
-//
-
-#ifdef IMULTIPLY
 extern uint32_t Imultiply(uint32_t *rlow, uint32_t a,
                           uint32_t b, uint32_t c);
-#endif
-#ifdef IDIVIDE
 extern uint32_t Idivide(uint32_t *qp, uint32_t a,
                         uint32_t b, uint32_t c);
 extern uint32_t Idiv10_9(uint32_t *qp, uint32_t a, uint32_t b);
-#endif
 
 //
 // When the garbage collector observes that memory is tight it can attempt
@@ -416,13 +364,19 @@ extern int terminal_eof_seen;
 // been spent and how many garbage collections have been done.
 //
 extern void report_time(int32_t t, int32_t gct);
-extern void report_space(int gccount, double percent);
+extern void report_space(uint64_t gccount, double percent, double mbytes);
 //
 // pause_for_user() gets called right at the end to give a chance for the
 // system to delay before closing the main output window.
 //
 extern void pause_for_user(void);
 #endif
+
+// These can be used (without 100% reliability") to check if memory
+// addresses are proper.
+
+extern bool valid_address(void *p);
+extern bool valid_address(uintptr_t p);
 
 #endif // header_syscsl_h
 

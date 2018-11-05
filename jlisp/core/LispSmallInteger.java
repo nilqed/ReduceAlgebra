@@ -35,7 +35,7 @@ package uk.co.codemist.jlisp.core;
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: LispSmallInteger.java 4088 2017-06-21 21:41:58Z arthurcnorman $
 
 import java.math.*;
 import java.io.*;
@@ -218,8 +218,8 @@ public class LispSmallInteger extends LispInteger
 
     public LispObject lsd() throws Exception
     {
-        int r = 0, w = value;
-        if (w == 0) return valueOf(-1);
+        int r = 1, w = value;
+        if (w == 0) return valueOf(0);
         while ((w & 0x3f) == 0)
         {   w = w >> 6;
             r += 6;

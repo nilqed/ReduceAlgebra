@@ -28,7 +28,8 @@ module remake; % Update the fasl loading version and cross-reference of
 %
 
 
-fluid '(!*break
+fluid '(!*argnochk
+        !*break
         !*cref
         !*crefchk
         !*faslp
@@ -39,7 +40,7 @@ fluid '(!*break
         !*writingfaslfile
         lispsystem!*);
 
-global '(!*argnochk nolist!* loaded!-modules!*);
+global '(nolist!* loaded!-modules!*);
 
 symbolic procedure psl!-file!-write!-date u;
    % Returns write date of file u as an integer.
@@ -116,8 +117,6 @@ symbolic procedure inline_defs_file();
 % The PSL bootstrap build needs the "!" here
 !#if (memq 'vsl lispsystem!*)
    "inline-defs.dat";
-!#elif (memq 'cslplus lispsystem!*)
-   "$reduce/cslplusbuild/generated-cpp/inline-defs.dat";
 !#elif (memq 'csl lispsystem!*)
    "$reduce/cslbuild/generated-c/inline-defs.dat";
 !#else

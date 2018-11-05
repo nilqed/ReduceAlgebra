@@ -2,7 +2,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -30,7 +30,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: fox-icons.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
 
 // created by reswrap from file fwin.ico
 const unsigned char fwin[]=

@@ -5943,24 +5943,13 @@ if filep "stop_now" then <<
  repeat_mode:=1$
 >>$
 
-%symbolic procedure beforegcuserhook$ 
-%my_gc_counter:=add1 my_gc_counter$
+% The following function should get called at the end of each garbage
+% collection.
 
-!#if (memq 'csl lispsystem!*)
-
-lisp(!*gc!-hook!* := 'csl_aftergcuserhook)$
-
-symbolic procedure csl_aftergcuserhook u$
-<< aftergcsystemhook u;       % The handler in rlisp/inter.red
-   if u then aftergcuserhook() else nil
->>$
-
-!#endif
-
-symbolic procedure aftergcuserhook$
+symbolic procedure aftergcuserhook1$
 begin scalar li$
 !#if (memq 'psl lispsystem!*)
- last_free_cells:=if boundp 'gcfree!* then gcfree!*               % for 32 bit PSL
+ last_free_cells:=if boundp 'gcfree!* and gcfree!* then gcfree!*  % for 32 bit PSL
                                       else known!-free!-space()$  % for 32 bit PSL and 64 bit PSL
 !#endif
  % for CSL last_free_cells is not updated as heap is extended dynamically
@@ -6010,6 +5999,45 @@ begin scalar li$
  if print_ and (last_free_cells<100000) then
  write"Memory seems to run out. Less than 100000 free cells!"
 end$
+
+!#if (memq 'csl lispsystem!*)
+
+% For CSL the GC hook has its name saved in !*gc!-hook!*, so I can
+% just implement a new function that calls what I know is the prior
+% function and then the new stuff.
+
+symbolic procedure csl_aftergcuserhook u$
+<< aftergcsystemhook u;       % The handler in rlisp/inter.red
+   if u then aftergcuserhook1() else nil
+>>$
+
+lisp(!*gc!-hook!* := 'csl_aftergcuserhook)$
+
+!#endif
+
+
+!#if (memq 'psl lispsystem!*)
+
+% For PSL the GC hook is specified by its function name. Here I
+% wish to chain on after an existing one, so I save the old version as
+% psl_aftergcuserhook and define a new version that calls that followed
+% by the new behaviour that is expected by crack.
+% 
+% If neither the old (aftergcuserhook) nor the new (psl_aftergcuserhook) version
+% are present, define an empty function.
+
+if getd 'aftergcuserhook and not getd 'psl_aftergcuserhook then
+   copyd('psl_aftergcuserhook, 'aftergcuserhook)
+ else
+   putd('psl_aftergcuserhook, 'expr, '(lambda nil nil));
+
+
+symbolic procedure aftergcuserhook;
+ << psl_aftergcuserhook();
+    aftergcuserhook1();
+    nil >>;
+
+!#endif
 
 symbolic operator err_catch_fac$  
 symbolic procedure err_catch_fac(a)$
@@ -6361,7 +6389,8 @@ begin scalar u1,u2,u3,fli,v;
  return fli
 end$
 
-!#if (memq 'psl lispsystem!*) % PSL does not have a function oblist(), therefore:
+!#if (memq 'psl lispsystem!*)
+% PSL does not have a function oblist(), therefore:
 
 symbolic lispeval '(putd 'countids 'expr
           '(lambda nil (prog (nn) (setq nn 0)
@@ -6642,12 +6671,10 @@ begin
  if null !*ratarg    then algebraic(on  ratarg)$
 % if null !*rational  then algebraic(on  rational)$
 
- !#if (neq version!* "REDUCE 3.6")
   !*nopowers_bak   := cons(!*nopowers,!*nopowers_bak)$     
   !*allowdfint_bak := cons(!*allowdfint,!*allowdfint_bak)$ 
   if null !*nopowers   then algebraic(on nopowers)$
   if null !*allowdfint then algebraic(on allowdfint)$
- !#endif
 
 end$
 
@@ -6687,14 +6714,12 @@ begin
  if !*rational then algebraic(off rational) else algebraic(on rational)$
  !*rational_bak:= cdr !*rational_bak$ 
 
- !#if (neq version!* "REDUCE 3.6")
   if !*nopowers neq car !*nopowers_bak then
   if !*nopowers then algebraic(off nopowers) else algebraic(on nopowers)$
   !*nopowers_bak:= cdr !*nopowers_bak$ 
   if !*allowdfint neq car !*allowdfint_bak then
   if !*allowdfint then algebraic(off allowdfint) else algebraic(on allowdfint)$
   !*allowdfint_bak:= cdr !*allowdfint_bak$ 
- !#endif
 end$
 
 algebraic procedure maklist(ex)$
@@ -9467,28 +9492,28 @@ endmodule$
 
 end$
 
-tr err_catch_groeb
-tr err_catch_readin
-tr err_catch_solve
-tr err_catch_odesolve
-tr err_catch_minsub
-tr err_catch_gb
-tr err_catch_sub
-tr ecs_SQ
-tr err_catch_int
-tr err_catch_reval
-tr err_catch_fac
-tr err_catch_fac2
-tr err_catch_fac3
-tr err_catch_gcd
-tr err_catch_preduce
+% tr err_catch_groeb
+% tr err_catch_readin
+% tr err_catch_solve
+% tr err_catch_odesolve
+% tr err_catch_minsub
+% tr err_catch_gb
+% tr err_catch_sub
+% tr ecs_SQ
+% tr err_catch_int
+% tr err_catch_reval
+% tr err_catch_fac
+% tr err_catch_fac2
+% tr err_catch_fac3
+% tr err_catch_gcd
+% tr err_catch_preduce
 
-tr updateSQ
-tr err_catch_fac2
-tr sffac
-tr simplifySQ
-tr sort_according_to
-tr pdeweightSF
-tr stardep3
-tr sep_var
-tr new_ineq_from_equ_SQ
+% tr updateSQ
+% tr err_catch_fac2
+% tr sffac
+% tr simplifySQ
+% tr sort_according_to
+% tr pdeweightSF
+% tr stardep3
+% tr sep_var
+% tr new_ineq_from_equ_SQ

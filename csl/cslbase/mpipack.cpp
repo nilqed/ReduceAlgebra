@@ -1,11 +1,10 @@
-//
-// mpipack.cpp
+// mpipack.cpp                             Copyright (C) 2016-2017 Codemist
 //
 // Packing stuff into buffers for cross-PE communication
 //
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -33,7 +32,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: mpipack.cpp 4142 2017-08-05 15:59:42Z arthurcnorman $
 
 
 #ifndef header_mpipack_h
@@ -212,20 +211,13 @@ static void pack_cell(LispObject a)
     // clutter the stack with unnecessary variables, so I don't
     // define it in CSL mode.
     //
-#ifdef COMMON
-    LispObject nil = C_nil;
-#endif
     if (consp(a)) pack_open(), pack_cell(qcar(a)), pack_list(qcdr(a));
     else pack_space(), pack_atom(a);
 }
 
 static void pack_list(LispObject a)
-{
-#ifdef COMMON
-    LispObject nil = C_nil;
-#endif
-    if (consp(a)) pack_comma(), pack_cell(qcar(a)), pack_list(qcdr(a));
-    else if (a == C_nil) pack_close();
+{   if (consp(a)) pack_comma(), pack_cell(qcar(a)), pack_list(qcdr(a));
+    else if (a == nil) pack_close();
     else pack_dot(), pack_atom(a);
 }
 
@@ -253,7 +245,7 @@ static LispObject unpack_atom()
     {       int size;
         case TYPE_DOUBLE_FLOAT:
             size = length_of_header(a);
-            a = getvector(TAG_BOXFLOAT,TYPE_DOUBLE_FLOAT,size);
+            a = get_basic_vector(TAG_BOXFLOAT,TYPE_DOUBLE_FLOAT,size);
             MPI_Unpack(mpi_pack_buffer, mpi_pack_size, &mpi_pack_position,
                        double_float_addr(a),
                        1, MPI_DOUBLE, MPI_COMM_WORLD);
@@ -261,7 +253,7 @@ static LispObject unpack_atom()
 
         case TYPE_BIGNUM:
             size = length_of_header(a);
-            a = getvector(TAG_NUMBERS,type_of_header(a),size);
+            a = get_basic_vector(TAG_NUMBERS,type_of_header(a),size);
             MPI_Unpack(mpi_pack_buffer,mpi_pack_size,&mpi_pack_position,
                        (char*)a - TAG_NUMBERS + CELL,
                        (size - sizeof(Header))>>2, MPI_UNSIGNED_LONG, MPI_COMM_WORLD);
@@ -269,7 +261,7 @@ static LispObject unpack_atom()
 
         case TYPE_STRING:
             size = length_of_byteheader(a);
-            a = getvector(TAG_VECTOR,TYPE_STRING,size);
+            a = get_basic_vector(TAG_VECTOR,TYPE_STRING,size);
             MPI_Unpack(mpi_pack_buffer, mpi_pack_size, &mpi_pack_position,
                        (char*)a - TAG_VECTOR + CELL,
                        size - sizeof(Header), MPI_CHAR, MPI_COMM_WORLD);
@@ -277,16 +269,15 @@ static LispObject unpack_atom()
 
         case TYPE_SIMPLE_VEC: case TYPE_ARRAY: case TYPE_STRUCTURE:
             size = length_of_header(a);
-            push(getvector(TAG_VECTOR,type_of_header(a),size));
+            push(get_basic_vector(TAG_VECTOR,type_of_header(a),size));
             {   int i;
                 for (i=0; i<(size>>2)-1; ++i) elt(*stack,i) = unpack_cell();
-                if (!(i&1)) elt(*stack,i) = C_nil;
+                if (!(i&1)) elt(*stack,i) = nil;
             }
             return my_pop();
 
         case TYPE_SYMBOL:
-        {   LispObject nil = C_nil;
-            a = unpack_atom();  // Name in a string
+        {   a = unpack_atom();  // Name in a string
             return iintern(a, length_of_byteheader(vechdr(a))-CELL, CP, 0);
         }
         default:
@@ -301,7 +292,7 @@ static LispObject unpack_cell(void)
         case '(': return unpack_list();
         default :
         {   err_printf("Syntax error in message.\n");
-            return C_nil;
+            return nil;
         }
     }
 }
@@ -309,7 +300,7 @@ static LispObject unpack_cell(void)
 static LispObject unpack_list(void)
 {   push(unpack_cell());
     switch (unpack_char())
-    {   case ')': return cons(my_pop(),C_nil);
+    {   case ')': return cons(my_pop(),nil);
         case '.':
         {   LispObject tail = unpack_atom();
             return cons(my_pop(), tail);

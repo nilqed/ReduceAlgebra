@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: acfsfgs.red 3712 2016-06-14 06:37:49Z thomas-sturm $
 % ----------------------------------------------------------------------
 % Copyright (c) 1995-2009 Andreas Dolzmann and Thomas Sturm
 % ----------------------------------------------------------------------
@@ -31,7 +31,7 @@
 lisp <<
    fluid '(acfsf_gs_rcsid!* acfsf_gs_copyright!*);
    acfsf_gs_rcsid!* :=
-      "$Id$";
+      "$Id: acfsfgs.red 3712 2016-06-14 06:37:49Z thomas-sturm $";
    acfsf_gs_copyright!* := "Copyright (c) 1995-2009 A. Dolzmann and T. Sturm"
 >>;
 
@@ -130,7 +130,7 @@ procedure acfsf_gsd1(f,atl);
       return cl_simpl(cl_nnfnot phi,atl,-1)
    end;
 
-procedure acfsf_gsn(f,atl);
+asserted procedure acfsf_gsn(f, atl, bnf);
    % Algebraically closed field Groebner simplification via normal
    % form. [f] is a formula; [atl] is a theory. Returns [inconsistent]
    % or a formula equivalent to [f]. The returned formula is somehow
@@ -142,10 +142,14 @@ procedure acfsf_gsn(f,atl);
    % [rlradmemv!*].
    if rl_tvalp f then
       f
+   else if bnf eq 'dnf then
+      acfsf_gsd(f, atl)
+   else if bnf eq 'cnf then
+      acfsf_gsc(f, atl)
    else if cl_atflp(rl_argn f) then
-      if rl_op(f) eq 'and then acfsf_gsd(f,atl) else acfsf_gsc(f,atl)
+      if rl_op(f) eq 'and then acfsf_gsd(f, atl) else acfsf_gsc(f, atl)
    else
-      if rl_op(f) eq 'and then acfsf_gsc(f,atl) else acfsf_gsd(f,atl);
+      if rl_op(f) eq 'and then acfsf_gsc(f, atl) else acfsf_gsd(f, atl);
 
 procedure acfsf_gssimplify0(f,atl);
    % Algebraically closed field Groebner simplify. [f] is a

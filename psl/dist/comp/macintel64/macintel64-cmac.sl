@@ -7,10 +7,31 @@
 % Modified:
 % Mode:         Lisp
 % Package:
-% Status:       Experimental (Do Not Distribute)
+% Status:       Open Source: BSD License
 %
+% Redistribution and use in source and binary forms, with or without
+% modification, are permitted provided that the following conditions are met:
+%
+%    * Redistributions of source code must retain the relevant copyright
+%      notice, this list of conditions and the following disclaimer.
+%    * Redistributions in binary form must reproduce the above copyright
+%      notice, this list of conditions and the following disclaimer in the
+%      documentation and/or other materials provided with the distribution.
+%
+% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+% THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+% PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNERS OR
+% CONTRIBUTORS
+% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+% INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+% POSSIBILITY OF SUCH DAMAGE.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%
 % WN: This is a slight modification of the 'general Linux' AMD64 version.
 % Main reason is that the 64 bit Macintel uses data (and code) addresses
 % beyond 32 bit. Therefore an absolute address cannot stored in 32 bit
@@ -149,9 +170,9 @@
  
 %---------------------------------------------------------
 % The following set of predicates describes certain classes of
-% register classes. RegP tests if the ophe operand is a valid 68000 register.%
+% register classes. RegP tests if the ophe operand is a valid x86_64 register.%
 %
-% RegP  any 80386 register
+% RegP  any x86_64 register
 % FakeRegP tests for argument register numbers greater than LastActualReg
  
  
@@ -164,10 +185,11 @@
     (AND (eqcar Regname 'reg)
 	 (MemQ (cadr RegName) 
 	  '( 1  2  3  4  5 st t1 t2 rax rcx rdx rbx rsp rbp rsi rdi
-				eax ebx edx
-            nil heaplast heaptrapbound
-	    bndstkptr bndstklowerbound
-	    bndstkupperbound t3 t4 al  cl ax cx es cs ss ds fs gs))))
+	     eax ebx ecx edx esi edi r8 r9 r10 r11 r12 r13 r14 r15
+             nil heaplast heaptrapbound
+	     bndstkptr bndstklowerbound
+	     bndstkupperbound t3 t4
+	     al  cl ax cx es cs ss ds fs gs))))
  
 (DefList '((RAX   1) (RBX   2) (ebx  2) (RCX   3) (RDX   4) (RBP   5) )
 	 'RegisterNumber)
@@ -521,35 +543,35 @@
 (put 'wtimes2 'opencode '((imul (reg 2) (reg 1))))
 
 (put 'wquotient 'opencode '(%(*move (reg 1) (reg eax))
-                            (cqto)
-                            (idiv (reg 2))
-                            ))%%%%(*move (reg eax) (reg 1))))
+			    (cqto)
+			    (idiv (reg 2))
+			    ))%%%%(*move (reg eax) (reg 1))))
 
 (put 'wremainder 'opencode '(%(*move (reg 1) (reg eax))
-                            (cqto)
-                            (idiv (reg 2))
-                            (*move (reg rdx) (reg 1))))
+			    (cqto)
+			    (idiv (reg 2))
+			    (*move (reg rdx) (reg 1))))
 
 (put 'wdivide 'opencode '(%%(*move (reg 1) (reg eax))
-                            (cqto)
-                            (idiv (reg 2))
-                           %(*move (reg eax) (reg 1))
-                            (*move (reg rdx) ($fluid *second-value*))))
+			    (cqto)
+			    (idiv (reg 2))
+			   %(*move (reg eax) (reg 1))
+			    (*move (reg rdx) ($fluid *second-value*))))
 
 (de *WNegate(ARG1)
  (Expand1OperandCMacro ARG1 '*WNegate))
-
+ 
 (DefCMacro *WNegate
-           (                  (neg ARGONE))
+	   (                  (neg ARGONE))
  )
-
+ 
 (DefCMacro *WMinus                                               %  scs
-           ((AnyP  InumP)     (*MOVE (MINUS ARGTWO) ARGONE))
-           ( Equal            (*WNegate ARGONE))
-           ((regP AnyP)       (*MOVE ARGTWO ARGONE)
-                              (neg ARGONE))
-           (                  (*WMinus ARGTWO (Reg T1))
-                              (*MOVE (reg t1) ARGONE))
+	   ((AnyP  InumP)     (*MOVE (MINUS ARGTWO) ARGONE))
+	   ( Equal            (*WNegate ARGONE))
+	   ((regP AnyP)       (*MOVE ARGTWO ARGONE)
+			      (neg ARGONE))
+	   (                  (*WMinus ARGTWO (Reg T1))
+			      (*MOVE (reg t1) ARGONE))
 )
  
 (de *WComplement(ARG1)
@@ -842,11 +864,11 @@
                             (cmp (Reg t3) ARGONE) (ARGFOUR ARGTHREE))
     ((asm_macintel64-fluid-p zerop) (*MOVE  ARGONE (Reg t3))
                             (cmp ARGTWO (Reg t3)) (ARGFOUR ARGTHREE))
-    ((any_but_not_fluid-p ZeroP ) (cmp 0 ARGONE)     (ARGFOUR ARGTHREE))
+    ((any_but_not_fluid-p ZeroP ) (cmpq 0 ARGONE)     (ARGFOUR ARGTHREE))
     ((AnyP ZeroP ) (*move 0 (Reg t3))(cmp (reg t3) ARGONE) (ARGFOUR ARGTHREE))
     ((asm_macintel64-fluid-p inump) (*MOVE  ARGONE (Reg t3))
-                            (cmp ARGTWO (Reg t3)) (ARGFOUR ARGTHREE))
-    ((any_but_not_fluid-p InumP)   (cmp ArgTWO ARGONE)  (ARGFOUR ARGTHREE))
+                            (cmpq ARGTWO (Reg t3)) (ARGFOUR ARGTHREE))
+    ((any_but_not_fluid-p InumP)   (cmpq ArgTWO ARGONE)  (ARGFOUR ARGTHREE))
     ((AnyP  InumP) (*Move ARGTWO (reg t3))(cmp (Reg t3) ARGONE)  (ARGFOUR ARGTHREE))
     ((regP AnyP     )  (cmp ARGTWO ARGONE)   (ARGFOUR ARGTHREE))
     ((AnyP  regP    )  (cmp ARGONE ARGTWO)   (ARGFIVE ARGTHREE))
@@ -1010,9 +1032,10 @@
 	)
    ))
 
-(de asmp () !*writingasmfile)
+(de asmp (u) !*writingasmfile)
 
 (DefCMacro *Call
+   ((RegP)	  (CALL ARGONE))
    ((asmp)        (mov "_symfnc@GOTPCREL(%rip)" (reg t2))
                   (*move (idloc argone) (reg t1))
 		  (call (indirect (displacement (reg t2) (entry ARGONE)))))
@@ -1031,12 +1054,13 @@
 			(ret)))
  
 (DefCMacro *JCall
+   ((RegP)        (JMP ARGONE))
    ((asmp)        (mov "_symfnc@GOTPCREL(%rip)" (reg t2))
                   (*move (idloc argone) (reg t1))
                   (jmp  (indirect (displacement (reg t2) (entry ARGONE)))))
    ((InternallyCallableP) (jmp (InternalEntry ARGONE)))
    ((FastCallableP)       (JMP (indirect (entry ARGONE))))
-   (              (*move (idloc argone) (reg t1))
+	   (              (*move (idloc argone) (reg t1))
 			  (JMP (indirect (entry ARGONE)))))
  
  
@@ -1377,19 +1401,20 @@ preload  (setq initload
 	   (list (list '!*move '(fluid ebxsave!*) '(reg 2))
 		 '(*push (reg nil)) '(*push (reg heaplast)) 
 		 '(*push (reg heaptrapbound)) '(*push (reg bndstkptr)) 
-		 '(*push (reg bndstklowerbound))'(*push (reg bndstkupperbound)) 
-% stack has to be algined for SSE instructions in dyn. linking in C
+		 '(*push (reg bndstklowerbound))'(*push (reg bndstkupperbound))
+% stack has to be aligned for SSE instructions in dyn. linking in C
                  '(!*move  (reg st) (reg 1))
-                 '(sub 64 (reg st)) '(!*wshift (reg st) -5)
+                 '(sub 64 (reg st))
+		 '(!*wshift (reg st) -5)
                  '(!*wshift (reg st) 5)
                  '(!*move  (reg 1) (displacement (reg st) 40))
                 %% '(!*move  (displacement (reg rdi) 0) (reg rdi))
-                 (list 'call (list 'ForeignEntry FunctionName))
+		 (list 'call (list 'ForeignEntry FunctionName))
                  '(!*move  (displacement (reg st) 40) (reg st))
 		 '(*pop (reg bndstkupperbound))'(!*pop (reg bndstklowerbound)) 
 		 '(*pop (reg  bndstkptr)) '(*pop (reg heaptrapbound)) 
 		 '(*pop (reg heaplast)) '(*pop (reg nil)) 
-		  (list '!*move '(reg 2) '(fluid ebxsave!*)))
+		 (list '!*move '(reg 2) '(fluid ebxsave!*)))
 	   (cond
 	((eq NumberOfArguments 0) nil)
 	((lessp NumberOfArguments 3)

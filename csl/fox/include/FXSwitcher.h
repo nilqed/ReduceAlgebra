@@ -19,7 +19,7 @@
 * License along with this library; if not, write to the Free Software           *
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.    *
 *********************************************************************************
-* $Id$                        *
+* $Id: FXSwitcher.h 3297 2015-12-14 20:30:04Z arthurcnorman $                        *
 ********************************************************************************/
 #ifndef FXSWITCHER_H
 #define FXSWITCHER_H

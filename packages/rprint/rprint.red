@@ -29,8 +29,13 @@ module rprint;  % The Standard LISP to REDUCE pretty-printer.
 
 create!-package('(rprint),'(util));
 
-fluid '(!*lower !*n buffp combuff!* curmark curpos orig pretop
+fluid '(!*lower !*raise !*n buffp combuff!* curmark curpos orig pretop
         pretoprinf rmar rprifn!* rterfn!*);
+
+% After "on rprint_lower;" identifiers printed here will be converted to
+% lower case.
+switch rprint_lower;
+!*rprint_lower := t;
 
 COMMENT RPRIFN!* allows output from RPRINT to be handled differently,
         RTERFN!* allows end of lines to be handled differently;
@@ -97,8 +102,6 @@ symbolic procedure mprino1(u,v);
          end
        else if x := get(car u,pretop)
         then return if car x then inprinox(u,car x,v)
-% Next line commented out since not all user infix operators are binary.
-%                    else if cddr u then rederr "Syntax error"
                      else if null cadr x then inprinox(u,list(100,1),v)
                      else inprinox(u,list(100,cadr x),v)
        else if flagp(car u,'modefn) and eqcar(cadr u,'procedure)
@@ -178,7 +181,10 @@ symbolic procedure explodex1 u;
 symbolic procedure explodey u;
    begin scalar v;
       v := explode u;
-      if idp u then v := for each x in v collect check!-downcase x;
+% This will map all identifiers into lower case. I arrange that this
+% is not done if the user has reset !*rprint_lower to nil.
+      if idp u and !*rprint_lower then
+         v := for each x in v collect check!-downcase x;
       return v
    end;
 
@@ -237,6 +243,7 @@ symbolic procedure condox u;
       while u do
         <<prin2ox "if "; mprino caar u; omark list(curmark,1);
           prin2ox " then ";
+          if cddar u then u := list(caar u, 'progn . cdar u) . cdr u;  
           if cdr u and eqcar(cadar u,'cond)
                  and not eqcar(car reverse cadar u,'t)
            then <<x := t; prin2ox "(">>;
@@ -245,7 +252,8 @@ symbolic procedure condox u;
           u := cdr u;
           if u then <<omarko(curmark - 1); prin2ox " else ">>;
           if u and null cdr u and caar u eq 't
-            then <<mprino cadar u; u := nil>>>>;
+            then <<mprino (if cddar u then 'progn . cdar u else cadar u);
+                   u := nil>>>>;
       curmark := curmark - 2;
       omark '(m d)
    end;
@@ -260,7 +268,10 @@ symbolic procedure ifox u;
     u := cdr u;
     if u then << a := car u; u := cdr u >>;
     if u then << b := car u; u := cdr u >>;
-    condox list(list(p, a), list(t, b))
+% (if b X nil) can be treated as just (cond (b X)) and does not need to be
+% the full (cond (b X) (t nil)).
+    if null b then condox list(list(p, a))
+    else condox list(list(p, a), list(t, b))
   end;
 
 put('if,pretoprinf,'ifox);
@@ -498,7 +509,8 @@ symbolic procedure proceox0(u,v,w,x);
    proceox list(u,'symbolic,v,for each j in w collect j . 'symbolic,x);
 
 symbolic procedure deox u;
-   proceox0(car u,'expr,cadr u,caddr u);
+   proceox0(car u,'expr,cadr u,
+      (if cdddr u then 'progn . cddr u else caddr u));
 
 put('de,pretoprinf,'deox);
 

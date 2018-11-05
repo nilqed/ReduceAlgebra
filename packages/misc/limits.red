@@ -66,7 +66,7 @@ load!-package 'tps; %load!-package 'taylor;
 
 lisp(ps!:order!-limit := 100);
 
-switch usetaylor; off usetaylor;
+switch usetaylor=off;
 
 fluid '(!*precise lhop!# lplus!# !*protfg !*msg !*rounded !*complex !*factor
         !#nnn lim00!# !*crlimtest !*lim00rec);
@@ -124,18 +124,18 @@ symbolic procedure countof(u,v);
 
 symbolic procedure simplimit u;
    % The kludgey handling of cot needs to be fixed some day.
-   begin scalar fn,exprn,var,val,old,v,!*precise,!*protfg;
+   begin scalar fn,exprn,var,val,old,v,!*precise;
      if length u neq 4
        then rerror(limit,1,
                    {"Improper number of arguments to",car u,"operator"});
      fn:= car u; exprn := cadr u; var := !*a2k caddr u; val := cadddr u;
-     !*protfg := t;   % ACH: I'm not sure why this is needed.
      old := get('cot,'opmtch);
      put('cot,'opmtch,
          '(((!~x) (nil . t) (quotient (cos !~x) (sin !~x)) nil)));
-     v := errorset!*({'apply,mkquote fn,mkquote {exprn,var,val}},nil);
+     %% rebind !*protfg so that errors are not shown
+     v := errorset!*({'apply,mkquote fn,mkquote {exprn,var,val}},nil)
+		where !*protfg := t;
      put('cot,'opmtch,old);
-     !*protfg := nil;
      return if errorp v or (v := car v) = aeval 'failed
               then mksq({fn,aeval exprn,var,val},1)
              else simp!* v
@@ -149,11 +149,9 @@ symbolic procedure limit0(exp,x,a);
      if a = '(minus infinity) then
         return limit00(subsq(exp1,{x . {'quotient,-1,{'expt,x,2}}}),x);
      return
-        (<<!*protfg := t;
-           y := errorset!*
+        (<<y := errorset!*
              ({'subsq,mkquote(exp := simp!* exp),mkquote{(x . a)}},nil)
-              where !*expandlogs=t;
-           !*protfg := nil;
+              where !*expandlogs=t,!*protfg=t;
            if not (errorp y) and not ((y := car y) = aeval 'failed)
               then mk!*sq y
            else if neq(a,0) then limit00(subsq(exp1,{x .
@@ -247,15 +245,15 @@ symbolic procedure pwrdenp(p,x);
 
 symbolic procedure limitset(ex,x,a);
  if !*usetaylor then
-  <<!*protfg := t;
-    ex := errorset!*({'limit1t,mkquote ex,mkquote x,mkquote a},nil);
-    !*protfg := nil;
+  <<ex := errorset!*({'limit1t,mkquote ex,mkquote x,mkquote a},nil)
+            where !*protfg := t;
     if errorp ex then nil else car ex>>
  else % use tps.
   begin scalar oldpslim;
-      !*protfg := t; oldpslim := simppsexplim '(1);
-      ex := errorset!*({'limit1p,mkquote ex,mkquote x,mkquote a},nil);
-      !*protfg := nil; simppsexplim list car oldpslim;
+      oldpslim := simppsexplim '(1);
+      ex := errorset!*({'limit1p,mkquote ex,mkquote x,mkquote a},nil)
+              where !*protfg := t;
+      simppsexplim list car oldpslim;
       return if errorp ex then nil else car ex
   end;
 
@@ -332,11 +330,9 @@ ret:if not r then off rounded; if not c then off complex;
   where r=!*rounded,c=!*complex,!*msg=nil;
 
 symbolic procedure topevalsetsq u;
-  <<!*protfg := t;
-    if not r then on rounded; if not c then on complex;
+  <<if not r then on rounded; if not c then on complex;
     u := errorset!*({'simp!*,{'aeval,{'prepsq,{'simp!*,mkquote u}}}},
-      nil);
-    !*protfg := nil;
+      nil) where !*protfg := t;
     if not r then off rounded;if not c then off complex;
     if errorp u then nil else car u>>
   where r=!*rounded,c=!*complex,!*msg=nil;
@@ -357,10 +353,11 @@ symbolic procedure limsimp(ex,x);
               then ex := apply(z,list(ex,x))>>
          else <<if ex eq x then ex := 0; go to ret>>;
       if y eq 'plus then go to ret;
-      if y eq 'expt then if ex then return ex else ex := ex0 . 1;
+      if y eq 'expt then if ex then goto ret else ex := ex0 . 1;
       if z then<<z := car ex; c := cdr ex>>
-         else <<z := prepsq !*f2q numr(ex := simp!* ex);
-                c := prepsq !*f2q denr ex>>;
+         else <<ex := simp!* ex;
+                z := prepf numr ex;
+                c := prepf denr ex>>;
       ex := lhopital(z,c,x,0);
  ret: if m and prepsq simp!* ex neq 'failed then
          ex := aeval lminus2 ex;
@@ -402,9 +399,11 @@ symbolic procedure specchk(top,bot,x);
            top := triml append(tzros,append(tinfs,
               append(tnrms,trimq append(binfs,bzros))))>>
       else
-         <<top := triml append(cadr tlist,trimq bzros);
-           bot := triml append(cadr blist,
-              append(bnrms,trimq append(tzros,tnrms)))>>;
+         <<% case only zeros in top: move them from tzros to tnrms
+           if null tnrms and not null tzros and null bzros and null binfs and null tinfs
+             then <<tnrms := for each x in tzros collect x; tzros := nil>>;
+           top := triml append(cadr tlist,append(tnrms,trimq bzros));
+           bot := triml append(cadr blist,append(bnrms,trimq tzros))>>;
       if m then top := list('minus,top);
       return top . bot end;
 
@@ -421,7 +420,7 @@ symbolic procedure limsort(ex,x);
          << q := numr(s := simp!* limit00(simp!* c,x));
             if domainp q then << if not !:zerop q then nrms := q . nrms
                                   else zros := c . zros >>
-             else if caaar q memq '(failed infinity) then infs := c.infs
+             else if mvar q memq '(failed infinity) then infs := c.infs
              else nrms := (prepsq s) . nrms >>;
       return list(zros,infs,nrms) end;
 
@@ -552,9 +551,7 @@ symbolic procedure limitest(ex,x,a);
        if cadr ex eq 'e then ex := list('exp,caddr ex)
        else return exptest(cadr ex,caddr ex,x,a);
     if (y := get(car ex,'fixfn)) then
-       <<arg := cadr ex; val := limitset(arg,x,a);
-         return apply1(y,
-          if val then val else limitest(arg,x,a))>>
+       return apply1(y,limfix(cadr ex,x,a))
     else if (y := get(car ex,'limcomb)) then
        return apply3(y,cdr ex,x,a) end;
 
@@ -674,7 +671,8 @@ symbolic procedure fixsinh x;
    if infinp x then x;
 
 symbolic procedure fixexp x;
-   if x eq 'infinity then x else if x = '(minus infinity) then 0;
+   if zerop x then 1 
+    else if x eq 'infinity then x else if x = '(minus infinity) then 0;
 
 % Special case rules.
 

@@ -1,9 +1,14 @@
-% "i86comp.red"                 Copyright 1991-2016,  Codemist
+% "i86comp.red"                          Copyright (C) 1991-2017,  Codemist
 %
 % Compiler that turns Lisp code into Intel 80x86 32-bit assembler in a way
 % that fits in with the conventions used with CSL/CCL
 %
-% It is hoped that parts of this compoiler will form a framework upon
+
+% This code is not being developed at present, in part because x86_64
+% has taken over in importance.
+
+
+% It is hoped that parts of this compiler will form a framework upon
 % which native compilers for other architectures can be built. Even with
 % just the Intel one there are three different sets of register and calling
 % conventions I would like to support (!), viz
@@ -40,7 +45,7 @@
 %                                                        M A Dmitriev
 %                                                        A C Norman
 
-% $Id$
+% $Id: i86comp.red 3884 2017-02-05 19:17:16Z arthurcnorman $
 
 global '(i_machine);
 
@@ -801,13 +806,13 @@ symbolic procedure i!:translate_memref(a);
 % with the translation of symbolic representations of CSL internal variables.
 %
 % ACN dislikes the use of the STRING "nil" here. Also resolution of the
-% addresses of C_nil, stack etc should be deferred to load time. But leave
+% addresses of nil, stack etc should be deferred to load time. But leave
 % it as it is for now since it works!
 %
   if (get(a, 'i!:locoffs)) then {'ebp, get(a, 'i!:locoffs)}
   else if a = "nil" then {'ebp,-4}
   else if a = 'env or a = '!.env then {'ebp,off_env}
-  else if a = 'C_nil then {'ds,OFS_NIL}
+  else if a = 'nil then {'ds,OFS_NIL}
   else if a = 'stack then {'ds,OFS_STACK}
   else if a = 'lisp_true then {'ds,OFS_LISP_TRUE}
   else if a = 'current_modulus then {'ds,OFS_CURRENT_MODULUS}
@@ -2046,7 +2051,7 @@ put('movr, ' c!:opcode_printer, function c!:pmovr);
 
 symbolic procedure c!:pld_eltenv(elno);
  <<
-   % #define elt(v, n)  (*(Lisp_Object *)((char *)(v)-2+(((int32_t)(n))<<2)))
+   % #define elt(v, n)  (*(Lisp_Object *)((char *)(v)-2+(((intptr_t)(n))<<2)))
 
    i!:gopcode(mov, edx,{ebp,off_env});
    i!:gopcode(mov, eax,{edx,4*elno-2})
@@ -2593,13 +2598,13 @@ symbolic procedure c!:pcall(op, r1, r2, r3, depth);
        if null cadr r3 and depth = 0 then <<
 
          lab1 := c!:my_gensym();
-         i!:gopcode(mov,eax,'C_nil, mov,{ebp,-4},eax);
+         i!:gopcode(mov,eax,'nil, mov,{ebp,-4},eax);
          i!:gopcode(and,eax,1, je,lab1);
          i!:gopcode(mov,eax,{ebp,-4}, jmp,lab_end_proc);
          i!:gopcode('!:,lab1)
          >>
        else <<
-         i!:gopcode(mov,eax,'C_nil, mov,{ebp,-4},eax);
+         i!:gopcode(mov,eax,'nil, mov,{ebp,-4},eax);
 
          c!:pgoto(nil, c!:find_error_label(nil, cadr r3, depth), depth);
 
@@ -3168,7 +3173,7 @@ symbolic procedure c!:optimise_flowgraph(startpoint, all_blocks,
       >>;
 
     if nil_used then
-      i!:gopcode(mov,eax,'C_nil, mov,{ebp,-4},eax);
+      i!:gopcode(mov,eax,'nil, mov,{ebp,-4},eax);
     i!:gopcode(push,ebx, mov,ebx,'stack);
 
     %!! Has not been perfectly processed yet due to the string parameter
@@ -3195,7 +3200,7 @@ symbolic procedure c!:optimise_flowgraph(startpoint, all_blocks,
        c!:pgencall('reclaim, {'!.env,0,GC_STACK,0}, {'ebp,off_env});
 
        c!:pushpop('pop, reverse args);
-       i!:gopcode(mov,eax,'C_nil, mov,{ebp,-4},eax);
+       i!:gopcode(mov,eax,'nil, mov,{ebp,-4},eax);
 
        i!:gopcode(and,eax,1, je,lab1);
        i!:gopcode(mov,eax,{ebp,-4}, jmp,lab_end_proc);

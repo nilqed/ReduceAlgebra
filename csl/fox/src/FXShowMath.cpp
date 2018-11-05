@@ -8,7 +8,7 @@
 //
 
 /******************************************************************************
-* Copyright (C) 2004-15 by Arthur Norman, Codemist Ltd.  All Rights Reserved. *
+* Copyright (C) 2004-15 by Arthur Norman, Codemist.  All Rights Reserved.     *
 *******************************************************************************
 * This library is free software; you can redistribute it and/or               *
 * modify it under the terms of the GNU Lesser General Public                  *
@@ -47,7 +47,7 @@
 // potential detriment of those whose choice differs).
 
 
-// $Id$
+// $Id: FXShowMath.cpp 4189 2017-09-08 08:05:40Z arthurcnorman $
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -80,8 +80,8 @@
 
 #include <stdlib.h>
 
-extern int directoryp(char *a, const char *b, size_t n);
-extern int file_readable(char *a, const char *b, size_t n);
+extern bool directoryp(char *a, const char *b, size_t n);
+extern bool file_readable(char *a, const char *b, size_t n);
 
 #include <string.h>
 #include <ctype.h>
@@ -583,10 +583,7 @@ static const char *cmsySizesTable[] =
 // At some stage I may well move all of these to be fields within a
 // suitable object, but while I only have ONE window on which I will
 // display things using Xft I can make them simple static varaible and hence
-// fairly local to this file. But I will give them C linkage to make
-// access from code outside easier.
-
-extern "C" {
+// fairly local to this file.
 
 extern Display      *dpy;
 extern int          screen;
@@ -607,8 +604,6 @@ XRenderColor ftRenderBlack = {0x0000, 0x0000, 0x0000, 0xffff};
 XRenderColor ftRenderWhite = {0xffff, 0xffff, 0xffff, 0xffff};
 XftColor     ftBlack, ftWhite;
 XftFont      *ftFont = NULL;
-
-}
 
 #endif
 
@@ -2662,7 +2657,7 @@ static Keyword texWords[1<<texWordBits] =
     {"smallint",         TeXVSymbol, FntExtension, 0x52, NULL},
     {"int",              TeXVSymbol, FntExtension, 0x5a, NULL},
 // It looks to me as if tmprint.red can generate either \int or \Int
-// and maybe it expects one to be smaller than the other...???
+// and maybe it expects one to be smaller than the other...?
     {"Int",              TeXVSymbol, FntExtension, 0x5a, NULL},
     {"smalloint",        TeXVSymbol, FntExtension, 0x48, NULL},
     {"oint",             TeXVSymbol, FntExtension, 0x49, NULL},
@@ -3793,7 +3788,7 @@ case '.':   case '?':   case '!':   case '|':
 case '`':   case '#':   case '~':   case '=':
 case '(':   case ')':   case '<':   case '>':
 case '[':   case ']':
-// "NOTSIGN" ??
+// "NOTSIGN" ?
         lexerBuffer[0] = curChar;
         lexerBuffer[1] = 0;
         lexLength = 1;

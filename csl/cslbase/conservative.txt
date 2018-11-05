@@ -3,175 +3,176 @@
 
 
 This note is to help me while I design and implement one, and comments on
-changes from a previous world.
+changes from a previous world. This is a fresh version of these notes and
+is being started in April 2016. I had done some redesign in October 2017, but
+the latest changes are from June 2018.
 
-(a) I can do an existing-style garbage collection during PRESERVE since
-at that stage there ought not to be any stack to mark. Thus I can guarantee
-that saved heaps will be fully compacted. Well in such cases I need just
-a bit more - I should ensure that the new space that I copy to does not
-contain any items that had been relocatable during the previous GC. If I am
-tight on space and this is not easy then I may need to do two garbage
-collections to guarantee that I end up with a fully compacted heap to save.
+The work discussed here is to arrange that CSL uses a mostly-copying
+conservative collector. The details are substantially tuned to the expected
+patterns of memory usage. Although the initial implementation will be
+single threaded the intent is to allow for a threaded system in the future.
+Following CST project work by Jamie Davenport I now intend to try for a
+design that is conservative, generational and somewhat threaded.
 
-(b) For conservative GC I should abandon the old mark-slide compacting
-collector and only ever use stop-and-copy. The effect is that if you only
-have tightly limited memory space you do not get as far. This could be held
-to be bad for people who run on a 32-bit machine and want over 1 Gbyte of
-active heap data. I propose to take the line that they need to use the
-new conservative system on a 64-bit system. But I should keep the existing
-world supported for some while as well (as a seperate executable, but
-probably able to use the same image files) so that they are not utterly
-messed about.
+Memory is used in pages (of size CSL_PAGE_SIZE). Each page will either hold
+CONS cells (and other items of size 2*CELL) or larger items (typically
+symbol headers and vectors). Given an arbitrary bit-pattern it will be
+possible to tell if it refers to an address within an object in one of these
+pages.
 
-(c) The only ambiguous bases I need to fuss about are on the C stack. All
-other refs can be taken as fully valid.
+With each page I will have a bitmap that is used to record a concept "pinned"
+that can be associated with any object in the page. An item will be marked
+pinned if an ambiguous pointer refers to it, and hence it may not be moved.
+I will have an array of size half a page for each thread and will bse that
+to collect a list of all the pinned items in a single page of memory that
+I am evacuating. The size here is only half a page because the smallest items
+ever allocated within the heap are 2 pointers large. I rather expect that the
+full capacity of this will never be approached.
 
-(d) The new GC strategy will be:
-    (d.1) For each ambiguous base, look at content. If it does not refer to
-          heap data that I had previously allocated ignore it. Otherwise
-          tag that data as immovable. [for CONS cells, symbol-heads and
-          I think that a mark bit in the second word might serve? For vectors
-          I can mark the header. I need to be careful about ambiguity against
-          states that arise normally during GC but that are odd! I can
-          identify CONS and symbol validity by a reference into a typed page
-          with a good offset and sane content if I full unused parts of
-          pages with a value not legal in used data (eg some sort of SPID?).
-          For lisp vectors I hope that the header word is a valid test for
-          a good reference (again unused space in the page must not look
-          like header data so needs clearing). For binary and mixed vectors
-          I may need a per-page bitmap.] Set a flag for any page that has
-          immovable data on it.
-          Perhaps putting symbols and all sorts of vectors in a page with
-          a bitmap to identify headers will be easier! And if I have one bit
-          in the map per 32 bits in the page then this will give me the
-          same scheme for 32 and 64-bit machines.  Hmmm simplification!
-    (d.2) Note that I must not start copying ANYTHING until I have identified
-          everything that must be treated as immovable. Items tagged immovable
-          must never move! Run the normal copying GC except that when an
-          immovable item is reached it is just left in place. At some stage
-          re-scan the ambiguous bases and copy items that are referred to from
-          immovable items. Note that this means that the identification of
-          valid ambigious pointers has to happen during copying as well as
-          before, and this may add further limits to how tag bits must be
-          used. Any immovable item must have its contents copied exactly
-          once, so I need to be able to mark as "fixed" and also as "fixed
-          but processed".
-    (d.3) Any page that was NOT flagged as holding immovable data can be
-          put in a general free pool at once. It probably does not need
-          cleaning (but when a page is taken from a pool ready for use it
-          probably does). Pages that contain immovable stuff haveto remain the
-          same type. They have to have a linear scan to clean the parts no
-          longer in use while preserving the valid stuff, and to set up a
-          free-map for subsequent allocation. Shuffle things so that
-          after the GC allocation of that type of data happens first from
-          dirty pages.
-    (d.4) Trigger the next GC while there are still enough free pages
-          (including dirty ones, that should be accounted at a discount rate)
-          that one can be confident of being able to complete the copy.
-          In all realistic cases in fact after GC only a small proportion of
-          potential heap is in use, and so usually the "half" as in half-space
-          is way to pessimistic! Observe that there can be unrelocatable
-          items pre-allocated in otherwise free pages.
-    (d.5) Would it be worth setting up a has table of ambiguous pointers
-          early in the GC to avoid need for any costly analysis to be
-          repeated on identical values? If so how big would that table need
-          to be and how could one cope with overflow?
-    (d.6) A dirty page has a (few?) immovable items in it. Treat it as
-          a sequence of minipages each of which is a consecutive free
-          block of memory, and expect these to be large. Then allocation of
-          new stuff can be sequential but can stop at the end of the
-          minipage and skip over the unrelocatable item then. My guess is that
-          the effect will be low extra costs compared to the current scheme.
+Pages of memory are classified as
+  Current (C). These are the pages within which the mutator allocates
+     new material. There may be several such if allocation of CONS cells
+     and vectors use different dedicated current pages and in a multi-thread
+     world each thread would have its own current page or pages.
+  Recent (R). When a current page becomes full it is replaced with a new
+     empty page, and the full page that had been current is re-badged as
+     "recent". When that happens the previous recent page will have its
+     content evacuated - that process representing a minor garbage collection.
+  Stable (S). When live material is moved out of an "old recent" page it is
+     copied into the stable region. This will come to be the bulk of the
+     active heap and uses as many pages as are called for. At any one time
+     one of these pages will be the "stable fringe" where new material is
+     added. In a multi-thread world there is just a single pool of stable
+     heap.
+  Free (F). Pages that are not in use are in this group. When a minor garbage
+     collection places in a fresh stable page such that |S| > |F| then a full
+     garbage collection is triggered. At that stage R is empty. The stable
+     fringe page is then deemed part of what will become the new heap, and
+     all material apart from that is copied into that and subsequent pages
+     taken from free. The vacated pages are then re-labelled to form the
+     new free region. While doing this the current page does not have
+     its content relocated.
 
-Tagging during the GC
+Within the heap I can maintain "dirty bits" that mark parts of pages where
+data has been updated. I will arrange that as the start of a minor garbage
+collection I will have two maps of dirty memory, one corresponding to the
+time period while R was being filled and a second to the time that C was
+filled. Clearly at the end of a minor collection the old C becomes the new
+R and a fresh C is allocated, so the previous C-map becomes the new R-map
+and the new C-map starts off fresh and clean. These maps will not be needed
+or used during a major collection.
 
-m..z000    reference to a cons cell
-x..m001    a fixnum
-x..m010    "odds". Bottom 8 bits indicates exact type, eg header
-x..m011    short float
-m..z100    symbol
-m..z101    "numbers" eg pointer to bignum or complex. 1..x1xxx bits as usual
-m..z110    vector of some sort
-m..z111    regular boxed float
-
-m is the GC bit used to mark this cell. z must be zero on a 64-bit machine
-but may be 1 on a 32-bit one. But for symbols, numbers, vectors and boxfloats
-I can use a bitmap to decide if I am pointing at a valid header.
-For cons cells I will need to check that the CAR field does not contain
-a value that flags the item as not in use (some sort of SPID I expect).
-
-During the GC objects themselves get marked. The situation will be different
-for each sort of object.  I will use the notation x for a cell that is
-not tagged as above, and X for one that is.
-
-Cons cells: Before GC a cons cell is xx (obviously!). When the cell has been
-copied it is left as Xx with the X a forwarding address, which is necessarily
-a reference to a cons. The cell is initially copied into the new space
-unaltered as a fresh xx. Cons cells are allocated downwards from the top of
-the new heap page. When a page is finally filled a tag SPID_GCMARK is
-placed at its end. Newly copied stuff is scanned so that sub-structure gets
-copied in due course, but that does not involve any extra tag or mark bits.
-Ambigouos refs to cons cells can be handled as follows. An initial pass
-of the ambiguous bases sets each cons that it finds to xX. Once all ambiguous
-bases have been pre-tagged a second scan of them can call copy on the two
-fields, leaving them tagged xX. At the end of GC a final scan resets
-unrelocated items back to xx. Wheneverthe copy process finds a cons it of
-course checks to see if it is Xx and so has been copied already - but in this
-new case it also needs to check for xX to see if it shoudd be left unmoved.
-Note - I could use XX not xX to tag an immovable cons, and just what I do
-can be decided on the basis of looking to see which branch of the code would
-be the cheaper one to put the test for ?X into.
-
-Odds/BPS: one special case off otherwise immediate data needs attention. A
-reference to (bytecoded) binary code is packed in a curious way. However its
-treatment will be parallel to that for strings and bignums. An oddity here is
-that the packing used for BPS references puts a limit on the amount of
-bytecoded stuff that can be addressed, but I take the view that the bytecode
-representation is so compact that that would never be an awkward limit in
-any even vaguely realistic situation. And if it was I could re-work it for
-64-bit machines to in effect remove the limit.
-
-Fixnum, odds, short-float: the GC never changes these anyway and so for the
-purposes of ambiguous bases they just get treated as "not a pointer" and hence
-"nothing to worry about". Note however the BPS issue as above.
-
-Vectors that only contain binary data: this includes strings and bignums
-and boxed floats, and so it is actually a quite common case. And observe that
-bytecoded things fall in this category too. Between garbage collections a
-vector has a header word at its start. The pre-pass for ambiguous pointers can
-just set the mark bit in the header word. Ie the header will be of the
-for x...1010. Normally when the copy phase sees a vector it will write
-a reference to the relocated vector into that header word. It writes it
-without any special tag bits, and the presense of a non-header identifies
-the object as having been visited. A past-pass on ambiguous pointers must
-reset the marked headers.
+Now I will be explicit about the expectations that I have that lead to this
+plan. They are
+(1) Much material that is allocated will only remain active for a short
+while. The time that it takes to fill up the C page will be long enough that
+when C becomes full everything in R will have had time for this infant
+mortality to take effect, and so on a minor garbage collection a substantial
+fraction of R will be garbage and hence does not get copied into S.
+(2) In CSL the only place the ambiguous pointers reside is on the stack.
+An especially large number of entries towards the top of the stack will
+refer to data that is just in the process of being worked on, and this will
+mean that most ambiguous pointers that refer to anything at all will refer
+to locations within C. In particular I hope that there will be few ambiguous
+references into R. Neither minor nor major garbage collection will relocate
+data that is in C, so my expectation and hope is that there will be only
+minor disruption to storage elsewhere because of conservatism.
+(3) The schemes I have for identifying dirty regions of memory are based on
+storage protection and accepting an exception when a region is first written
+to. Because subsequent memory access is unimpeded I expect this will have low
+overhead. Memory protection is performed at a granularity substantially
+smaller then the size of whole pages. My expectation is that almost all
+writes to memory will be in either C or in symbol headers. Symbol headers will
+be distributed across S, but I can imagine arranging that the major
+garbage collection would copy all symbol headers from the oblist in such
+a way as to leave them as a compact block (along with the vectors that
+represent the object list itself). The hope is that the amount of memory
+identified as dirty will be a rather small fraction of the full size of the
+heap.
+(4) Given an arbitrary bit pattern it will first be possible to tell if it
+could be an address within any active page of the heap, and if it is then
+the starting address and Lisp type of any item it points within can be
+discerned reasonably efficiently.
+(5) Given a region of memory within a page it will be possible to identify all
+Lisp objects that overlap it, and on that basis scan all pointers that flow
+out from it. Maybe the key issue here is when the region covers the end but
+not the start of some Lisp vector and it is thus necessary to search back
+through lower-address parts of a page to find the start and hence the length
+of the vector. The assumption here requires consideration of any cases where
+ojjects in memory are not strictly laid out one after the other but where
+there are gaps between them.
+(6) With a conservative collector it is necessary to leave some items
+unrelocated in a manner that leaves the free space at the end of garbage
+collection fragmented. In pathological cases this could lead to major
+inefficient in  attempots to allocate vectors, and premature failure to
+allocate. This may include failure to allocate while performing the
+copying operstions of a major garbage collection! Perhaps I can manage a
+temporary recovery if I find myself gummed up during garbage collection by
+just giving up and not evacuating some data. That way I can at least get
+back to normal operation, albeit without enough memory freed up to be
+able to start any subsequent garbage collection with any confidence at all.
+But that may be sufficient to allow be to display a disgnostic about
+running out of memory and then close down. Note that within CSL I allocate
+vectors of size up to (1/4) of the page size, and allowing for the fact
+that pages contain headers and bitmaps this means that (only) up to 3
+maximum size vector chunks can fit on one page, and a wasted gap can be left.
+I need to consider whether vector allocation should have two strands: the
+simple one being linear allocation at the end of the current page, but
+building any space that has to be skipped either because of pinned data or
+the granularity of the pages into a free-chain, and then an alternative scheme
+that allocates from within this free-chain so that smaller allocations can
+be used to fill in the gaps. I think that sort of plan may be especially
+useful for the allocations that are performed for material that is being
+copied during a major garbage collection.
 
 
-Symbols, vectors that contain lists, mixed vectors: these actually seem to
-be handled just the same way as vectors containing binary, except that there
-must be a scan of ambiguous pointers that copies all vector content.
+The overall pattern for a minor garbage collection will be
+(1) Clear the pinned map for R
+(2) Scan all ambiguous bases (ie the stack) and if any item there could
+    be a pointer into R then set the pinned bit against the head of the
+    relevant object. Keep a list of all those objects in the "pinned table".
+(3) Scan all unambiguous bases, all locations within objects that are
+    in regions of memory dirty since R was set up and all locations within
+    the pinned items in R. In each case if the reference is to a non-pinned
+    item in R then on the first visit evacuate that item into S, and on
+    a subsequent visit just use the forwarding pointer set up on the first
+    visit. Update the base. Note that I expect all of C to be dirty, and
+    so scanning it may perhaps be done more elegantly than checking every
+    part of it for dirty bits.
+(4) Scan the material newly places in S. If references into R are found
+    then evacuate more or follow the forwarding address. This may expand
+    the region in S that is used - grab further pages for it as needed.
+    Stop when the scan has covered everything moved into S.
+(5) Now the only live data in R should be the things that are pinned.
+    Use the pinned table to build the structures within it that support
+    allocation. [Note: after this step the pin map and table are both no
+    longer needed].
+(6) Check if S is now over-full and if so trigger a major garbage collection.
+(7) Swap the interpretation of C and R, and update the dirty maps to match.
+    Well the dirty map issue is maybe ugly. Any part of S that has been
+    updated such that it refers into C must now be tagged in the map, and
+    all of what used to be R but is now C can have map info cleared.
 
-So in top-level outline there are 3 scans of ambiguous bases:
-(1) tag addresses as immovable;
-(2) copy contents of whatever the immovable thing was;
-<at this stage one then copies startin from all the safe list bases>
-(3) untag immovable data.
-and I think that this means that I need to have unambiguous lists of
-ambiguous pointers(!). If I just walk down the stack I might be twitchy
-that the walk could cover some part of the stack that was in use by the
-GC itself and so could change as I went. To avoid that as well as to
-(slightly) speed things up I will walk the stack from the top down, and to
-start with I will test if a value seems like a pointer and if so stick it in
-a fixed size array. If I am lucky this fixed array will end up holding all
-values that I need to trace! And I can use if in each of (1), (2) and (3).
-If I am unlucky my stack will be very deep and many of the values on it
-will appear to be Lisp values, and so I will completely fill the fixed
-table. If I do I can save the pointer into the stack where the first value
-beyond that that seemed pointerish lived, and do a the pointer validation
-on each item from there to the stack base during each of my 3 phases.
-Observation of how Reduce runs suggests that if my table were to hold
-say 4000 entries it would almost always suffice, and 2000 would do nearly as
-well. It is possible that a table of size 2000 set up as a hash table so
-that duplicate values only get stored once would be a yet better idea.
 
-
+A major garbage collection has a slightly simpler structure because while it
+must cope with ambiguous pointers it processes all data apart from C.
+(1) Clear pinned map for R and S.
+(2) Scan ambiguous bases, marking items referred to in R or S as pinned.
+    Build a table of the pinned items first using the pinned-table and if
+    that overflows building a linked list in pages from F.
+    If there had been a list of pinned items left in S by the previous
+    collection then scan down it clearing any pinned bits on its entries,
+    because that data is now not needed.
+(3) Scan unambiguous bases and pointers out of C relocating anything except
+    references into C or to things that are pinned. This copies material to
+    new pages in F.
+(4) Scan the new material in F much as step (4) in the minor case.
+(5) Using information about pinned data in the table and any overflow list
+    build up freespace tables/maps/chains in all the blocks from S.
+(6) Swap interpretation of S and F, and allocate a new empty block for R
+    (which in step 7 of the minor GC will then instantly become the new C).
+(7) Consider dirty bits. What is needed is to mark any segment of memory
+    containing a reference to C as dirty, and all others as clean. I rather
+    hope to be able to build up that information as part of steps (3) and
+    (4) since they already need to test for references into C.
+ 

@@ -1,4 +1,4 @@
-# $Id$
+# $Id: Makefile 3638 2016-04-30 21:39:14Z arthurcnorman $
 #
 # This Makefile is a temporary solution.
 #
@@ -22,11 +22,11 @@ all:
 	mkdir -p $(BUILD); \
 	cd $(BUILD); \
 	../src/configure --disable-universal; \
-	make
+	$(MAKE)
 
 clean:
-	cd $(BUILD) && make clean
+	cd $(BUILD) && $(MAKE) clean
 
 distclean: all
-	cd $(BUILD) && make distclean
+	cd $(BUILD) && $(MAKE) distclean
 	/bin/rm -rf $(BUILD)

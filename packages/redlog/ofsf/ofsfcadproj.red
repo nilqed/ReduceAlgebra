@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 2000-2009 A. Dolzmann, L. Gilch, A. Seidl, and T. Sturm
-% ----------------------------------------------------------------------
+module ofsfcadproj;  % CAD projection
+
+revision('ofsfcadproj, "$Id: ofsfcadproj.red 3987 2017-04-05 16:33:21Z thomas-sturm $");
+
+copyright('ofsfcadproj, "(c) 2000-2009 A. Dolzmann, L. Gilch, A. Seidl, T. Sturm, 2016-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -28,14 +29,6 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
 
-lisp <<
-   fluid '(ofsf_cadproj_rcsid!* ofsf_cadproj_copyright!*);
-   ofsf_cadproj_rcsid!* :=
-      "$Id$";
-   ofsf_cadproj_copyright!* :=
-      "(c) 2000-2009 A. Dolzmann, L. Gilch, A. Seidl, T. Sturm"
->>;
-
 fluid '(ofsf_cadbvl!* !*rlpos);
 
 switch rlcadmc3;
@@ -44,8 +37,7 @@ on1 'rlcadmc3;
 switch rlpscsgen;
 on1 'rlpscsgen;
 
-module ofsfcadproj;
-% CAD projection. The following are given:
+% The following are given:
 % a) [pp]: a SFList over kernels contained in [varl]
 % b) [varl]: KernelList  (x_1, ..., x_r) [k] is an integer.
 % The whole projection code assumes that
@@ -71,16 +63,17 @@ procedure MtxSFP(s);
    listp s;
 
 procedure SFListP(s);
-   listp s and (null s or sfpx car s and SFListP cdr s);
-
+   null s or (pairp s and sfpx car s and SFListP cdr s);
+   
 procedure KernelListP(s);
-   listp s and (null s or assert_kernelp car s and KernelListP cdr s);
+   null s or (pairp s and assert_kernelp car s and KernelListP cdr s);
 
 %%% --- projection order optimization code --- %%%
 
 switch dolzmann;
 
-asserted procedure ofsf_cadporder!-betterp(rating: Integer, optrating: Integer, theo: List, theoopt: List): Boolean;
+asserted procedure ofsf_cadporder!-betterp(rating: Integer, optrating: Any, theo: List, theoopt: List): Boolean;
+   % Optrating is Integer or nil.
    if not !*dolzmann then
       not optrating or rating < optrating or
       (!*rlqegen and rating = optrating and length theo < length theoopt)
@@ -368,13 +361,14 @@ asserted procedure sf_psc(f: SF, g: SF, x: Kernel, j: Integer): SF;
    % The [j]-th principal subresultant coefficient of [f] and [g].
    mtx_det mtx_mmji(f, g, x, j, j);
 
-asserted procedure sf_factorize(f: SF): DottedPair;
-   % Factorize. Returns a pair [Integer . List of Pairs (SF . Integer)]: content
-   % and factors with multiplicities.
-   fctrf f;
-
 asserted procedure sf_factors(f: SF): SFList;
-   for each a in cdr sf_factorize f collect car a;
+   % A possibly incomplete factorization of the squarefree part of [f].
+   begin scalar w;
+      w := sfto_fctrf f;
+      if sfto_fctrfProperP w then
+	 return for each pr in cdr w collect car pr;
+      return {sfto_sqfpartf f}
+   end;
 
 asserted procedure sf_pscs(f: SF, g: SF, x: Kernel): SFList;
    % All principal subresultant coefficients of [f] and [g].
@@ -419,36 +413,6 @@ asserted procedure sf_diff(f: SF, x: Kernel): SF;
    numr difff(f, x);
 
 % end sfto procedures
-
-% begin lto procedures
-
-asserted procedure lto_remove(fn: Any, l: List): List;
-   % Remove elements from a list. [fn] is a function of type ALPHA->BOOL, [l] is
-   % a list of ALPHA. Returns a list of ALPHA.
-   lto_remove1(fn, l, nil);
-
-asserted procedure lto_remove1(fn: Any, l: List, xarl: List): List;
-   % Remove elements from a list. [fn] is a function with length([xarl])+1
-   % arguments , [l] and [xarl] are LIST.
-   for each a in l join
-      if not apply(fn, a . xarl) then
-	 {a};
-
-asserted procedure lto_rmpos(lst: List, posl: List): List;
-   % Remove positions. [lst] is a List. [posl] is a List of Integers.
-   begin scalar pos;
-      pos := 0;
-      return for each a in lst join <<
-	 pos := pos + 1;
-	 if not memq(pos, posl) then {a}
-      >>
-   end;
-
-asserted procedure lto_drop(l: List, n: Integer): List;
-   % Drop the first n elements of l.
-   if l and n > 0 then lto_drop(cdr l, n-1) else l;
-
-% end lto procedures
 
 %%% --- Datatype MTX (matrices) --- %%%
 % a matrix is represented as a list of lines.
@@ -566,7 +530,7 @@ asserted procedure ofsf_polyoflevel(aa: SFList, x: Kernel): SFList;
 
 asserted procedure ofsf_transfac(pp: SFList): SFList;
    % Factorization transformation.
-   list2set for each p in pp join sf_factors p;
+   lto_list2set for each p in pp join sf_factors p;
 
 %%% --- Combined projection operators --- %%%
 
@@ -599,7 +563,7 @@ asserted procedure ofsf_projco2v(aa: SFList, x: Kernel): SFList;
       rr := for each a1 on aa join
 	 for each a2 in cdr aa collect
 	    sfto_resf(car a1, a2, x);
-      resl := list2set lto_remove('domainp, union(union(ll, dd), rr));
+      resl := lto_list2set lto_remove('domainp, union(union(ll, dd), rr));
       if ofsf_cadverbosep() then
 	 ioto_prin2 {"(projco2v ", length resl, ")"};
       return resl
@@ -614,7 +578,7 @@ asserted procedure ofsf_projmc(aa: SFList, x: Kernel): SFList;
       rr := for each a1 on aa join
 	 for each a2 in cdr aa collect
 	    sfto_resf(car a1, a2, x);
-      resl := list2set lto_remove('domainp, union(union(ll, dd), rr));
+      resl := lto_list2set lto_remove('domainp, union(union(ll, dd), rr));
       if ofsf_cadverbosep() then
 	 ioto_prin2 {"(projmc ", length resl, ")"};
       return resl
@@ -629,7 +593,7 @@ asserted procedure ofsf_projmcgen(aa: SFList, x: Kernel, theo: List): List;
       rr := for each a1 on aa join
 	 for each a2 in cdr aa collect
 	    sfto_resf(car a1, a2, x);
-      resl := list2set lto_remove('domainp, union(union(ll, dd), rr));
+      resl := lto_list2set lto_remove('domainp, union(union(ll, dd), rr));
       if ofsf_cadverbosep() then
 	 ioto_prin2 {"(projmcgen ", length resl, ")"};
       return resl . theo
@@ -641,11 +605,11 @@ asserted procedure ofsf_projcoho(aa: SFList, x: Kernel): SFList;
       if ofsf_cadverbosep() then
 	 ioto_prin2 "(projcoho ";
       bll := ofsf_projcored(aa, x);
-      % TODO: Understand when is a call to list2set really needed. Originally it
+      % TODO: Understand when is a call to lto_list2set really needed. Originally it
       % was used only for [ss2] here and in ofsf_projcohogen, as well.
-      ll := list2set ofsf_projlcsll(bll, x);
-      ss1 := list2set ofsf_projcoss1(bll, x);
-      ss2 := list2set ofsf_projhoss2(bll, x);
+      ll := lto_list2set ofsf_projlcsll(bll, x);
+      ss1 := lto_list2set ofsf_projcoss1(bll, x);
+      ss2 := lto_list2set ofsf_projhoss2(bll, x);
       resl := union(union(ll, ss1), ss2);
       if ofsf_cadverbosep() then
 	 ioto_prin2 {" ", length resl, ")"};
@@ -659,11 +623,11 @@ asserted procedure ofsf_projcohogen(aa: SFList, x: Kernel, theo: List): DottedPa
       if ofsf_cadverbosep() then
 	 ioto_prin2 "(projcohogen ";
       bll . theo := ofsf_projcoredgen(aa, x, theo);
-      ll := list2set ofsf_projlcsll(bll, x);
+      ll := lto_list2set ofsf_projlcsll(bll, x);
       ss1 . theo := ofsf_projcoss1gen(bll, x, theo);
-      ss1 := list2set ss1;
+      ss1 := lto_list2set ss1;
       ss2 . theo := ofsf_projhoss2gen(bll, x, theo);
-      ss2 := list2set ss2;
+      ss2 := lto_list2set ss2;
       resl := union(union(ll, ss1), ss2);
       if ofsf_cadverbosep() then
 	 ioto_prin2 {" ", length resl, ")"};
@@ -933,8 +897,9 @@ asserted procedure ofsf_defpdel(l: SFList, theo: List): SFList;
    for each f in l join
       if not ofsf_surep(ofsf_0mk2('neq, f), theo) then
 	 {f}
-      else if !*rlverbose then <<
-	 ioto_prin2 "*";
+      else <<
+	 if ofsf_cadverbosep() then
+	    ioto_prin2 "*";
 	 nil
       >>;
 

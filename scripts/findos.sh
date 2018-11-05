@@ -23,7 +23,8 @@ case `uname -a` in
   exit
   ;;
 FreeBSD*)
-  echo "freebsd"
+  version=`uname -r | sed -e 's/-.*$//'`
+  echo "freebsd$version"
   exit
   ;;
 esac
@@ -49,6 +50,12 @@ then
     ;;
   *Ubuntu*)
     vendor="ubuntu"
+    ;;
+  *Linux*Mint*)
+    vendor="mint"
+    ;;
+  *CentOS*)
+    vendor="centos"
     ;;
   *Scientific*)
     vendor="scientificlinux"
@@ -145,6 +152,14 @@ else
         os=`echo $hissue | sed 's/^[^0-9]*\\([0-9][0-9]*\\.*[0-9]*\\).*$/ubuntu\\1/'`
       fi
       ;;
+    *Linux*Mint*)
+      if test "x$1" = "xshort"
+      then
+        os="mint"
+      else
+        os=`echo $hissue | sed 's/^[^0-9]*\\([0-9][0-9]*\\.*[0-9]*\\).*$/mint\\1/'`
+      fi
+      ;;
     *Mandriva*)
       if test "x$1" = "xshort"
       then
@@ -166,26 +181,28 @@ else
     if test -f /System/Library/CoreServices/SystemVersion.plist
     then
 # For MacOS I will detect the version number and report a code-name for it.
+# Actually the succession of changes that Apple make here is starting to
+# get tedious to track!
       if test "x$1" = "xshort"
       then
         os="mac"
       else
         case `cat /System/Library/CoreServices/SystemVersion.plist` in
-        *Mac*OS*X*ProductVersion*\<string\>10.2*)
-          os="mac_10.2_jaguar"
-          ;;
-        *Mac*OS*X*ProductVersion*\<string\>10.3*)
-          os="mac_10.3_panther"
-          ;;
-        *Mac*OS*X*ProductVersion*\<string\>10.4*)
-          os="mac_10.4_tiger"
-          ;;
-        *Mac*OS*X*ProductVersion*\<string\>10.5*)
-          os="mac_10.5_leopard"
-          ;;
-        *Mac*OS*X*ProductVersion*\<string\>10.6*)
-          os="mac_10.6_snowleopard"
-          ;;
+#       *Mac*OS*X*ProductVersion*\<string\>10.2*)
+#         os="mac_10.2_jaguar"
+#         ;;
+#       *Mac*OS*X*ProductVersion*\<string\>10.3*)
+#         os="mac_10.3_panther"
+#         ;;
+#       *Mac*OS*X*ProductVersion*\<string\>10.4*)
+#         os="mac_10.4_tiger"
+#         ;;
+#       *Mac*OS*X*ProductVersion*\<string\>10.5*)
+#         os="mac_10.5_leopard"
+#         ;;
+#       *Mac*OS*X*ProductVersion*\<string\>10.6*)
+#         os="mac_10.6_snowleopard"
+#         ;;
         *Mac*OS*X*ProductVersion*\<string\>10.7*)
           os="mac_10.7_lion"
           ;;
@@ -200,6 +217,12 @@ else
           ;;
         *Mac*OS*X*ProductVersion*\<string\>10.11*)
           os="mac_10.11_elcapitan"
+          ;;
+        *Mac*OS*X*ProductVersion*\<string\>10.12*)
+          os="mac_10.12_sierra"
+          ;;
+        *Mac*OS*X*ProductVersion*\<string\>10.13*)
+          os="mac_10.13_highsierra"
           ;;
         *Mac*OS*X*ProductVersion*\<string\>*)
           os="mac_unknown_version"

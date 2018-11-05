@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% (c) 1999-2009 A. Dolzmann and T. Sturm, 2010-2014 T. Sturm
-% ----------------------------------------------------------------------
+module redfront;
+
+revision('redfront, "$Id: redfront.red 3927 2017-03-01 15:53:50Z thomas-sturm $");
+
+copyright('redfront, "(c) 1999-2009 A. Dolzmannm, T. Sturm, 2010-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -27,15 +28,6 @@
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
-
-lisp <<
-   fluid '(redfront_rcsid!* redfront_copyright!*);
-   redfront_rcsid!* := "$Id$";
-   redfront_copyright!* := "(c) 1999-2009 A. Dolzmann and T. Sturm, 2010-2011 T. Sturm"
->>;
-
-
-module coloutput;
 
 global '(statcounter);
 
@@ -88,10 +80,6 @@ put('write,'formfn,'redfront_formwrite);
 
 outputhandler!*:='redfront_oh;
 
-endmodule;  % coloutput;
-
-module redfront;
-
 fluid '(promptstring!* redfront_switches!* redfront_switches!-this!-sl!*
    lispsystem!* breaklevel!* input!-libraries output!-library);
 
@@ -131,12 +119,17 @@ procedure redfront_setpchar!-psl(c);
 procedure redfront_setpchar!-csl(c);
    redfront_uncolor redfront_setpchar!-orig redfront_color c;
 
-copyd('redfront_setpchar!-orig,'setpchar);
+global '(redfront_setpchar_redefined!*);
+
+if not redfront_setpchar_redefined!* then
+  copyd('redfront_setpchar!-orig,'setpchar);
 
 if redfront_pslp() then
    copyd('setpchar,'redfront_setpchar!-psl)
 else
    copyd('setpchar,'redfront_setpchar!-csl);
+
+redfront_setpchar_redefined!* := t;
 
 procedure redfront_yesp!-psl(u);
    begin scalar ifl,ofl,x,y;
@@ -205,20 +198,30 @@ procedure redfront_learncolor(c);
    else
       intern compress(int2id 5 . nconc(explode c,{int2id 6}));
 
-if redfront_pslp() then <<
-   fluid '(redfront_l!*);
-   lispeval '(putd 'oblist 'expr
-      '(lambda nil (prog (redfront_l!*)
-	           (setq redfront_l!* nil)
-   	       	   (mapobl (function (lambda (x)
-		              (setq redfront_l!* (cons x redfront_l!*)))))
-	           (return redfront_l!*))));
-   compile '(oblist)
->>;
+
+!#if (memq 'psl lispsystem!*)
+
+fluid '(redfront_l!*);
+
+symbolic procedure redfront_oblist_sub x;
+  redfront_l!* := x . redfront_l!*;
+
+symbolic procedure redfront_oblist();
+  begin
+    scalar redfront_l!*;
+    mapobl function redfront_oblist_sub;
+    return redfront_l!*;
+  end;
+
+!#else
+
+symbolic procedure redfront_oblist(); oblist();
+
+!#endif
 
 procedure redfront_swl();
    begin scalar swl;
-      swl := for each x in oblist() join if flagp(x,'switch) then {x};
+      swl := for each x in redfront_oblist() join if flagp(x,'switch) then {x};
       return sort(swl,'ordp)
    end;
 
@@ -249,32 +252,57 @@ procedure redfront_send!-modules();
       nil
    >>;
 
-procedure redfront_read_package_map(fn);
-   % This is essentially stolen from csl/cslbase/buildreduce.lsp ...
-   begin scalar i,w,e,basel,extral;
-      % Configuration information is held in a file called something like
-      % "package.map".
-      i := fn;
-      i := open(i, 'input);
-      i := rds i;
-      e := !*echo;
-      !*echo := nil;
-      w := read();
-      !*echo := e;
-      i := rds i;
-      close i;
-      basel := for each x in w join
-	 if member('core, cddr x) then
-	    {car x};
-      extral := for each x in w join
-	 if not member('core, cddr x) then
- 	    {car x};
-      return basel . extral
-   end;
+% Making this a MACRO means that its body gets evaluated at the the
+% that a use of it is COMPILED. That means that the path to package.map
+% as used here is only relevant at system-building time, which is a time
+% when the full source tree is guaranteed to be available. The notation
+% "$reduce" is set up (at that time, but not when the fully built system
+% is complete. During a PSL build a shell variable called "reduce" should
+% be set and so I make a path by concatenating based on that.
+
+% An issue I found awkward when coding this is that in PSL a function that is
+% defined here is not made available immediatly, and so if expanding a macro
+% depends on it you are out of luck. I had to work around that by implementing
+% the macro as one big function rather than several several smaller ones.
+
+symbolic macro procedure redfront_package_names u;
+  begin
+    scalar fn,i,w,e,basel,extral;;
+    fn := "$reduce/packages/package.map";
+    if memq('psl, lispsystem!*) then
+    begin
+      scalar r1, r2, r3;
+      r2 := explode2 (r1 := getenv "reduce");
+      r3 := explode2 "/cygdrive/";
+% I will map a prefix "/cygdrive/x" to "x:"
+      while r2 and r3 and car r2 = car r3 do <<
+        r2 := cdr r2;
+        r3 := cdr r3 >>;
+      if null r3 then
+        r1 := list2string (car r2 . '!: . '!/ . cddr r2);
+      fn := concat(r1, "/packages/package.map");
+    end;
+    prin2 "**** File name for packages = "; print fn;
+    i := fn;
+    i := open(i, 'input);
+    i := rds i;
+    e := !*echo;
+    !*echo := nil;
+    w := read();
+    !*echo := e;
+    i := rds i;
+    close i;
+    basel := for each x in w join
+      if member('core, cddr x) then {car x};
+    extral := for each x in w join
+      if not member('core, cddr x) then {car x};
+    return mkquote (basel . extral)
+  end;
+
 
 procedure redfront_send!-packages(fn);
    <<
-      for each pack in cdr redfront_read_package_map fn do
+      for each pack in cdr redfront_package_names() do
 	 prin2t redfront_learncolor pack;
       statcounter := statcounter - 1;
       nil
@@ -282,7 +310,7 @@ procedure redfront_send!-packages(fn);
 
 procedure redfront_fwl();
    begin scalar fwl;
-      fwl := for each x in oblist() join
+      fwl := for each x in redfront_oblist() join
  	 if get(x, 'psopfn) or get(x, 'opfn) or get(x, 'polyfn) then
  	    {x};
       return sort(fwl,'ordp)
@@ -301,7 +329,7 @@ onoff('output,cadr redfront_switches!*);
 
 crbuf!* := nil;
 inputbuflis!* := nil;
-lessspace!* := t;
+%!*lessspace := t;
 statcounter := 0;
 
 endmodule;

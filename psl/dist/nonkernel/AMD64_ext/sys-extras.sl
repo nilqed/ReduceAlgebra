@@ -6,6 +6,7 @@
 % Created:        9 October 1981                                           
 % Modified:       2-Jan-85 (Vicki O'Day)
 % Package:        Kernel                                                   
+% Status:	  Open Source: BSD License
 %
 % (c) Copyright 1982, University of Utah
 %
@@ -171,17 +172,17 @@
 
 (de returnaddressp (x)
   (prog (s y)
-        (unless (and (intp x) (wgreaterp x 200000)) (return nil))
+        (unless (and (intp x) (wgreaterp x 16#400000)) (return nil))
         % Actually, top bits must                                          
         % be 0 or -1 due to                                                
         % 9836 assembler, linker                                           
 %        (when (weq (wand x 1) 1) (return nil))
-        % if OddP X                                                        
-        (setq x (inf x))
-        (when (wlessp x 8198)
+        % if OddP X
+        (when (not (codeaddressp x))
           (return nil))
-        (cond ((not (wlessp x nextbps)) % Assures X points to real memory
-               (return nil)))
+        (setq x (inf x))
+%        (cond ((not (wlessp x nextbps)) % Assures X points to real memory
+%               (return nil)))
         (setq s (inf symfnc))
 %%%     (unless (weq (halfword x -3) 16#15ff) (return nil))
         % call longword                                                     

@@ -257,7 +257,9 @@
    (setq s (igetv u 1))
    (when (wgreaterp b 1)(go error))
    (when (wlessp s 0) 
-       (if (bbminusp u) (return s) (go error)))
+       (if (bbminusp u) (return (wminus s)) (go error)))
+% The following is possibly "more" correct, but doesn't work properly
+%       (if (bbminusp u) (return (wminus s)) (go error)))
    (return (if (bbminusp u) (wminus s) s))
 error
    (continuableerror 99 "BIGNUM too large to convert to SYS" u)
@@ -376,28 +378,53 @@ error
   % be positive;                                                           
   (if (and (bbminusp v1) (bbminusp v2))
     (blnot (blor (blnot v1) (blnot v2)))
-    (prog (l1 l2 l3 v3)
+    (prog (l1 l2 l3 v3 n n1 c)
 	  (setq l1 (bbsize v1)) (setq l2 (bbsize v2)) (setq l3 (min l1 l2))
 	  (cond ((bbminusp v1) 
 		 % When one is negative, we have expand out to the
 		 % size of the other one.  Therefore, we use l2 as the
 		 % size, not l3.  When we exceed the size of the
-		 % negative number, then we just use (logicalbits**).
+		 % negative number, then we just use (logicalbits**) which
+		 % returns a word with all bits set.
 		 (setq v3 (gtpos l2)) (setq l3 l2)
+		 (setq c 1)		% carry to add to current word, see below
 		 (vfor (from i 1 l2 1) 
 		       (do 
 			(iputv v3 i
-			     (iland (cond ((igreaterp i l1) (logicalbits**))
-					    (t (isub1 (igetv v1 i))))
-				      (igetv v2 i))))))
+			     (iland
+			       (cond ((igreaterp i l1) (logicalbits**))
+				     (t (progn
+					  % compute two's complement as one's complement + 1
+					  (setq n (ilnot (igetv v1 i)))
+					  % two's complement is n+c
+					  % if n=(logicalbits**) and c=1, 
+					  % (we have a carry to the next word)
+					  % then set c=1 else 0
+					  (setq n1 (iplus2 n c))
+					  (if (not (and (weq n (logicalbits**)) (weq c 1)))
+					      (setq c 0))
+					  n1)))
+			       (igetv v2 i))))))
 		((bbminusp v2)
 		 (setq v3 (gtpos l1)) (setq l3 l1)
+		 (setq c 1)		% carry to add to current word, see below
 		 (vfor (from i 1 l1 1) 
 		       (do
 			(iputv v3 i
-			       (iland (igetv v1 i)
-				      (cond ((igreaterp i l2)(logicalbits**))
-					    (t (isub1 (igetv v2 i)))))))))
+			     (iland (igetv v1 i)
+			       (cond ((igreaterp i l2)(logicalbits**))
+				     (t (progn
+					  % compute two's complement as one's complement + 1
+					  (setq n (ilnot (igetv v2 i)))
+					  % two's complement is n+c
+					  % if n=(logicalbits**) and c=1, 
+					  % (we have a carry to the next word)
+					  % then set c=1 else 0
+					  (setq n1 (iplus2 n c))
+					  (if (not (and (weq n (logicalbits**)) (weq c 1)))
+					      (setq c 0))
+					  n1)))
+			       )))))
 
 		(t (setq v3 (gtpos l3))
 		   (vfor (from i 1 l3 1) 
@@ -424,7 +451,7 @@ error
       (setq l1 (bbsize v1))
       (setq l2 (idifference l1 nw))
       (when (ilessp l2 1) (return bzero*))
-      (setq v2 (if (bbminusp v1)(gtneg l2)(gtpos l2)))
+      (setq v2 (if (bbminusp v1)(gtpos l2)(gtpos l2)))
         % for shifts we have to handle the case nb=0
         % separately because processors tend to handle a shift for
         % nr=(-wordsize) bits as nop.
@@ -435,7 +462,7 @@ error
 	    (do 
 	      (progn
 		 (setq x (igetv v1 j))
-		 (iputv v2 i(wor carry (wshift x nb)))
+		 (iputv v2 i (wor carry (wshift x nb)))
 		 (setq carry (wshift x nr)))))
       (go ret)
    words
@@ -582,7 +609,7 @@ error
   % V1 is a BigNum, C a fixnum.                                            
   % Assume C positive, ignore sign(V1)                                     
   % also assume V1 neq 0.                                                  
-  (cond ((and (izerop c)(izerop cc)) (return (gtpos 0)))
+  (cond ((and (izerop c)(izerop cc)) (gtpos 0))
 	(t % Only used from BHardDivide, BReadAdd.                          
 	   (prog (j l1 v3 carry)
 		 (setq l1 (bbsize v1))
@@ -911,7 +938,7 @@ error
 		     (setq res (floatplus2 res
 				(floattimes2 (bigit2float (igetv v j)) base))) 
 		     (setq j(1+ j)))
-		 (when sn (setq res (minus res)))
+                 (when sn (setq res (floattimes2 -1.0 res)))
 		 (return (cleanstack res))))))
 
 (compiletime (setq system_list!* (cons bitsperword system_list!*)))
@@ -1159,8 +1186,8 @@ error
 
 (de bsmalladd (v c)
   %V big, C fix.                                                           
-  (cond ((izerop c) (return v))
-	((bzerop v) (return (int2big c)))
+  (cond ((izerop c) v)
+	((bzerop v) (int2big c))
 	((bbminusp v) (bminus (bsmalldiff (bminus v) c)))
 	((iminusp c) (bsmalldiff v (iminus c)))
 	(t (prog (v1 l1)
@@ -1309,6 +1336,20 @@ error
 (de biglshift (u v) (checkifreallybig (blshift u v)))
 
 (de lshift (u v)
+   (setq v (int2sys v))  % bigger numbers make no sense as shift amount
+   (if (intp u)
+     (cond ((wleq v (minus bitsperword)) 0)
+           ((and (posintp u) (wlessp v 0)) (wshift u v))
+           ((wlessp v (iminus tagbitlength)) (wshift u v))
+           ((wlessp v 0) (sys2int (wshift u v)))
+           ((and (betap u) (wlessp v (iquotient bitsperword 2)))
+                  (sys2int (wshift u v)))
+           (t (biglshift (sys2big u) v)))
+     % Use int2big, not sys2big, since we might have fixnums.
+     (biglshift (int2big u) v)))
+
+(commentoutcode 
+  de lshift (u v)
   (setq v (int2sys v))  % bigger numbers make no sense as shift amount
   (if (betap u) 
     (cond ((wleq v (minus bitsperword)) 0)

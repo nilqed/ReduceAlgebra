@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: raarith.red 3990 2017-04-05 17:27:33Z thomas-sturm $
 % ----------------------------------------------------------------------
 % Copyright (c) 2014 T. Sturm
 % ----------------------------------------------------------------------
@@ -75,7 +75,7 @@ asserted procedure ra_normalize0(x: RA): RA;
       f := ra_f x;
       l := ra_l x;
       u := ra_u x;
-      assert(not null numr sfto_qsub1f, {ra_x() . l});
+      assert(not null numr sfto_qsub1(f, {ra_x() . l}));
       assert(not null numr sfto_qsub1(f, {ra_x() . u}));
       if null numr u or minusf numr u or null numr l or minusf negf numr l then
 	 return x;

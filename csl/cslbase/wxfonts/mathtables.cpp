@@ -1,7 +1,7 @@
 // mathtables.cpp
 
 /**************************************************************************
- * Copyright (C) 2015, Codemist Ltd.                     A C Norman       *
+ * Copyright (C) 2015, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -29,7 +29,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: mathtables.cpp 3662 2016-05-11 20:07:09Z arthurcnorman $
 
 // This is an utterly specialised progrem for extracting bits of maths
 // tables from cslSTIXMath.tables

@@ -6,6 +6,7 @@
 % Created:      Wednesday, 12 May 1982 
 % Modified:     6 May 1984 1558-PDT 
 % Package:      Utilities 
+% Status:       Open Source: BSD License
 %
 % (c) Copyright 1982, University of Utah
 %
@@ -77,7 +78,7 @@
 
 (putv LispScanTable* 44 13)   % CHAR not yet defined;  44 = (char !,)
 
-(put '!, (getv LispScanTable* 128) '((!@ . !,!@)(!. . !,!.)))
+(put '!, (getv LispScanTable* 256) '((!@ . !,!@)(!. . !,!.)))
 
 (deflist
   '((!` backquote-read-macro)

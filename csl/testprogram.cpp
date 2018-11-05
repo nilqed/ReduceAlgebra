@@ -12,7 +12,7 @@
 
 //                                         Arthur Norman, April 2009-15
 
-// $Id$
+// $Id: testprogram.cpp 3297 2015-12-14 20:30:04Z arthurcnorman $
 
 #include <stdio.h>
 

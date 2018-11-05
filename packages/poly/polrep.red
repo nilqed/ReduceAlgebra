@@ -32,7 +32,8 @@ fluid '(!*asymp!* !*exp !*factor !*gcd !*lcm !*mcd !*rationalize frlis!*
         !*roundall !*rounded !*sqfree !*sub2 asymplis!* dmode!* subfg!*
         ncmp!* powlis!* wtl!* !*!*processed !*ncmp);
 
-global '(!*group rd!-tolerance!* cr!-tolerance!* !*physop!-loaded);
+global '(!*group rd!-tolerance!* cr!-tolerance!* !*physop!-loaded
+         !*sstools!-loaded);
 
 put('roundall,'simpfg,'((t (rmsubs))));
 
@@ -173,6 +174,7 @@ symbolic procedure noncomp u;
 symbolic procedure noncomp1 u;
   if null pairp u then nil
    else if pairp car u then noncomfp u
+   else if car u eq '!*sq then noncomfp numr cadr u
    else if car u eq 'taylor!* then nil
    else flagp(car u,'noncom) or noncomlistp cdr u;
 
@@ -238,11 +240,13 @@ symbolic procedure noncomfp1 u;
 
 symbolic procedure multfnc(u,v);
   if !*physop!-loaded then physop!-multfnc(u, v)
-  else poly!-multfnc(u, v);
+   else if !*sstools!-loaded then sstools!-multfnc(u,v) 
+   else poly!-multfnc(u, v);
 
 symbolic procedure poly!-multfnc(u,v);
    % Returns canonical product of U and V, with both main vars non-
    % commutative.
+   if !*sstools!-loaded then sstools!-multfnc(u,v) else
    begin scalar x,y;
       x := poly!-multf(lc u,!*t2f lt v);
       if null x then nil
@@ -518,13 +522,6 @@ symbolic procedure quotf!*(u,v);
           where x=quotf(u,v);
 
 symbolic procedure quotf(u,v);
-%  begin scalar xexp;
-%       xexp := !*exp;
-%       !*exp := t;
-%       u := quotf1(u,v);
-%       !*exp := xexp;
-%       return u
-%  end;
    quotf1(u,v) where !*exp = t;
 
 symbolic procedure quotf1(p,q);
@@ -685,7 +682,8 @@ symbolic procedure remf(u,v);
    %returns the remainder of U divided by V;
    if null v then rerror(poly,201,"Zero divisor") else cdr qremf(u,v);
 
-put('remainder,'polyfn,'remf);
+%% removed 2017-09-14: polydiv loaded in core
+%put('remainder,'polyfn,'remf);
 
 symbolic procedure qremf(u,v);
    % Returns the quotient and remainder of U divided by V.

@@ -36,7 +36,7 @@ package uk.co.codemist.jlisp.core;
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: Interpreted.java 3141 2015-06-21 19:23:30Z arthurcnorman $
 
 
 // If a symbol has an interpreted definition its

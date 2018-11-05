@@ -1,8 +1,11 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2009 A. Dolzmann and T. Sturm, 2010-2011 T. Sturm
-% ----------------------------------------------------------------------
+module redlog;
+
+% Reduce logic component.
+
+revision('redlog, "$Id: redlog.red 4058 2017-05-23 17:12:59Z thomas-sturm $");
+
+copyright('redlog, "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -28,18 +31,12 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
 
-lisp <<
-   fluid '(rl_rcsid!* rl_copyright!*);
-   rl_rcsid!* := "$Id$";
-   rl_copyright!* := "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2011 T. Sturm"
->>;
+create!-package('(redlog rlprint rlami rltypes rlservices rlblackboxes rlcont),nil);
 
-module redlog;
-% Reduce logic component.
+load!-package 'rlsupport;
 
-create!-package('(redlog rlami rlsched rlcont rlhelp rlsl rlslv),nil);
-
-load!-package 'rltools;  % rlhelp needs ioto.
+put('redlog, 'known!-packages,
+   '(acfsf cl dcfsf dvfsf ibalp mri ofsf pasf qqe qqe_ofsf redlog rlsupport rltools smt talp tplp));
 
 exports quotelog,rl_mkbb,rl_mkserv,rl_op,rl_arg1,rl_arg2l,rl_arg2r,rl_argn,
    rl_var,rl_mat,rl_mk1,rl_mk2,rl_mkn,rl_smkn,rl_mkq,rl_quap,rl_junctp,rl_basbp,
@@ -53,18 +50,36 @@ exports quotelog,rl_mkbb,rl_mkserv,rl_op,rl_arg1,rl_arg2l,rl_arg2r,rl_argn,
    rl_s2a!-fbvarl,rl_s2a!-struct,rlmkor,rlmkand,rl_set!$,rl_set,rl_exit,
    rl_enter,rl_onp,rl_vonoff,rl_updcache,rl_serviadd,rl_bbiadd;
 
-global '(rldynamic!#);
-bothtimes(rldynamic!# := nil);
+% context identifier:
+fluid '(rl_cid!*);
 
-fluid '(rl_cid!* rl_argl!* rl_usedcname!* rl_deflang!* rl_ocswitches!*
-   rl_bbl!* rl_servl!* !*utf8);
+% List of fluid variables corresponding to black boxes. Those variables are
+% rebound to the domain-specific SM entry points when switching the context with
+% rl_set. That is, rl_service(...) will apply('rl_service!*, {...}), where
+% rl_service!* is in rl_servl!* and e.g, rl_service!* = 'ofsf_service.
+fluid '(rl_servl!*);
+
+% List of fluid variables corresponding to black boxes. Those variables are
+% rebound when switching the context with rl_set. They are used via apply within
+% genric implementaion in the cl module:
+fluid '(rl_bbl!*);
+
+
+% default language (context), probably obsolete:
+fluid '(rl_deflang!*);
+
+fluid '(rl_argl!*);
+fluid '(rl_usedcname!*);
+fluid '(rl_ocswitches!*);
+
+fluid '(!*utf8);
 
 fluid '(fancy!-line!* fancy!-pos!*);
 
 fluid '(!*strict_argcount);
 
 switch rlsism,rlsichk,rlsiidem,rlsiatadv,rlsipd,rlsiexpl,rlsiexpla,rlsiso,
-   rlsisocx,rlsipw,rlsipo,rltabib,rlverbose,rlrealtime,rlidentify,rlgssub,
+   rlsisocx,rlsipw,rlsipo,rlverbose,rlrealtime,rlidentify,rlgssub,
    rlgsrad,rlgsred,rlgsprod,rlqepnf,rlqedfs,rlparallel,rlopt1s,rlbrop,
    rlbnfsm,rlsimpl,rlsifac,rlqegsd,rlgserf,rlbnfsac,rlgsvb,rlqesr,rlqeheu,
    rldavgcd,rlsitsqspl,rlgsbnf,rlgsutord,rlqegenct,rltnft,rlnzden,rlposden,
@@ -83,60 +98,98 @@ switch rlsism,rlsichk,rlsiidem,rlsiatadv,rlsipd,rlsiexpl,rlsiexpla,rlsiso,
    rlqedyn,rlqesubf,rlqevb,rlqevbold,rlgetrtypecar,rlvsllog,rlvsllearn,
    rlqestdans,rlqestdansvb,rlqefullans,rlqebacksub,rlqestdansq,rlqestdansint;
 
+% Global
 on1 'rlbrop;
+off1 'rlsimpl;
+off1 'rlrealtime;
+off1 'rlparallel;
+off1 'rlverbose;
+%off1 'rlidentify;
+off1 'rlnzden;
+off1 'rlposden;
+off1 'rladdcond;
+off1 'rlgetrtypecar;
+
+% rlcnf/rldnf (+ Gröbner)
 off1 'rlbnfsm;
 on1 'rlbnfsac;
+
+% rlqe
 on1 'rlqepnf;
+on1 'rlqedfs;
+off1 'rlqesr;
+off1 'rlqeheu;
+off1 'rlqegsd;
+off1 'rlqeqsc;
+off1 'rlqesqsc;
+on1 'rlqedyn;
+off1 'rlqesubf;
+on1 'rlqevb;
+off1 'rlqevbold;
+on1 'rlqevarsel;
+on1 'rlqefb;
+off1 'rlqelog;          % Hack by TS to look into elimination set generation.
+off1 'rlqeprecise;      % Possibly avoid epsilon and infinity with rlqe.
+off1 'rlqevarseltry;    % Allow rl_varsel to return several variables.
+off1 'rlqestdans;       % Remove pinf, minf, epsilon.
+off1 'rlqestdansvb;
+off1 'rlqefullans;      % Do not eliminate shift variables from answer.
+on1 'rlqebacksub;       % Back substitution in answer.
+on1 'rlqestdansq;       % Try to replace answers by quotients.
+on1 'rlqestdansint;     % Try to find integer solutions.
+on1 'rlqefilterbounds;  % Remove bounds w false guards before counting.
+off1 'rlqeidentify;
+on1 'rlqegenct;
+
+off1 'rlbrkcxk;         % Break complex kernels. PROBABLY RLQE ONLY.
+
+% rlqea
+on1 'rlqeasri;          % Simplifier-recognized implication for pasf answers.
+off1 'rlqeaprecise;     % Possibly avoid epsilon and infinity with rlqea.
+
+% rlsimpl
 on1 'rlsiso;
 on1 'rlsisocx;  % simplifier sort complex subformulas
 on1 'rlsiidem;
-off1 'rlidentify;
-off1 'rlrealtime;
-off1 'rlparallel;
-off1 'rlopt1s;
-on1 'rlqedfs;
-off1 'rlverbose;
 on1 'rlsichk;
 on1 'rlsism;
 off1 'rlsipw;
 on1 'rlsipo;
-on1 'rltabib;
+on1 'rlsiatadv;
+on1 'rlsipd;
+on1 'rlsiexpl;
+on1 'rlsiexpla;
+on1 'rlsifac;
+on1 'rlsitsqspl;
+on1 'rlsid;             % Smart simplification of derivatives in dcfsf.
+on1 'rlsiplugtheo;      % Plug in constant values of variables in the recursive theory (dcfsf only).
+off1 'rlsifaco;         % Factorize lhs of ordering inequalities in simplat.
+
+% rlgsn/rlgsc/rlgsd
 on1 'rlgssub;
 on1 'rlgsrad;
 on1 'rlgsred;
 on1 'rlgserf;
 off1 'rlgsprod;
 on1 'rlgsvb;
-off1 'rlsimpl;
-on1 'rlsiatadv;
-on1 'rlsipd;
-on1 'rlsiexpl;
-on1 'rlsiexpla;
-on1 'rlsifac;
-off1 'rlqesr;
-off1 'rlqeheu;
-off1 'rlqegsd;
-on1 'rldavgcd;
-on1 'rlsitsqspl;
 on1 'rlgsbnf;
 off1 'rlgsutord;
-on1 'rlqegenct;
-on1 'rltnft;
-on1 'rlqevarsel;
-off1 'rlnzden;
-off1 'rlposden;
-off1 'rladdcond;
-off1 'rlqeqsc;
-off1 'rlqesqsc;
+
+% ???
+off1 'rlopt1s;
+
+% Susi
 off1 'rlsusi;
 off1 'rlsusimult;
 off1 'rlsusigs;
 on1 'rlsusiadd;
+
+% rlcad
 on1 'rlcaddnfformula;
 off1 'rlcadpreponly;
 off1 'rlcadprojonly;
 off1 'rlcadextonly;
-on1 'rlcadverbose;
+off1 'rlcadverbose;
 on1  'rlcadfasteval;
 off1 'rlcadfulldimonly;
 on1  'rlcadtrimtree;
@@ -147,20 +200,11 @@ off1 'rlanuexsgnopt;
 off1 'rlcaddecdeg;
 on1 'rlcadte;
 on1 'rlcadpbfvs;
-on1 'rlqefb;
-on1 'rlxopt;
-on1 'rlxoptsb;    % select boundary type
-on1 'rlxoptpl;    % passive list
-on1 'rlxoptri;    % result inheritance
-off1 'rlxoptric;  % result inheritance to conatiner
-off1 'rlxoptrir;  % result inheritance to result
-on1 'rlxoptses;   % structural elimination sets.
-off1 'rlourdet;
-off1 'rlvmatvb;  % Fixied switch, provides debugging within ofsfdet
+
+% rlhqe
 on1 'rlhqetfcsplit;  % Splits type formula computation up to degree 4.
 off1 'rlhqetfcfast;  % Splits type formula computation unconditionally.
 off1 'rlhqetfcfullsplit;  % Compute case distinctions only for unknown signs.
-
 off1 'rlhqevb;          % More verbose output.
 on1 'rlhqevarsel;       % Optimize variable selection in the case dim I=n.
 on1 'rlhqevarselx;      % Advances optimization with more computational effort.
@@ -169,37 +213,33 @@ off1 'rlhqedim0;        % Only zero dimensional branches.
 off1 'rlhqegbred;       % Use reduced Groebner systems.
 off1 'rlhqeconnect;     % Connect branches which differs only in the theory.
 on1 'rlhqestrconst;     % Use combined structure constants.
-on1 'rlhqegbdimmin;     % Choose maximal independent variable set with
-                        % minimal cardinality in the case 0<dim<n.
-on1 'rlresi;            % Implicit (local) simplification for rlresolve.
-on1 'rlqeasri;          % Simplifier-recognized implication for pasf answers.
-off1 'rlqeaprecise;     % Possibly avoid epsilon and infinity with rlqea.
-on1 'rlqefilterbounds;  % Remove bounds w false guards before counting.
-off1 'rlsifaco;         % Factorize lhs of ordering inequalities in simplat.
-off1 'rlqelog;          % Hack by TS to look into elimination set generation.
-off1 'rlqeprecise;      % Possibly avoid epsilon and infinity with rlqe.
-off1 'rlqevarseltry;    % Allow rl_varsel to return several variables.
-on1 'rlsid;             % Smart simplification of derivatives in dcfsf.
-on1 'rlsiplugtheo;      % Plug in constant values of variables in the
-			% recursive theory (dcfsf only).
+on1 'rlhqegbdimmin;     % Choose maximal independent variable set with minimal cardinality in the case 0<dim<n.
+
+% rlxopt
+on1 'rlxopt;
+on1 'rlxoptsb;    % select boundary type
+on1 'rlxoptpl;    % passive list
+on1 'rlxoptri;    % result inheritance
+off1 'rlxoptric;  % result inheritance to conatiner
+off1 'rlxoptrir;  % result inheritance to result
+on1 'rlxoptses;   % structural elimination sets.
+
+% rlvsl
+off1 'rlvsllog;         % Extra verbose output for ofsf vs with learning.
+on1 'rlvsllearn;        % Learning for ofsf vs with learning.
+
+% DCFSF
 off1 'rlenffac;         % For dcfsf.
 on1 'rlenffacne;        % For dcfsf.
 on1 'rlplsimpl;         % For dcfsf.
-off1 'rlbrkcxk;         % Break complex kernels.
-off1 'rlqeidentify;
-on1 'rlqedyn;
-off1 'rlqesubf;
-on1 'rlqevb;
-off1 'rlqevbold;
-off1 'rlgetrtypecar;
-off1 'rlvsllog;         % Extra verbose output for ofsf vs with learning.
-on1 'rlvsllearn;        % Learning for ofsf vs with learning.
-off1 'rlqestdans;       % Remove pinf, minf, epsilon.
-off1 'rlqestdansvb;
-off1 'rlqefullans;      % Do not eliminate shift variables from answer.
-on1 'rlqebacksub;       % Back substitution in answer.
-on1 'rlqestdansq;       % Try to replace answers by quotients.
-on1 'rlqestdansint;     % Try to find integer solutions.
+
+% rlresolve
+on1 'rlresi;            % Implicit (local) simplification for rlresolve.
+
+on1 'rldavgcd;
+on1 'rltnft;
+off1 'rlourdet;
+off1 'rlvmatvb;  % Fixied switch, provides debugging within ofsfdet
 
 put('rlidentify,'simpfg,
    '((t (rl_identifyonoff t)) (nil (rl_identifyonoff nil))));
@@ -226,9 +266,6 @@ procedure rl_getrtypecadr1(x);
    else
       (if w eq 'equation then 'logical else w) where w=getrtype cadr x;
 
-procedure rl_texmacsp();
-   get('tmprint,'package);
-
 put('logical,'tag,'!*fof);
 put('logical,'evfn,'rl_reval);
 put('logical,'subfn,'rl_sub!*fof);
@@ -237,28 +274,16 @@ put('logical,'lengthfn,'rl_lengthlogical);
 put('true,'rtype,'logical);
 put('false,'rtype,'logical);
 
-put('!*fof,'prifn,'rl_print!*fof);
-put('!*fof,'fancy!-prifn,'rl_print!*fof);
-put('!*fof,'fancy!-setprifn,'rl_setprint!*fof);
-%put('!*fof,'prifn,'prin2!*);
 put('!*fof,'rtypefn,'quotelog);
 put('!*fof,'rl_simpfn,'rl_simp!*fof);
 
 put('and,'rtypefn,'rl_getrtypecar);
 put('and,'rl_simpfn,'rl_simpbop);
 put('and,'rl_prepfn,'rl_prepbop);
-put('and,'pprifn,'rl_ppriop);
-put('and,'fancy!-pprifn,'rl_fancy!-ppriop);
-if rl_texmacsp() then
-   put('and,'fancy!-infix!-symbol,"\,\wedge\, ");
 
 put('or,'rtypefn,'rl_getrtypecar);
 put('or,'rl_simpfn,'rl_simpbop);
 put('or,'rl_prepfn,'rl_prepbop);
-put('or,'pprifn,'rl_ppriop);
-put('or,'fancy!-pprifn,'rl_fancy!-ppriop);
-if rl_texmacsp() then
-   put('or,'fancy!-infix!-symbol,"\,\vee\, ");
 
 put('not,'rtypefn,'rl_getrtypecar);
 put('not,'rl_simpfn,'rl_simpbop);
@@ -269,33 +294,18 @@ put('impl,'rtypefn,'rl_getrtypecar);
 put('impl,'rl_simpfn,'rl_simpbop);
 put('impl,'rl_prepfn,'rl_prepbop);
 put('impl,'number!-of!-args,2);
-put('impl,'pprifn,'rl_ppriop);
-if rl_texmacsp() then
-   put('impl,'fancy!-infix!-symbol,"\,\longrightarrow\, ")
-else
-   put('impl,'fancy!-infix!-symbol,222);
 
 algebraic infix repl;
 put('repl,'rtypefn,'rl_getrtypecar);
 put('repl,'rl_simpfn,'rl_simpbop);
 put('repl,'rl_prepfn,'rl_prepbop);
 put('repl,'number!-of!-args,2);
-put('repl,'pprifn,'rl_ppriop);
-if rl_texmacsp() then
-   put('repl,'fancy!-infix!-symbol,"\,\longleftarrow\, ")
-else
-   put('repl,'fancy!-infix!-symbol,220);
 
 algebraic infix equiv;
 put('equiv,'rtypefn,'rl_getrtypecar);
 put('equiv,'rl_simpfn,'rl_simpbop);
 put('equiv,'rl_prepfn,'rl_prepbop);
 put('equiv,'number!-of!-args,2);
-put('equiv,'pprifn,'rl_ppriop);
-if rl_texmacsp() then
-   put('equiv,'fancy!-infix!-symbol,"\,\longleftrightarrow\, ")
-else
-   put('equiv,'fancy!-infix!-symbol,219);
 
 flag('(impl repl equiv and or),'spaced);
 
@@ -307,297 +317,52 @@ flag('(true false),'reserved);
 put('ex,'rtypefn,'rl_getrtypecadr);
 put('ex,'rl_simpfn,'rl_simpq);
 put('ex,'number!-of!-args,2);
-put('ex,'prifn,'rl_priq);
 put('ex,'rl_prepfn,'rl_prepq);
-put('ex,'fancy!-prifn,'rl_fancy!-priq);
-if rl_texmacsp() then
-   put('ex,'fancy!-functionsymbol,"\exists ")
-else
-   put('ex,'fancy!-functionsymbol,36);
 
 put('all,'rtypefn,'rl_getrtypecadr);
 put('all,'rl_simpfn,'rl_simpq);
 put('all,'number!-of!-args,2);
-put('all,'prifn,'rl_priq);
 put('all,'rl_prepfn,'rl_prepq);
-put('all,'fancy!-prifn,'rl_fancy!-priq);
-if rl_texmacsp() then
-   put('all,'fancy!-functionsymbol,"\forall ")
-else
-   put('all,'fancy!-functionsymbol,34);
 
 put('bex,'rtypefn,'quotelog);
 put('bex,'rl_simpfn,'rl_simpbq);
 put('bex,'number!-of!-args,3);
-put('bex,'prifn,'rl_pribq);
-put('bex,'rl_prepfn,'rl_prepbq); % semms not to be used!
-%put('bex,'fancy!-functionsymbol,36);
-put('bex,'fancy!-prifn,'rl_fancy!-pribq);
-if rl_texmacsp() then
-   put('bex,'fancy!-functionsymbol,"\bigsqcup ")
-else
-   put('bex,'fancy!-functionsymbol,36); %%% 36 okay?
 
 put('ball,'rtypefn,'quotelog);
 put('ball,'rl_simpfn,'rl_simpbq);
 put('ball,'number!-of!-args,3);
-put('ball,'prifn,'rl_pribq);
 put('ball,'rl_prepfn,'rl_prepbq);
-%put('ball,'fancy!-functionsymbol,34);
-put('ball,'fancy!-prifn,'rl_fancy!-pribq);
-if rl_texmacsp() then
-   put('ball,'fancy!-functionsymbol,"\bigsqcap ")
-else
-   put('ball,'fancy!-functionsymbol,34); %%% 34 okay?
 
 flag('(rl_simpbop rl_simpq rl_simpbq rl_prepbop rl_prepq rl_prepbq),'full);
 
-macro procedure rl_getversion(argl);
-   begin scalar v,w;
-      v := getenv("REDLOGVERSION") or "Development Version";
-      w := getenv("REDLOGDATE") or date();
-      return lto_sconcat {"Redlog ",v,", ",w}
-   end;
+algebraic procedure rlabout();
+   lisp rl_about();
 
-operator rlabout;
-
-procedure rlabout();
-   <<
-      ioto_tprin2t rl_getversion();
-      ioto_prin2 "(C)";
-      ioto_prin2t " A. Dolzmann and T. Sturm";
+asserted procedure rl_about();
+   begin scalar rev, date, time, year;
+      {rev, date, time} := rl_getversion();
+      ioto_tprin2t {"Redlog Revision ", rev, " of ", date, ", ", time};
+      year := car lto_stringSplit(date, '(!-));
+      ioto_tprin2t {"(c) 1992-", year, " A. Dolzmann and T. Sturm"};
       ioto_tprin2t "http://www.redlog.eu/"
-   >>;
-
-macro procedure rl_mkbb(lst);
-   % Make black box.
-   begin scalar args,vn,name,n,prgn;
-      name := eval cadr lst;
-      n := eval caddr lst;
-      args := for i := 1:n collect mkid('a,i);
-      vn := intern compress nconc(explode name,'(!! !*));
-      prgn := {'setq,'rl_bbl!*,{'cons,mkquote vn,'rl_bbl!*}} . prgn;
-      prgn := {'put,mkquote name,''number!-of!-args,n} . prgn;
-      prgn := {'de,name,args,{'apply,vn,'list . args}} . prgn;
-      prgn := {'fluid,mkquote {vn}} . prgn;
-      return 'progn . prgn
    end;
 
-macro procedure rl_mkserv(argl);
-   begin
-      scalar aprefix,sprefix,bname,evalfnl,oevalfnl,odefl,resconv,amp,len,
-	 args,sm,smv,prgn,am,psval;
-      sprefix := reversip explode nth(argl,1);
-      while not eqcar(sprefix,'!_) do sprefix := cdr sprefix;
-      aprefix := reverse cdr sprefix;
-      sprefix := reversip sprefix;
-      bname := eval nth(argl,2);
-      evalfnl := eval nth(argl,3);
-      oevalfnl := eval nth(argl,4);
-      odefl := eval nth(argl,5);
-      resconv := eval nth(argl,6);
-      amp := eval nth(argl,7);
-      len := length evalfnl + length oevalfnl;
-      args := for i := 1:len collect mkid('a,i);
-      sm := intern compress append(sprefix,explode bname);
-      smv := intern compress nconc(explode sm,'(!! !*));
-      prgn := {'setq,'rl_servl!*,{'cons,mkquote smv,'rl_servl!*}} . prgn;
-      prgn := {'put,mkquote sm,''number!-of!-args,len} . prgn;
-      prgn := {'de,sm,args,{'apply,smv,'list . args}} . prgn;
-      prgn := {'fluid,mkquote {smv}} . prgn;
-      if amp then <<
-      	 am := intern compress append(aprefix,explode bname);
-      	 psval := intern compress nconc(explode sm,'(!! !$));
-	 prgn := {'put,mkquote am,''psopfn,mkquote psval} . prgn;
-	 prgn := {'put,mkquote am,''rtypefn,''rtypepart} . prgn;
-	 prgn := {'put,mkquote psval,''number!-of!-args,1} . prgn;
-	 prgn := {'put,mkquote psval,''cleanupfn,''rl_cleanup} . prgn;
-	 prgn := {'de,psval,'(argl),{'rl_interf1,mkquote sm,mkquote evalfnl,
-	    mkquote oevalfnl,mkquote odefl,mkquote resconv,'argl}} . prgn
-      >>;
-      return 'progn . prgn
+asserted procedure rl_getversion(): List3;
+   begin scalar w, res; integer rev, cur;
+      for each pack in get('redlog, 'known!-packages) do
+	 for each mod in get(pack, 'package) do <<
+	    w := lto_stringSplit(get(mod, 'revision), {'! , !$eol!$, cr!*, ff!*, tab!*});
+	    if length w = 7 then <<
+	       rev := lto_id2int lto_string2id nth(w, 3);
+	       if rev > cur then <<
+	       	  cur := rev;
+ 		  res := {nth(w, 3), nth(w, 4), nth(w, 5)}
+	       >>
+	    >> else
+	       lprim lto_sconcat {"revision missing on ", lto_at2str pack, "/", lto_at2str mod}
+	 >>;
+      return res
    end;
-
-copyd('sl_mkserv,'rl_mkserv);
-
-procedure rl_alias(new,old);
-   put(intern compress append('(!r !l),explode new),
-      'psopfn,
-      get(intern compress append('(!r !l),explode old),'psopfn));
-
-procedure sl_alias(new,old);
-   put(intern compress append('(!s !l),explode new),
-      'psopfn,
-      get(intern compress append('(!s !l),explode old),'psopfn));
-
-#if rldynamic!#
-
-inline procedure rl_op(f);
-   % Reduce logic operator. [f] is a formula. Returns the top-level
-   % operator of [f]. In this sense truth values are operators.
-   if atom f then f else cadr f;
-
-inline procedure rl_arg1(f);
-   % Reduce logic argument of unary operator. [f] is a formula $\tau
-   % (\phi)$ with a unary boolean top-level operator $\tau$. Returns
-   % the single argument $\phi$ of $\tau$.
-   caddr f;
-
-inline procedure rl_arg2l(f);
-   % Reduce logic left hand side argument of binary operator. [f] is a
-   % formula $\tau(\phi_1,\phi_2)$ with a binary boolean top-level
-   % operator $\tau$. Returns the left hand side argument $\phi_1$ of
-   % $\tau$.
-   caddr f;
-
-inline procedure rl_arg2r(f);
-   % Reduce logic right hand side argument of binary operator. [f] is
-   % a formula $\tau(\phi_1,\phi_2)$ with a binary boolean top-level
-   % operator $\tau$. Returns the right hand side argument $\phi_2$ of
-   % $\tau$.
-   cadddr f;
-
-inline procedure rl_argn(f);
-   % Reduce logic argument list of n-ary operator. [f] is a formula
-   % $\tau(\phi_1,...)$ with unary, binary, or $n$-ary top-level
-   % operator $\tau$. Returns the arguments of $\tau$ as a list
-   % $(\phi_1,...)$.
-   cddr f;
-
-inline procedure rl_var(f);
-   % Reduce logic variable. [f] is a formula $Q x (\phi)$ where $Q$ is
-   % a quantifier. Returns the quantified variable $x$.
-   caddr f;
-
-inline procedure rl_mat(f);
-   % Reduce logic matrix. [f] is a formula $Q x (\phi)$ where $Q$ is a
-   % quantifier. Returns the matrix $\phi$.
-   cadddr f;
-
-inline procedure rl_b(f);
-   % Reduce logic bound. [f] is a formula starting with a bounded
-   % quantifier. Returns the bound.
-   caddddr f;
-
-inline procedure rl_mk1(uop,arg);
-   % Reduce logic make formula for unary operator. [uop] is a unary
-   % operator, [arg] is a formula. Returns the formula $[uop]([arg])$
-   % with top-level operator [uop] and argument [arg].
-   {nil,uop,arg};
-
-inline procedure rl_pmk1(pl,uop,arg);
-   % Reduce logic plist make formula for unary operator. [pl] is an
-   % alist, [uop] is a unary operator, [arg] is a formula. Returns the
-   % formula $[uop]([arg])$ with top-level operator [uop] and argument
-   % [arg].
-   {pl,uop,arg};
-
-inline procedure rl_mk2(bop,larg,rarg);
-   % Reduce logic make formula for binary operator. [bop] is a binary
-   % operator, [larg] and [rarg] are formulas. Returns the formula
-   % $[bop]([larg],[rarg])$ with top-level operator [bop], left hand
-   % side [larg], and right hand side [rarg].
-   {nil,bop,larg,rarg};
-
-inline procedure rl_pmk2(pl,bop,larg,rarg);
-   % Reduce logic plist make formula for binary operator. [pl] is an
-   % alist, [bop] is a binary operator, [larg] and [rarg] are formulas.
-   % Returns the formula $[bop]([larg],[rarg])$ with top-level operator
-   % [bop], left hand side [larg], and right hand side [rarg].
-   {pl,bop,larg,rarg};
-
-inline procedure rl_mkn(nop,argl);
-   % Reduce logic make formula for n-ary operator. [nop] is a unary,
-   % binary, or $n$-ary operator; [argl] is a list $(\phi_1,...)$ of
-   % formulas; for binary or $n$-ary [nop] the length of [argl] is a
-   % least 2. Returns the formula $[nop](\phi_1,..)$ with top-level
-   % operator [nop], and the elements of [argl] as its arguments.
-   nil . nop . argl;
-
-inline procedure rl_pmkn(pl,nop,argl);
-   % Reduce logic plist make formula for n-ary operator. [pl] is an
-   % alist, [nop] is a unary, binary, or $n$-ary operator; [argl] is a
-   % list $(\phi_1,...)$ of formulas; for binary or $n$-ary [nop] the
-   % length of [argl] is a least 2. Returns the formula
-   % $[nop](\phi_1,..)$ with top-level operator [nop], and the elements
-   % of [argl] as its arguments.
-   pl . nop . argl;
-
-inline procedure rl_smkn(nop,argl);
-   % Reduce logic safe make formula for n-ary operator. [nop] is one
-   % of ['and], ['or]; [argl] is a list $(\phi_1,...)$ of formulas.
-   % Returns a formula. If [argl] is empty, ['true] is returned for
-   % $[nop]=['and]$, and $['false]$ is returned for $[nop]=['or]$. If
-   % [argl] is of length 1, its single element $\phi_1$ is returned.
-   % Else the formula $[nop](\phi_1,..)$ with top-level operator
-   % [nop], and the elements of [argl] as its arguments is returned.
-   if argl and cdr argl then
-      nil . nop . argl
-   else if null argl then
-      if nop eq 'and then 'true else 'false
-   else
-      car argl;
-
-inline procedure rl_psmkn(pl,nop,argl);
-   % Reduce logic plist safe make formula for n-ary operator. [pl] is an
-   % alist, [nop] is one of ['and], ['or]; [argl] is a list
-   % $(\phi_1,...)$ of formulas. Returns a formula. If [argl] is empty,
-   % ['true] is returned for $[nop]=['and]$, and $['false]$ is returned
-   % for $[nop]=['or]$. If [argl] is of length 1, its single element
-   % $\phi_1$ is returned. Else the formula $[nop](\phi_1,..)$ with
-   % top-level operator [nop], and the elements of [argl] as its
-   % arguments is returned.
-   if argl and cdr argl then
-      pl . nop . argl
-   else if null argl then
-      if nop eq 'and then 'true else 'false
-   else
-      car argl;
-
-inline procedure rl_mkq(q,v,m);
-   % Reduce logic make quantified formula. [q] is a quantifier, [v] is
-   % a variable, [m] is a formula. Returns the formula $[q] [x] ([m])$
-   % which is quantified with quantifier [q], quantified variable [v],
-   % and matrix [m].
-   {nil,q,v,m};
-
-inline procedure rl_pmkq(pl,q,v,m);
-   % Reduce logic plist make quantified formula. [pl] is an alist, [q]
-   % is a quantifier, [v] is a variable, [m] is a formula. Returns the
-   % formula $[q] [x] ([m])$ which is quantified with quantifier [q],
-   % quantified variable [v], and matrix [m].
-   {pl,q,v,m};
-
-inline procedure rl_mkbq(q,v,b,m);
-   % Reduce logic make quantified formula. [q] is a quantifier, [v] is
-   % a variable, [b] is a fof with x as only free variable, [m] is a
-   % formula. Returns a formula which is quantified with quantifier
-   % [q], quantified variable [v], which is restricted by [b] and
-   % matrix [m].
-   {nil,q,v,m,b};
-
-inline procedure rl_pmkbq(pl,q,v,b,m);
-   % Reduce logic plist make quantified formula. [pl] is an alist, [q]
-   % is a quantifier, [v] is a variable, [b] is a fof with x as only
-   % free variable, [m] is a formula. Returns a formula which is
-   % quantified with quantifier [q], quantified variable [v], which is
-   % restricted by [b] and matrix [m].
-   {pl,q,v,m,b};
-
-inline procedure rl_put(f,k,v);
-   <<
-      (if w then cdr w := v else car f := (k . v) . car f)
-      	 where w=atsoc(k,car f);
-      v
-   >>;
-
-inline procedure rl_get(f,k);
-   (if w then cdr w) where w=atsoc(k,car f);
-
-inline procedure rl_plist(f);
-   car f;
-
-#else
 
 inline procedure rl_op(f);
    % Reduce logic operator. [f] is a formula. Returns the top-level
@@ -652,25 +417,11 @@ inline procedure rl_mk1(uop,arg);
    % with top-level operator [uop] and argument [arg].
    {uop,arg};
 
-inline procedure rl_pmk1(pl,uop,arg);
-   % Reduce logic plist make formula for unary operator. [pl] is an
-   % alist, [uop] is a unary operator, [arg] is a formula. Returns the
-   % formula $[uop]([arg])$ with top-level operator [uop] and argument
-   % [arg].
-   {uop,arg};
-
 inline procedure rl_mk2(bop,larg,rarg);
    % Reduce logic make formula for binary operator. [bop] is a binary
    % operator, [larg] and [rarg] are formulas. Returns the formula
    % $[bop]([larg],[rarg])$ with top-level operator [bop], left hand
    % side [larg], and right hand side [rarg].
-   {bop,larg,rarg};
-
-inline procedure rl_pmk2(pl,bop,larg,rarg);
-   % Reduce logic plist make formula for binary operator. [pl] is an
-   % alist, [bop] is a binary operator, [larg] and [rarg] are formulas.
-   % Returns the formula $[bop]([larg],[rarg])$ with top-level operator
-   % [bop], left hand side [larg], and right hand side [rarg].
    {bop,larg,rarg};
 
 inline procedure rl_mkn(nop,argl);
@@ -679,15 +430,6 @@ inline procedure rl_mkn(nop,argl);
    % formulas; for binary or $n$-ary [nop] the length of [argl] is a
    % least 2. Returns the formula $[nop](\phi_1,..)$ with top-level
    % operator [nop], and the elements of [argl] as its arguments.
-   nop . argl;
-
-inline procedure rl_pmkn(pl,nop,argl);
-   % Reduce logic plist make formula for n-ary operator. [pl] is an
-   % alist, [nop] is a unary, binary, or $n$-ary operator; [argl] is a
-   % list $(\phi_1,...)$ of formulas; for binary or $n$-ary [nop] the
-   % length of [argl] is a least 2. Returns the formula
-   % $[nop](\phi_1,..)$ with top-level operator [nop], and the elements
-   % of [argl] as its arguments.
    nop . argl;
 
 inline procedure rl_smkn(nop,argl);
@@ -705,34 +447,11 @@ inline procedure rl_smkn(nop,argl);
    else
       car argl;
 
-inline procedure rl_psmkn(pl,nop,argl);
-   % Reduce logic plist safe make formula for n-ary operator. [pl] is an
-   % alist, [nop] is one of ['and], ['or]; [argl] is a list
-   % $(\phi_1,...)$ of formulas. Returns a formula. If [argl] is empty,
-   % ['true] is returned for $[nop]=['and]$, and $['false]$ is returned
-   % for $[nop]=['or]$. If [argl] is of length 1, its single element
-   % $\phi_1$ is returned. Else the formula $[nop](\phi_1,..)$ with
-   % top-level operator [nop], and the elements of [argl] as its
-   % arguments is returned.
-   if argl and cdr argl then
-      nop . argl
-   else if null argl then
-      if nop eq 'and then 'true else 'false
-   else
-      car argl;
-
 inline procedure rl_mkq(q,v,m);
    % Reduce logic make quantified formula. [q] is a quantifier, [v] is
    % a variable, [m] is a formula. Returns the formula $[q] [x] ([m])$
    % which is quantified with quantifier [q], quantified variable [v],
    % and matrix [m].
-   {q,v,m};
-
-inline procedure rl_pmkq(pl,q,v,m);
-   % Reduce logic plist make quantified formula. [pl] is an alist, [q]
-   % is a quantifier, [v] is a variable, [m] is a formula. Returns the
-   % formula $[q] [x] ([m])$ which is quantified with quantifier [q],
-   % quantified variable [v], and matrix [m].
    {q,v,m};
 
 inline procedure rl_mkbq(q,v,b,m);
@@ -742,25 +461,6 @@ inline procedure rl_mkbq(q,v,b,m);
    % [q], quantified variable [v], which is restricted by [b] and
    % matrix [m].
    {q,v,m,b};
-
-inline procedure rl_pmkbq(pl,q,v,b,m);
-   % Reduce logic plist make quantified formula. [pl] is an alist, [q]
-   % is a quantifier, [v] is a variable, [b] is a fof with x as only
-   % free variable, [m] is a formula. Returns a formula which is
-   % quantified with quantifier [q], quantified variable [v], which is
-   % restricted by [b] and matrix [m].
-   {q,v,m,b};
-
-inline procedure rl_put(f,k,v);
-   v;
-
-inline procedure rl_get(f,k);
-   nil;
-
-inline procedure rl_plist(f);
-   nil;
-
-#endif
 
 inline procedure rl_quap(x);
    % Reduce logic quantifier predicate. [x] is any S-expression.
@@ -829,14 +529,6 @@ procedure rl_mkexternal(x,f,xf);
 	 al := (f . xf) . al;
       return put(x,'rl_external,al)
    end;
-
-flag('(rl_exception),'assert_ignore);
-
-inline procedure rl_exception(s);
-   'rl_exception . s;
-
-inline procedure rl_exceptionp(s);
-   eqcar(s,'rl_exception);
 
 endmodule;  % [redlog]
 

@@ -6,6 +6,7 @@
 % Created:      27-Feb-84
 % Modified:     14-Jan-85 09:10:20 (Vicki O'Day)
 % Package:
+% Status;	Open Source: BSD License
 %
 % (c) Copyright 1982, University of Utah
 %
@@ -111,7 +112,7 @@
         (binarywriteblock unexecresult heaplowerbound 
 		(wshift (wplus2 (wdifference heaplast heaplowerbound) 24) -3))
         (binarywriteblock unexecresult hashtable 
-                            (quotient (plus2 1 hash-table-size) 2))
+                         (times 2 (quotient (plus2 3 hash-table-size) 4)))
         (binarywriteblock unexecresult bpslowerbound 
                 (wshift bpssize -3)) 
         (binaryclose unexecresult)

@@ -44,7 +44,9 @@ fluid '(current!-modulus
         work!-vector2);
 
 
-#if (memq 'csl lispsystem!*)
+#if (getd 'carcheck)
+% In fact pslrend.red defines a summy carcheck function so this gets
+% obeyed all the time.
 safe!-flag:= carcheck 0; % For speed of array access - important here.
 carcheck 0;              % and again for fasl purposes (in case carcheck
                          % is flagged EVAL).
@@ -58,7 +60,7 @@ symbolic procedure get!-factor!-count!-mod!-p
     old!-m:=set!-modulus p;
 %    PRIN2 "prime = ";% prin2t current!-modulus;
 %    PRIN2 "degree = ";% prin2t ldeg poly!-mod!-p;
-%   trace!-time display!-time("Entered GET-FACTOR-COUNT after ",time());
+%   trace!-time display!-time("Entered get-factor-count after ",time());
 %   wtime:=time();
     f!-count:=modular!-factor!-count();
 %   trace!-time display!-time("Factor count obtained in ",time()-wtime);
@@ -385,7 +387,7 @@ symbolic procedure convert!-null!-vectors!-to!-factors m!-info;
     factors:=list (poly!-vector . dpoly);
 try!-next!-null:
     if null!-space!-basis=nil then
-      errorf "RAN OUT OF NULL VECTORS TOO EARLY";
+      errorf "ran out of null vectors too early";
 %   wtime:=time();
     factors:=try!-all!-constants(factors,
         caar null!-space!-basis,cdar null!-space!-basis);
@@ -471,7 +473,7 @@ symbolic procedure append!-new!-factors(a,b);
 
 
 
-#if (memq 'csl lispsystem!*)
+#if (getd 'carcheck)
 carcheck safe!-flag; % Restore status quo.
 #endif
 

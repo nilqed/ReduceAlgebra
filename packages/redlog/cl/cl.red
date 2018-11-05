@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2011 T. Sturm
-% ----------------------------------------------------------------------
+module cl;  % Common logic. Generic functions on first order formulas.
+
+revision('cl, "$Id: cl.red 4052 2017-05-16 08:07:37Z thomas-sturm $");
+
+copyright('cl, "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -28,23 +29,9 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
 
-lisp <<
-   fluid '(cl_rcsid!* cl_copyright!*);
-   cl_rcsid!* := "$Id$";
-   cl_copyright!* := "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2011 T Sturm"
->>;
+create!-package('(cl clsimpl clbnf clnf clqe cltab clmisc clresolv), nil);
 
-module cl;
-% Common logic. Generic functions on first order formulas. This module
-% contains context independent code possibly addressing some black
-% boxes.
-
-create!-package('(cl clsimpl clbnf clnf clqe cltab clmisc clresolv clsl),nil);
-
-loadtime load!-package 'rltools;
 load!-package 'redlog;
-
-off1 'assert;
 
 exports cl_atfp,cl_cxfp,cl_atflp,cl_ncflp,cl_dnfp,cl_cnfp,cl_bnfp,cl_simpl,
    cl_sitheo,cl_ordp,cl_smcpknowl,cl_smrmknowl,cl_smupdknowl,cl_smmkatl,
@@ -55,17 +42,15 @@ exports cl_atfp,cl_cxfp,cl_atflp,cl_ncflp,cl_dnfp,cl_cnfp,cl_bnfp,cl_simpl,
    cl_gqe,cl_gqea,cl_qe,cl_qea,cl_qeipo,cl_qews,cl_trygauss,cl_specelim,cl_tab,
    cl_atab,cl_itab,cl_gentheo,cl_apply2ats,cl_apply2ats1,cl_apply2ats2,cl_atnum,
    cl_f2ml,cl_atml,cl_atml1,cl_atl,cl_atl1,cl_identifyonoff,cl_ifacml,
-   cl_ifacml1,cl_ifacl,cl_ifacl1,cl_matrix,cl_closure,cl_all,cl_ex,cl_flip,
+   cl_ifacml1,cl_ifacl,cl_ifacl1,cl_ifacdegl,cl_matrix,cl_closure,cl_all,cl_ex,cl_flip,
    cl_cflip,cl_subfof,cl_termml,cl_termml1,cl_terml,cl_terml1,cl_struct,
    cl_ifstruct,cl_surep,cl_splt;
-
-imports rltools;
 
 fluid '(cl_identify!-atl!* cl_pal!* cl_lps!* cl_theo!*
    !*rlidentify !*rlsichk !*rlsism !*rlsiexpla !*rlbnfsm !*rlverbose
    !*rlsiidem !*rlsiso !*rlqepnf !*rlqedfs !*rlqeans !*rlqegsd !*rlqeheu
-   !*rlqegen !*rlbnfsac !*rltabib !*rltnft !*rlsipw !*rlsipo !*rlqevarsel
-   !*rlspgs !*rlsithok !*rlqefb !*rlqelocal !*rlqeapprox !*rlresi !*rlqeprecise
+   !*rlqegen !*rlbnfsac !*rltnft !*rlsipw !*rlsipo !*rlqevarsel
+   !*rlspgs !*rlsithok !*rlqefb !*rlqelocal !*rlresi !*rlqeprecise
    !*rlqeaprecise !*rlqestdans !*slat);
 
 struct Formula;

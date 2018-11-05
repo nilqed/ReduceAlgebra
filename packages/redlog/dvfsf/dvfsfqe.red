@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: dvfsfqe.red 3035 2015-03-24 21:12:32Z arthurcnorman $
 % ----------------------------------------------------------------------
 % Copyright (c) 1995-2009 Andreas Dolzmann and Thomas Sturm
 % ----------------------------------------------------------------------
@@ -31,7 +31,7 @@
 lisp <<
    fluid '(dvfsf_qe_rcsid!* dvfsf_qe_copyright!*);
    dvfsf_qe_rcsid!* :=
-      "$Id$";
+      "$Id: dvfsfqe.red 3035 2015-03-24 21:12:32Z arthurcnorman $";
    dvfsf_qe_copyright!* := "Copyright (c) 1995-2009 A. Dolzmann and T. Sturm"
 >>;
 

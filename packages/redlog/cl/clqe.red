@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2009 A. Dolzmann and T. Sturm, 2010-2011 T. Sturm
-% ----------------------------------------------------------------------
+module clqe;  % Common logic quantifier elimination by virtual substitution
+
+revision('clqe, "$Id: clqe.red 4055 2017-05-21 20:03:42Z thomas-sturm $");
+
+copyright('clqe, "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -27,16 +28,6 @@
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
-
-lisp <<
-   fluid '(cl_qe_rcsid!* cl_qe_copyright!*);
-   cl_qe_rcsid!* := "$Id$";
-   cl_qe_copyright!* := "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2012 T. Sturm"
->>;
-
-module clqe;
-% Common logic quantifier elimination by elimination sets. Submodule of [cl].
-% Currently limited to quadratic formulas.
 
 %DS
 % TaggedContainerElementL ::= Status . ContainerElementL
@@ -68,10 +59,12 @@ procedure substTripletP(x);
 
 
 %DS
-% Container ::= (ContainerElementL . QfFormulaL)
+% Container ::= (ContainerElementL . QfFormulaL) | nil
 
-struct Container asserted by pairp;
+struct Container asserted by containerP;
 
+procedure containerP(x);
+   null x or pairp x;
 
 %DS
 % Point ::= (Coordinate, ...)
@@ -166,8 +159,10 @@ asserted procedure co_dynPush1(co: Container, ce: ContainerElement): Container;
       return co
    end;
 
-asserted procedure co_hfn(item: ContainerElement): List2;
-   % Container hash function.
+asserted procedure co_hfn(item: DottedPair): List2;
+   % Container hash function. The argument is a pair with a variable list and a
+   % quantifier-free formula both taken from a Container Element in co_dynPush1
+   % above.
    {cl_fvarl1 cdr item,rl_atnum cdr item};
 
 asserted procedure co_push(co: ContainerElementL, dol: ContainerElementL): Container;
@@ -313,7 +308,12 @@ inline procedure cl_mkER(theo,eqr);
 declare cl_mk1EQR: (Formula,EquationL) -> ExtendedQeResult;
 inline procedure cl_mk1EQR(f,eql);
    % Make singleton extended qe result.
-   {{f,eql}};
+   {f . eql};
+
+rl_provideService rl_gqe = cl_gqe
+   using rl_negateat, rl_translat, rl_elimset, rl_elimset, rl_trygauss, rl_varsel,
+   rl_betterp, rl_qemkans, rl_transform, rl_qefsolset, rl_bettergaussp, rl_bestgaussp,
+   rl_esetunion, rl_specelim, rl_fbqe;
 
 asserted procedure cl_gqe(f: Formula, theo: Theory, xbvl: KernelL): TheoryFormulaPair;
    % Generic quantifier elimination. Returns a pair $\Theta . \phi$. $\Theta$ is
@@ -331,6 +331,11 @@ asserted procedure cl_gqe(f: Formula, theo: Theory, xbvl: KernelL): TheoryFormul
       return theo . rl_simpl(caar cl_erEQR er,theo,-1)
    end;
 
+rl_provideService rl_gqea = cl_gqea
+   using rl_negateat, rl_translat, rl_elimset, rl_elimset, rl_trygauss, rl_varsel,
+   rl_betterp, rl_qemkans, rl_transform, rl_qefsolset, rl_bettergaussp, rl_bestgaussp,
+   rl_esetunion, rl_specelim;
+
 asserted procedure cl_gqea(f: Formula, theo: Theory, xbvl: KernelL): EliminationResult;
    % Generic quantifier elimination with answer. Returns a pair $\Theta . \Phi$.
    % $\Theta$ extends [theo] by assumptions on free variables of [f] that are
@@ -347,6 +352,11 @@ asserted procedure cl_gqea(f: Formula, theo: Theory, xbvl: KernelL): Elimination
 	 return er;
       return cl_mkER(rl_thsimpl cl_erTh er,cl_erEQR er)
    end;
+
+rl_provideService rl_lqe = cl_lqe
+   using rl_negateat, rl_translat, rl_elimset, rl_elimset, rl_trygauss, rl_varsel,
+   rl_betterp, rl_qemkans, rl_transform, rl_subat, rl_qefsolset, rl_bettergaussp,
+   rl_esetunion, rl_bestgaussp, rl_specelim, rl_fbqe;
 
 asserted procedure cl_lqe(f: Formula, theo: Theory, pt: Point): TheoryFormulaPair;
    % Local quantifier elimination. [pt] is the suggested value for the local
@@ -376,34 +386,10 @@ asserted procedure cl_lqe(f: Formula, theo: Theory, pt: Point): TheoryFormulaPai
       return rl_lthsimpl(theo) . rl_simpl(caar cl_erEQR er,theo,-1)
    end;
 
-asserted procedure cl_aqe(f: Formula, theo: Theory, pt: Point): TheoryFormulaPair;
-   % Approximate quantifier elimination. [f] is a formula; [theo] is a
-   % THEORY; [pt] is a list of equations $v=z$, where $v$ is a variable
-   % and $z$ is an SQ encoding a rational number, namely the suggested
-   % value for the existential variable $v$. Returns a pair $\Theta .
-   % \phi$. $\Theta$ is a THEORY extending [theo]; $\phi$ is a formula.
-   % Accesses the switch [rlqepnf]; if [rlqepnf] is on, then [f] must be
-   % prenex. Accesses the fluids [cl_pal!*], [cl_lps!*], and
-   % [cl_theo!*]. [cl_lps!*] is the list of existential variables for
-   % which values are suggested; [cl_pal!*] is a corresponding ALIST
-   % containing also the suggested values; [cl_theo!*] is the theory
-   % generated by the local quantifier elimination. These 3 fluids have
-   % been hijacked from cl_lqe, where they have got a different
-   % semantics.
-   begin scalar w,theo,!*rlqeapprox,cl_pal!*,cl_lps!*,cl_theo!*;
-      !*rlqeapprox := t;
-      cl_pal!* := pt;
-      cl_lps!* := for each x in pt collect car x;
-      cl_theo!* := nil;
-      w := rl_simpl(rl_smkn('and,w),nil,-1);
-      if w eq 'false then
-	 rederr "rllqe: inconsistent theory";
-      w := cl_qe1(f,theo,nil);
-      theo := nconc(cl_theo!*,theo);
-      w := cl_erEQR w;
-      cl_pal!* := cl_lps!* := cl_theo!* := nil;
-      return rl_lthsimpl(theo) . rl_simpl(w,theo,-1)
-   end;
+rl_provideService rl_qe = cl_qe
+   using rl_negateat, rl_translat, rl_elimset, rl_elimset, rl_trygauss, rl_varsel,
+   rl_betterp, rl_qemkans, rl_transform, rl_qefsolset, rl_bettergaussp, rl_bestgaussp,
+   rl_esetunion, rl_specelim, rl_fbqe;
 
 asserted procedure cl_qe(f: Formula, theo: Theory): Formula;
    % Quantifier elimination. Returns a formula $\phi$ such that $[theo] \models
@@ -417,6 +403,11 @@ asserted procedure cl_qe(f: Formula, theo: Theory): Formula;
 	 return er;
       return caar cl_erEQR er
    end;
+
+rl_provideService rl_qea = cl_qea
+   using rl_negateat, rl_translat, rl_elimset, rl_elimset, rl_trygauss, rl_varsel,
+   rl_betterp, rl_qemkans, rl_transform, rl_qefsolset, rl_bettergaussp, rl_bestgaussp,
+   rl_esetunion, rl_specelim;
 
 asserted procedure cl_qea(f: Formula, theo: Theory): ExtendedQeResult;
    % Quantifier elimination with answer. Returns a list of pairs $(..., (c_i,
@@ -522,7 +513,7 @@ asserted procedure cl_unsplit(ql: List, varll: List, f: Formula): Formula;
       return res
    end;
 
-asserted procedure cl_qe1!-iterate(ql: List, varll: List, f: Theory, theo: Theory, bvl: KernelL): List6;
+asserted procedure cl_qe1!-iterate(ql: List, varll: List, f: Theory, theo: Theory, bvl: KernelL): List7;
    % Iteratively apply [cl_qeblock] to the quantifier blocks.
    begin scalar svrlidentify,svrlqeprecise,svrlqeaprecise,q,varl,svf,rvl,jl;
       svrlidentify := !*rlidentify;
@@ -689,15 +680,15 @@ asserted procedure cl_qeblock4(f: QfFormula, varl: KernelL, theo: Theory, ans: B
 	 if car w then <<  % We have found a suitable variable.
 	    w := cdr w;
 	    if w then
-	       if ce_vl car w eq 'break then <<
+	       if ce_vl car w eq 'break then <<  % we have found true
 	       	  co := co_new();
 	       	  newj := {cl_co2J car w}
-	       >> else if cdr cvl then <<
+	       >> else if cdr cvl then <<  % there are variables left
 		  if !*rlverbose then oldcol := co_length co;
 	       	  co := co_save(co,w);
  		  if !*rlverbose then
 		     delc := delc + oldcol + length w - co_length(co)
-	       >> else
+	       >> else  % there is no variable left
    		  for each x in w do newj := lto_insert(cl_co2J x,newj)
 	 >> else <<
 	    % There is no eliminable variable. Invalidate this entry, and save
@@ -765,14 +756,14 @@ asserted procedure cl_transform(f: QfFormula, vl: KernelL, an: Answer, theo: The
       return {f, vl, an, theo, ans, bvl}
    end;
 
-asserted procedure cl_gauss(f: QfFormula, vl: KernelL, an: Answer, theo: Theory, ans: Boolean, bvl: KernelL): DottedPair;
+asserted procedure cl_gauss(f: QfFormula, vl: KernelL, an: Answer, theo: Theory, ans: Boolean, bvl: KernelL): ExtraBoolean;
    begin scalar w,ww;
       w := rl_trygauss(f,vl,theo,ans,bvl);
       if w neq 'failed then <<
 	 theo := cdr w;
 	 w := car w;
       	 if !*rlverbose and (not !*rlqedfs or !*rlqevbold) then ioto_prin2 "g";
-	 vl := delq(car w,vl);
+	 vl := lto_delq(car w,vl);
 	 ww := cl_esetsubst(f,car w,cdr w,vl,an,theo,ans,bvl);
 	 if !*rlqelocal then
 	    return (t . car ww) . cl_theo!*
@@ -800,7 +791,7 @@ asserted procedure cl_process!-candvl(f: QfFormula, vl: KernelL, an: Answer, the
       	 if alp = '(nil . nil) then <<  % [v] does not occur in [f].
       	    if !*rlverbose and (not !*rlqedfs or !*rlqevbold) then
  	       ioto_prin2 "*";
-      	    w := {ce_mk(delq(v,vl),f,nil,nil,ans and cl_updans(v,'arbitrary,nil,nil,an,ans))};
+      	    w := {ce_mk(lto_delq(v,vl),f,nil,nil,ans and cl_updans(v,'arbitrary,nil,nil,an,ans))};
 	    status := 'nonocc;
 	    candvl := nil
       	 >> else if car alp = 'failed then
@@ -811,7 +802,7 @@ asserted procedure cl_process!-candvl(f: QfFormula, vl: KernelL, an: Answer, the
 	 else <<
       	    if !*rlverbose and (not !*rlqedfs or !*rlqevbold) then
  	       ioto_prin2 "e";
-      	    ww := cl_esetsubst(f,v,rl_elimset(v,alp),delq(v,vl),an,
+      	    ww := cl_esetsubst(f,v,rl_elimset(v,alp),lto_delq(v,vl),an,
 	       theo,ans,bvl);
 	    if !*rlqelocal then <<
 	       candvl := nil;

@@ -64,6 +64,8 @@ CXXFLAGS=""
 # More secret source
 AC_GNU_SOURCE
 
+AC_CONFIG_MACRO_DIRS([m4])
+
 # Check using C++
 AC_LANG(C++)
 
@@ -74,9 +76,10 @@ AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
-AC_PROG_RANLIB
 
 AC_CANONICAL_HOST
+
+LT_INIT
 
 case $host_os in
   *bsd*)
@@ -125,6 +128,9 @@ AC_CHECK_LIB(dld, shl_load)
 
 # Check vsscanf
 AC_CHECK_FUNCS(vsscanf vsnprintf strtoll strtoull)
+
+# Check sigaction
+AC_CHECK_FUNCS(sigaction)
 
 # Add copious amounts of debugging with gcc
 if test "${GXX}" = "yes" ; then

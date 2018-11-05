@@ -1,7 +1,7 @@
-% make-smacros.red
+% make-smacros.red                         Copyright (C) Codemist 2016-2017
 
 %**************************************************************************
-%* Copyright (C) 2016, Codemist.                         A C Norman       *
+%* Copyright (C) 2017, Codemist.                         A C Norman       *
 %*                                                                        *
 %* Redistribution and use in source and binary forms, with or without     *
 %* modification, are permitted provided that the following conditions are *
@@ -30,7 +30,7 @@
 %*************************************************************************/
 
 
-% $Id$
+% $Id: make-smacros.red 3884 2017-02-05 19:17:16Z arthurcnorman $
 
 % Run this file using bootstrapreduce to create a file smacros.red that
 % can perhaps be copied to packages/support.

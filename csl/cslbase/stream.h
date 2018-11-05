@@ -1,4 +1,4 @@
-// stream.h                              Copyright (C) Codemist, 1995-2016
+// stream.h                              Copyright (C) Codemist, 1995-2017
 
 //
 // Header defining the structure of stream objects in CSL, and also
@@ -7,7 +7,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -36,7 +36,7 @@
  *************************************************************************/
 
 
-// $Id$
+// $Id: stream.h 3905 2017-02-20 22:23:27Z arthurcnorman $
 
 #ifndef header_stream_h
 #define header_stream_h 1
@@ -48,7 +48,7 @@ typedef int character_stream_reader(LispObject);
 typedef int character_stream_writer(int, LispObject);
 typedef int32_t other_stream_op(int32_t, LispObject);
 
-extern LispObject Lopen(LispObject nil, LispObject name, LispObject dir);
+extern LispObject Lopen(LispObject env, LispObject name, LispObject dir);
 
 //
 // The values used here are placed where characters might be, or possibly
@@ -179,37 +179,10 @@ extern char memory_print_buffer[MAX_PROMPT_LENGTH];
 
 #define is_stream(v)      (is_vector(v) && vechdr(v) == STREAM_HEADER)
 
-#ifdef DEBUG
-#define putc_stream(c, f)          (!is_stream(f) || \
-                                    stream_write_fn(f)==0 ? \
-                                    term_printf("putc %s %d\n", \
-                                                __FILE__, __LINE__), \
-                                    ensure_screen(), my_exit(1), 0 : \
-                                    stream_write_fn(f)((c) & 0xff, (f)))
-#define getc_stream(f)             (!is_stream(f) || \
-                                    stream_read_fn(f)==0 ? \
-                                    term_printf("getc %s %d\n", \
-                                                __FILE__, __LINE__), \
-                                    ensure_screen(), my_exit(1), 0 : \
-                                    stream_read_fn(f)(f))
-#define other_write_action(c, f)   (!is_stream(f) || \
-                                    stream_write_other(f)==0 ? \
-                                    term_printf("write_action %s %d\n", \
-                                                __FILE__, __LINE__), \
-                                    ensure_screen(), my_exit(1), 0 : \
-                                    stream_write_other(f)((c), (f)))
-#define other_read_action(c, f)    (!is_stream(f) || \
-                                    stream_read_other(f)==0 ? \
-                                    term_printf("read_action %s %d\n", \
-                                                __FILE__, __LINE__), \
-                                    ensure_screen(), my_exit(1), 0 : \
-                                    stream_read_other(f)((c), (f)))
-#else
 #define putc_stream(c, f)          (stream_write_fn(f)((c) & 0xff, (f)))
 #define getc_stream(f)             (stream_read_fn(f)(f))
 #define other_write_action(c, f)   (stream_write_other(f)((c), (f)))
 #define other_read_action(c, f)    (stream_read_other(f)((c), (f)))
-#endif
 
 //
 // For other_write_action if the top four bits of the operand select an
@@ -241,8 +214,26 @@ extern char memory_print_buffer[MAX_PROMPT_LENGTH];
 #define READ_IS_CONSOLE    0x40000003
 #define READ_END           0x40000004
 
+// Print options...
+
+#define escape_yes          0x0001    // make output re-readable
+
+#define escape_fold_down    0x0002    // force lower case output
+#define escape_fold_up      0x0004    // FORCE UPPER CASE OUTPUT
+#define escape_capitalize   0x0008    // Force Capitalisation (!)
+
+#define escape_binary       0x0010    // print format for numbers
+#define escape_octal        0x0020    // (including bignums)
+#define escape_hex          0x0040
+#define escape_nolinebreak  0x0080    // use infinite line-length
+#define escape_hexwidth     0x3f00    // 6 bits to specify width of hex/bin
+#define escape_width(n)     (((n) & escape_hexwidth) >> 8)
+#define escape_checksum     0x4000    // doing a checksum operation
+#define escape_exploding    0x8000    // in explode, exploden etc
+
+
 extern LispObject make_stream_handle(void);
-extern bool use_wimp, sigint_must_throw;
+extern bool use_wimp;
 
 extern character_reader *procedural_input;
 extern character_writer *procedural_output;

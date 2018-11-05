@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% (c) 2013 T. Sturm
-% ----------------------------------------------------------------------
+module gurobi;
+
+revision('gurobi, "$Id: gurobi.red 4088 2017-06-21 21:41:58Z arthurcnorman $");
+
+copyright('gurobi, "(c) 2013-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -28,8 +29,6 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
 
-module gurobi;
-
 #if (memq 'csl lispsystem!*)
 
 fluid '(gurobi_libredgurobi!*);
@@ -52,7 +51,7 @@ fluid '(gurobi_optimize!*);
 fluid '(gurobi_getsol!*);
 fluid '(gurobi_freemodel!*);
 
-gurobi_libredgurobi!* := lto_sconcat {rltools_trunk(), "packages/foreign/gurobi/libredgurobi.so"};
+gurobi_libredgurobi!* := lto_sconcat {systo_trunk(), "packages/foreign/gurobi/libredgurobi.so"};
 
 if filep gurobi_libredgurobi!* then <<
    gurobi_redgurobi!* := open!-foreign!-library gurobi_libredgurobi!*;
@@ -79,6 +78,27 @@ if filep gurobi_libredgurobi!* then <<
 procedure gurobi_newmodel(n, m);
    % [n] real variables plus [m] integer variables, all unbounded from below.
    call!-foreign!-function(gurobi_newmodel!*, 'int32, n, 'int32, m);
+
+% Several of these inline procedures cause CSL to generate complaints, so I
+% will explain here why the complaints are generated and hence help to
+% understand the extent to which they matter.
+% An inline procedure has its definition saved for insertion where it gets called.
+% If the body references a non-local variable (ie fluid or global) and that
+% variable is defined where the inline procedure is defined but is not defined
+% or is defined in a different way (eg global rather than fluid or vice versa)
+% where the function is called the result could be bad. So a minimum expectation
+% for any sort of safety is that all local variables mentioned within the body
+% of any inline procedure must be declared both where that function is defined
+% and in EVERY place where it is used. The message "Use of free variable in
+% smacro/inline body" is there to alert programmers to need for special care.
+% Perhaps especially because once a function is defined inline it could be used
+% from ANYWHERE in the Reduce source. If (perhaps because of violation of the
+% above) some code  ends up referring to a variable that is neither bound nor
+% declared (global or fluid) you get a diagnostic "xxx declared fluid" where xxx
+% is the name of the variable. At present this patches things up by forcing the
+% variable to have fluid status, but use of undeclared variables is not tidy and in
+% a future world where fluid and global are handled differently from one another
+% it could cause real pain.
 
 inline procedure gurobi_newdoublearray(n);
    call!-foreign!-function(gurobi_newdoublearray!*, 'int32, n, 'int64);

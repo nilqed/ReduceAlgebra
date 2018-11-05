@@ -26,7 +26,7 @@ module cslrend; % CSL REDUCE "back-end".
 % POSSIBILITY OF SUCH DAMAGE.
 %
 
-% $Id$
+% $Id: cslrend.red 4658 2018-06-19 05:22:36Z schoepf $
 
 create!-package('(cslrend csl),nil);
 
@@ -39,8 +39,10 @@ fluid '(!*break
         !*lower
         !*keepsqrts
         outputhandler!*
+        ifl!*
         !*savedef
-        lispsystem!*);
+        lispsystem!*
+        !*backtrace);
 
 global '(!$eol!$
          !*extraecho
@@ -49,7 +51,6 @@ global '(!$eol!$
          date!*
          esc!*
          ff!*
-         ifl!*
          ipl!*
          largest!-small!-modulus
          ofl!*
@@ -64,8 +65,8 @@ global '(!$eol!$
          switches!*
          symchar!*);
 
-author1!* := "A C Hearn, 2008-14";
-author2!* := "Codemist Ltd, 2008-14";
+author1!* := "A C Hearn, 1971-2016";
+author2!* := "Codemist, 1989-2016";
 
 % Lists of packages & switches...
 
@@ -77,33 +78,33 @@ author2!* := "Codemist Ltd, 2008-14";
 
 symbolic macro procedure find!-loadable!-packages u;
   begin
-    scalar i, w, e, r, r1;
+    scalar i, e;
 % Configuration information is held in a file called something like
 % "package.map".
     if boundp 'minireduce and symbol!-value 'minireduce then
-         i := "package.map"
+       i := "package.map"
     else i := "$reduce/packages/package.map";
     i := open(i, 'input);
     i := rds i;
     e := !*echo;
     !*echo := nil;
-    w := read();
+    u := read();
     !*echo := e;
     i := rds i;
     close i;
 % I make a list of all the packages that are tagged as suitable for use with
 % CSL.
-    w :=
-      for each x in w conc
+    u :=
+      for each x in u conc
          if member('csl, cddr x) then list car x else nil;
 % Now I delete the ones that will have already been loaded, since there
 % would be no merit in loading any of those a second time.
     for each x in '(rlisp cslrend smacros poly arith alg
                     mathpr tmprint entry cslcompat user
                     cslprolo) do
-      w := delete(x, w);
+      u := delete(x, u);
 % Put things in alphabetic order at least to keep things neat.
-    return mkquote sort(w, 'orderp)
+    return mkquote sort(u, 'orderp)
   end;
 
 loadable!-packages!* := find!-loadable!-packages();
@@ -125,9 +126,10 @@ loadable!-packages!* := find!-loadable!-packages();
 
 % This list included here was created on August 5th 2014 based on the
 % development version of Reduce on that date. I rather expect that new
-% flags only get added at a fairly slow rate so this list bot always
-% being kept up to date noy not be a calamity.
+% flags only get added at a fairly slow rate so this list not always
+% being kept up to date may not be a calamity.
 
+%%% Updated 2018-06-08 RmS
 switches!* := '(
     acinfo                    acn                       adjprec
     again                     algint                    algpri
@@ -135,77 +137,79 @@ switches!* := '(
     allpoly                   anticom                   anygcd
     arbvars                   arnum                     assert
     assertbreak               assertstatistics          asterisk
-    backtrace                 balanced_mod              balanced_was_on
+    backtrace                 balanced_mod              
     batch_mode                bcsimp                    bezout
     bfspace                   boese                     both
-    carcheckflag              carefuleq                 centergrid
-    cgbcheckg                 cgbcontred                cgbcounthf
-    cgbfaithful               cgbfullred                cgbgs
-    cgbreal                   cgbsgreen                 cgbstat
-    cgbupdb                   cgbverbose                clprlproject
+    carcheckflag              centergrid                cgbcheckg
+    cgbcontred                cgbcounthf                cgbfaithful
+    cgbfullred                cgbgs                     cgbreal
+    cgbsgreen                 cgbstat                   cgbupdb
+    cgbverbose                checkord                  clprlproject
     clprlverbose              coates                    combineexpt
     combinelogs               commutedf                 commuteint
     comp                      complex                   compxroots
     contract                  cramer                    cref
     cvit                      dcfsfold                  debug
     debug_times               defn                      demo
-    derexp                    detectunits               dfint
-    dfprint                   diffsoln                  dispjacobian
-    distribute                div                       dolzmann
-    double                    dqegradord                dqeoptqelim
-    dqeoptsimp                dqeverbose                dummypri
-    dzopt                     echo                      edsdebug
-    edsdisjoint               edssloppy                 edsverbose
-    eqfu                      errcont                   essl
-    evalassert                evallhseqp                exdelt
-    exp                       expanddf                  expandexpt
+    detectunits               dfint                     dfprint
+    diffsoln                  dispjacobian              distribute
+    div                       dolzmann                  double
+    dqegradord                dqeoptqelim               dqeoptsimp
+    dqeverbose                dummypri                  dzopt
+    echo                      edsdebug                  edsdisjoint
+    edssloppy                 edsverbose                eqfu
+    errcont                   essl                      evalassert
+    evallhseqp                exdelt                    exp
+    expand_td                 expanddf                  expandexpt
     expandlogs                ezgcd                     f90
     factor                    factorprimes              factorunits
     failhard                  fancy                     fancy_tex
     fast_la                   fastfor                   fastresexpand
     fastresvb                 fastsimplex               faststructs
-    fastvector                fort                      fortupper
-    fourier                   ftch                      fulleq
-    fullpoly                  fullprec                  fullprecision
-    fullroots                 gbltbasis                 gc
-    gcd                       gcref                     gcrefall
-    gcrefudg                  gdqe                      gdsmart
-    gendecs                   genpos                    gentranopt
-    gentranseg                getdecs                   gltbasis
-    groebfac                  groebfullreduction        groebopt
-    groebprot                 groebrm                   groebstat
-    groebweak                 gsugar                    guardian
-    hack                      hardzerotest              heugcd
-    horner                    hyperbolic                ibalp_kapurdisablegb
-    ibalp_kapurgb             ibalp_kapurgbdegd         ibalpbadvarsel
-    ifactor                   imaginary                 imsl
-    inputc                    instantiate               int
-    int_test                  intern                    intstr
-    kacem                     keepdecs                  lasimp
-    latex                     lcm                       lessspace
-    lexefgb                   lhyp                      limitedfactors
-    list                      listargs                  lmon
-    looking_good              lower                     lower_matrix
-    lpdocoeffnorm             lpdodf                    lpdotrsym
-    lpkeepfiles               ltrig                     makecalls
+    fastvector                force_gnuplot_term        fort
+    fortupper                 fourier                   ftch
+    fulleq                    fullpoly                  fullprec
+    fullprecision             fullroots                 gbltbasis
+    gc                        gcd                       gcref
+    gcrefall                  gcrefudg                  gdqe
+    gdsmart                   gendecs                   genpos
+    gentranopt                gentranseg                getdecs
+    gltbasis                  groebfac                  groebfullreduction
+    groebopt                  groebprot                 groebrm
+    groebstat                 groebweak                 gsugar
+    guardian                  hack                      hardzerotest
+    heugcd                    horner                    hyperbolic
+    ibalp_kapurdisablegb      ibalp_kapurgb             ibalp_kapurgbdegd
+    ibalpbadvarsel            ifactor                   imaginary
+    imsl                      inputc                    instantiate
+    int                       int_test                  intern
+    intstr                    kacem                     keepdecs
+    lalr_verbose              lasimp                    latex
+    lcm                       lessspace                 lexefgb
+    lhyp                      limitedfactors            list
+    listargs                  lmon                      looking_good
+    lower                     lower_matrix              lpdocoeffnorm
+    lpdodf                    lpdotrsym                 lpkeepfiles
+    lrxml                     ltrig                     makecalls
     mathml                    mcd                       mod_was_on
     modular                   msg                       multiplicities
     multiroot                 mymatch                   nag
-    nat                       native_code               nero
-    nested                    noacn                     noarg
-    nocommutedf               nocompile                 noconvert
-    noetherian                noint                     nointint
-    nointsubst                nolnr                     nonlnr
-    nopowers                  nopropzero                nosplit
-    nosturm                   not_negative              notailcall
-    novarmsg                  numval                    odesolve_basis
-    odesolve_check            odesolve_diff             odesolve_equidim_y
-    odesolve_expand           odesolve_explicit         odesolve_fast
-    odesolve_full             odesolve_implicit         odesolve_noint
-    odesolve_norecurse        odesolve_noswap           odesolve_simp_arbparam
-    odesolve_verbose          onespace                  only_integer
-    optdecs                   ord                       outerzeroscheck
-    output                    overview                  partialint
+    nat                       nero                      nested
+    noacn                     noarg                     nocommutedf
+    nocompile                 noconvert                 noetherian
+    noint                     nointint                  nointsubst
+    nolnr                     nonlnr                    nopowers
+    nopropzero                nosplit                   nosturm
+    not_negative              notailcall                novarmsg
+    numval                    odesolve_basis            odesolve_check
+    odesolve_diff             odesolve_equidim_y        odesolve_expand
+    odesolve_explicit         odesolve_fast             odesolve_full
+    odesolve_implicit         odesolve_noint            odesolve_norecurse
+    odesolve_noswap           odesolve_simp_arbparam    odesolve_verbose
+    ofsfvs                    ofsfvsblockbtr            ofsfvsqetree2gml
+    onespace                  only_integer              optdecs
+    ord                       outerzeroscheck           output
+    overview                  parse_errors_fatal        partialint
     partialintdf              partialintint             period
     pgaftermath               pggeneric                 pginfosm
     pginfosol                 pgnoarbcomplex            pgsourcedirect
@@ -216,33 +220,32 @@ switches!* := '(
     prephold                  pret                      prfourmat
     pri                       priall                    primat
     prlinineq                 promptnumbers             psen
-    pvector                   pwrds                     qgosper_down
-    qgosper_specialsol        qhullkeepfiles            qsum_nullspace
-    qsum_trace                qsumrecursion_certificate qsumrecursion_down
-    qsumrecursion_exp         qsumrecursion_profile     quotenewnam
-    r2i                       rahidepoly                raise
-    ranpos                    ranum                     rasifac
-    rasimpl                   rat                       ratarg
-    rational                  rationalize               ratpri
-    ratroot                   red_total                 redfront_mode
-    reduce4                   reduced                   report_colons
-    revalp                    revpri                    rladdcond
-    rlanuexdifferentroots     rlanuexgcdnormalize       rlanuexpsremseq
+    psprintorder              pvector                   pwrds
+    qgosper_down              qgosper_specialsol        qhullkeepfiles
+    qsum_nullspace            qsum_trace                qsumrecursion_certificate
+    qsumrecursion_down        qsumrecursion_exp         qsumrecursion_profile
+    quotenewnam               r2i                       rahidepoly
+    raise                     ranpos                    ranum
+    rarat                     rasifac                   rasimpl
+    rat                       ratarg                    rational
+    rationalize               ratpri                    ratroot
+    red_total                 redfront_mode             reduce4
+    reduced                   report_colons             revalp
+    revpri                    rladdcond                 rlanuexgcdnormalize
     rlanuexsgnopt             rlanuexverbose            rlataltheo
     rlbnfsac                  rlbnfsm                   rlbqlimits
     rlbrkcxk                  rlbrop                    rlcadans
-    rlcadaproj                rlcadaprojalways          rlcadbaseonly
-    rlcaddebug                rlcaddecdeg               rlcaddnfformula
-    rlcadextonly              rlcadfac                  rlcadfasteval
-    rlcadfulldimonly          rlcadhongproj             rlcadisoallroots
-    rlcadmc3                  rlcadpartial              rlcadpbfvs
-    rlcadpreponly             rlcadprojonly             rlcadrawformula
-    rlcadrmwc                 rlcadte                   rlcadtree2dot
-    rlcadtrimtree             rlcadverbose              rldavgcd
-    rldimaincludefirst        rldpepiverbose            rldpepverbose
-    rlenf1twice               rlenffac                  rlenffacne
-    rlenfsimpl                rlexprngnatural           rlffi
-    rlgaussdebug              rlgausstheo               rlgetrtypecar
+    rlcaddecdeg               rlcaddnfformula           rlcadextonly
+    rlcadfasteval             rlcadfulldimonly          rlcadmc3
+    rlcadpbfvs                rlcadpreponly             rlcadprojonly
+    rlcadrawformula           rlcadrmwc                 rlcadte
+    rlcadtree2dot             rlcadtree2gml             rlcadtree2gmlxml
+    rlcadtree2tgf             rlcadtrimtree             rlcadverbose
+    rldavgcd                  rldimaincludefirst        rldpepiverbose
+    rldpepverbose             rlelimsetoptmarek         rlenf1twice
+    rlenffac                  rlenffacne                rlenfsimpl
+    rlexprngnatural           rlffi                     rlgaussdebug
+    rlgausstheo               rlgensymintern            rlgetrtypecar
     rlgsbnf                   rlgserf                   rlgsprod
     rlgsrad                   rlgsred                   rlgssub
     rlgsutord                 rlgsvb                    rlgurobi
@@ -256,16 +259,16 @@ switches!* := '(
     rlourdet                  rlparallel                rlpasfbapprox
     rlpasfconf                rlpasfdnffirst            rlpasfdnfqeexblock
     rlpasfexpand              rlpasfgauss               rlpasfgc
-    rlpasfintern              rlpasfsc                  rlpasfses
-    rlpasfsimplify            rlpasfvb                  rlpcprint
-    rlpcprintall              rlplsimpl                 rlposden
-    rlpqeold                  rlpscsgen                 rlqeaprecise
-    rlqeasri                  rlqebacksub               rlqedfs
-    rlqedyn                   rlqeexpand                rlqefb
-    rlqefbmma                 rlqefbqepcad              rlqefbslfq
-    rlqefilterbounds          rlqefullans               rlqegen1
-    rlqegenct                 rlqegsd                   rlqeheu
-    rlqeidentify              rlqeinfirst               rlqelog
+    rlpasfsc                  rlpasfses                 rlpasfsimplify
+    rlpasfvb                  rlpcprint                 rlpcprintall
+    rlplsimpl                 rlposden                  rlpqeold
+    rlpscsgen                 rlqeaprecise              rlqeasri
+    rlqebacksub               rlqedfs                   rlqedyn
+    rlqeexpand                rlqefb                    rlqefbmma
+    rlqefbqepcad              rlqefbslfq                rlqefilterbounds
+    rlqefullans               rlqegen1                  rlqegenct
+    rlqegsd                   rlqeheu                   rlqeidentify
+    rlqeinfcore               rlqeinfirst               rlqelog
     rlqepnf                   rlqeprecise               rlqeqsc
     rlqesqsc                  rlqesr                    rlqestdans
     rlqestdansint             rlqestdansq               rlqestdansvb
@@ -281,31 +284,31 @@ switches!* := '(
     rlsism                    rlsiso                    rlsisocx
     rlsitsqspl                rlsiverbose               rlslfqvb
     rlsmprint                 rlsusi                    rlsusiadd
-    rlsusigs                  rlsusimult                rltabib
-    rltnft                    rltropdel0                rltropilp
-    rltropint                 rltroplcm                 rltropsos
-    rlverbose                 rlvmatvb                  rlvsllearn
-    rlvsllog                  rlxopt                    rlxoptpl
-    rlxoptri                  rlxoptric                 rlxoptrir
-    rlxoptsb                  rlxoptses                 rootmsg
-    roundall                  roundbf                   rounded
-    rtrace                    save_native               saveactives
+    rlsusigs                  rlsusimult                rltnft
+    rltropdel0                rltropilp                 rltroplcm
+    rltropsos                 rlverbose                 rlvmatvb
+    rlvsllearn                rlvsllog                  rlxopt
+    rlxoptpl                  rlxoptri                  rlxoptric
+    rlxoptrir                 rlxoptsb                  rlxoptses
+    rmonl                     rootmsg                   roundall
+    roundbf                   rounded                   rprint_lower
+    rtrace                    s_changes_parity          saveactives
     savedef                   saveprops                 savesfs
     savestructr               semantic                  sfto_musser
     sfto_tobey                sfto_yun                  show_grid
-    sidrel                    simpnoncomdf              slat
-    sllast                    smtslog                   smtsplain
-    solvesingular             spec                      specification
-    strict_argcount           strip_native              symmetric
-    talpqegauss               talpqp                    taylorautocombine
-    taylorautoexpand          taylorkeeporiginal        taylornocache
-    taylorprintorder          tdusetorder               tensor
-    test_plot                 testecho                  TeX
-    TeXbreak                  TeXindent                 time
-    tr_lie                    tra                       tracefps
-    tracelimit                traceratint               tracespecfns
-    tracetrig                 trallfac                  trchrstrem
-    trcompact                 trdesir                   trdint
+    sidrel                    simpnoncomdf              smtsilent
+    smtslog                   solvesingular             spec
+    specification             strict_argcount           symmetric
+    t_changes_parity          talpqegauss               talpqp
+    taylorautocombine         taylorautoexpand          taylorkeeporiginal
+    taylornocache             taylorprintorder          tdusetorder
+    tensor                    test_plot                 testecho
+    tex                       texbreak                  texindent
+    time                      tr_lie                    tra
+    tracefps                  tracelex                  tracelimit
+    traceratint               tracespecfns              tracetrig
+    trallfac                  trchrstrem                trcompact
+    trdefint                  trdesir                   trdint
     trfac                     trfield                   trgroeb
     trgroeb1                  trgroebr                  trgroebs
     trham                     trigform                  trint
@@ -316,19 +319,19 @@ switches!* := '(
     trrubi                    trsolve                   trsum
     trtaylor                  trwu                      trxideal
     trxmod                    twogrid                   twosided
-    unsafecar                 upper_matrix              useold
-    usetaylor                 usez                      utf8
-    utf82d                    utf82dround               utf8diffquot
-    utf8exp                   utf8expall                utf8pad
-    varopt                    vectorc                   verbatim
-    verboseload               vslfast                   vslgreaterplem
-    vslseprintnls             vslsprintil               vslsprintnl
-    vslsprintsl               vtrace                    web
-    windexpri                 wrchri                    xfullreduce
-    xpartialint               xpartialintdf             xpartialintint
-    zb_factor                 zb_inhomogeneous          zb_proof
-    zb_timer                  zb_trace                  zeilberg
-    zeropzero
+    unicode_in_off_nat        unsafecar                 upper_matrix
+    useold                    usetaylor                 usez
+    utf8                      utf82d                    utf82dround
+    utf8diffquot              utf8exp                   utf8expall
+    utf8pad                   varopt                    vectorc
+    verbatim                  verboseload               vslfast
+    vslgreaterplem            vslseprintnls             vslsprintil
+    vslsprintnl               vslsprintsl               vtrace
+    web                       windexpri                 wrchri
+    xfullreduce               xpartialint               xpartialintdf
+    xpartialintint            zb_factor                 zb_inhomogeneous
+    zb_proof                  zb_timer                  zb_trace
+    zeilberg                                            
 );
 
 % Constants used in scanner.
@@ -511,12 +514,14 @@ flag('(acos acosd acosh acot acotd acoth acsc acscd acsch asec asecd
        asech asin asind asinh atan atand atan2 atan2d atanh cbrt cos
        cosd cosh cot cotd coth csc cscd csch exp expt hypot ln log
        logb log10 sec secd sech sin sind sinh sqrt tan tand tanh fix
-       ceiling floor round clrhash puthash gethash remhash), 'lose);
+       ceiling floor round clrhash puthash gethash remhash
+       primep32), 'lose);
 
 !#endif
 
 
-global '(loaded!-packages!* no!_init!_file personal!-dir!*);
+fluid '(no!_init!_file);
+global '(loaded!-packages!* personal!-dir!*);
 
 personal!-dir!* := "$HOME";
 
@@ -801,6 +806,12 @@ symbolic procedure copyd(new,old);
 
 flag('(copyd), 'lose);
 
+% CSL defined a function called VECTOR but Reduce wants to as well, so I
+% will move the CSL one out of the way. I rather dislike this.
+
+copyd('csl!-vector, 'vector);
+remd 'vector;
+
 % The following is intended to run the test on a single package.
 % In due course I will improve it so it also checks the output,
 % but even as it is I find it useful to be able to say
@@ -820,6 +831,30 @@ flag('(test_package), 'opfn);
 
 flag('(call!-foreign!-function), 'variadic);
 
+% These functions (in CSL) have optional arguments args or default
+% values for final arguments, and so it is unhelpful to generate
+% warning messages about excess or missing arguments.
+
+flag('(load!-source load!-selected!-source gcd gcdn lcmn complex
+       float!-sign logand land logor logior lor logxor lxor leqv
+       make!-random!-state max min plus !+ times !* difference !-
+       !/ !/!= !< !<!= != !> !>!= random quotient lessp greaterp
+       leq geq validate!-number atan iplus itimes rseek rdf peekch
+       readch readline spool dribble intern unintern remob extern
+       import make!-package idapply apply funcall funcall!* values
+       macroexpand macroexpand!-1 date!-and!-time error throw
+       all!-symbols restart!-lisp restart!-csl symbol!-make!-fastget
+       preserve nreverse append aref aset vector!-subseq!* list!-subseq!*
+       char!-equal char!-not!-equal char!-lessp char!-greaterp
+       char!-not!-lessp char!-not!-greaterp char!/!= char!< char!<!=
+       char!> char!>!= char!= digit!-char digit!-char!-p windows!-heading
+       open!-library prinhex prinoctal prinbinary make!-broadcast!-stream
+       make!-concatenated!-stream make!-string!-input!-stream
+       mkhash gethash puthash remhash clrhash mknewhash
+       getnewhash putnewhash remnewhash clrnewhash library!-members
+       resource!-limit errorset gc!-forcer
+       representation stop float round floor ceiling truncate), 'variadic);
+
 % Arrange (for PSL compatibility) that "on gc;" and "off gc;" switch
 % garbage collector messages on or off.
 
@@ -829,6 +864,10 @@ put('gc, 'simpfg, '((t (verbos t))
 global '(!*psl !*csl);
 !*psl := nil;
 !*csl := t;
+
+% Suppress RCREF error message about special being called with the wrong number of arguments
+
+flag('(special),'naryargs);
 
 endmodule;
 

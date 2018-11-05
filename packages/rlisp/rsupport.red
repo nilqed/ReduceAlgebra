@@ -34,21 +34,25 @@ symbolic procedure aconc(u,v);
    % Adds element v to the tail of u. u is destroyed in process.
    nconc(u,list v);
 
-symbolic procedure arrayp u; get(u,'rtype) eq 'array;
+symbolic procedure arrayp u; get(u,'rtype) = 'array;
 
 symbolic procedure atsoc(u,v);
    % This definition allows for a search of a general list.
+   % The definition given here is recursive, and for long searches the
+   % stack use issues rely on either a built-in atsoc being available and
+   % used or on tail-recursion optimistaion in the compiler.
    if null v then nil
     else if eqcar(car v,u) then car v
     else atsoc(u,cdr v);
 
 symbolic procedure copyd(new,old);
    % Copy the function definition from old id to new.
-   begin scalar x;
+   begin
+      scalar x;
       x := getd old;
-      if null x
-        then rerror('rlisp,1,list(old,"has no definition in copyd"));
-      putd(new,car x,cdr x);
+      if null x then
+         rerror('rlisp, 1, list(old, "has no definition in copyd"));
+      putd(new, car x, cdr x);
       return new
    end;
 
@@ -57,9 +61,10 @@ symbolic procedure eqcar(u,v); null atom u and car u eq v;
 symbolic procedure errorset!*(u,v); errorset(u,v,!*backtrace);
 
 symbolic procedure errorset2 u;
-   begin scalar !*protfg;
+   begin
+      scalar !*protfg;
       !*protfg := t;
-      return errorset(u,nil,nil)
+      return errorset(u, nil, nil)
    end;
 
 symbolic procedure flagpcar(u,v);
@@ -79,52 +84,60 @@ symbolic procedure mkquote u; list('quote,u);
 
 symbolic procedure mksetq(u,v);
    if atom u then list('setq,u,v)
-    else begin scalar x;
+    else begin
+       scalar x;
        if (x := get(car u,'setfn)) then return apply2(x,u,v)
         else typerr(u,"assignment argument")
     end;
 
-symbolic procedure pairvars(u,vars,mode);
+symbolic procedure pairvars(u, vars, mode);
    % Sets up pairings of parameters and modes.
-   begin scalar x;
-   a: if null u then return append(reversip!* x,vars)
-       else if null idp car u or get(car u,'infix) or get(car u,'stat)
-             then symerr(list("Invalid parameter:",car u),nil);
-      x := (car u . mode) . x;
-      u := cdr u;
-      go to a
+   begin
+      scalar x;
+      while u do <<
+         if null idp car u or get(car u, 'infix) or get(car u, 'stat) then
+            symerr(list("Invalid parameter:", car u), nil);
+         x := (car u . mode) . x;
+         u := cdr u >>;
+      return append(reversip!* x, vars)
    end;
 
-symbolic procedure prin2t u; progn(prin2 u, terpri(), u);
-
-% The following is included for compatibility with some old code.
-% Its use is discouraged.
+symbolic procedure prin2t u; << prin2 u; terpri(); u >>;
 
 symbolic procedure princ u; prin2 u;
 
-symbolic procedure putc(name,type,body);
+symbolic procedure putc(name, type, body);
    % Defines a non-standard function, such as an inline. Returns NAME.
    begin
-      if !*comp and flagp(type,'compile) then compd(name,type,body)
-       else put(name,type,body);
+      if !*comp and flagp(type, 'compile) then compd(name, type, body)
+      else put(name, type, body);
       return name
    end;
 
 % flag('(putc),'eval);
 
 symbolic procedure reversip u;
-   begin scalar x,y;
-    a:  if null u then return y;
-        x := cdr u; y := rplacd(u,y); u := x;
-        go to a
+   begin
+      scalar x, y;
+      while u do <<
+         x := cdr u;
+         y := rplacd(u,y);
+         u := x >>;
+      return y
    end;
 
 symbolic procedure smemq(u,v);
    % True if id U is a member of V at any level (excluding quoted
    % expressions).
    if atom v then u eq v
-    else if car v eq 'quote then nil
-    else smemq(u,car v) or smemq(u,cdr v);
+   else if car v = 'quote then nil
+   else smemq(u,car v) or smemq(u,cdr v);
+
+symbolic procedure ssubst(a, b, c);
+   % Substitute a in place of b in c, excluding within quoted expressions.
+   if b = c then a
+   else if atom c or eqcar(c, 'quote) then c
+   else ssubst(a, b, car c) . ssubst(a, b, cdr c);
 
 symbolic procedure subsetp(u,v);
    % True if u is a subset of v.
@@ -132,31 +145,30 @@ symbolic procedure subsetp(u,v);
 
 symbolic procedure union(x,y);
    if null x then y
-    else union(cdr x,if car x member y then y else car x . y);
+   else union(cdr x, if car x member y then y else car x . y);
 
 symbolic procedure intersection(u,v);
    % This definition is consistent with PSL.
    if null u then nil
-    else if car u member v
-     then car u . intersection(cdr u,delete(car u,v))
-    else intersection(cdr u,v);
+   else if car u member v then
+      car u . intersection(cdr u,delete(car u,v))
+   else intersection(cdr u,v);
 
-symbolic procedure u>=v; null(u<v);
+% The following definition have been coded to be NaN-safe even though that
+% may hurt speed.
+% I rather hope that these definitions are ones where Lisp-provided
+% versions are used instead.
 
-symbolic procedure u<=v; null(u>v);
+symbolic procedure u>=v; u>v or u=v;
+
+symbolic procedure u<=v; u<v or u=v;
 
 symbolic procedure u neq v; null(u=v);
 
 symbolic procedure setdiff(u,v);
    if null v then u
-    else if null u then nil
-    else setdiff(delete(car v,u),cdr v);
-
-% symbolic inline procedure u>=v; null(u<v);
-
-% symbolic inline procedure u<=v; null(u>v);
-
-% symbolic inline procedure u neq v; null(u=v);
+   else if null u then nil
+   else setdiff(delete(car v, u), cdr v);
 
 % List changing alternates (may also be defined as copying functions).
 
@@ -176,9 +188,9 @@ symbolic procedure rplacd!*(u,v); rplacd(u,v);     % car u . v;
 symbolic procedure lispapply(u,v);
    % I'd like to use idp in the following test, but the TPS package
    % stores code pointers on property lists which then get used here.
-   if null atom u
-     then rerror('rlisp,2,list("Apply called with non-id arg",u))
-    else apply(u,v);
+   if null atom u then
+      rerror('rlisp,2,list("Apply called with non-id arg",u))
+   else apply(u,v);
 
 symbolic procedure lispeval u; eval u;
 
@@ -196,14 +208,14 @@ symbolic procedure gettype u;
    % Returns a REDUCE-related type for the expression U.
    % It needs to be more table driven than the current definition.
    if numberp u then 'number
-    else if null atom u or null u or null idp u then 'form
-    else if get(u,'simpfn) then 'operator
-    else if get(u,'avalue) then car get(u,'avalue)
-    else if getd u then 'procedure
-    else if globalp u then 'global
-    else if fluidp u then 'fluid
-    else if flagp(u,'parm) then 'parameter
-    else get(u,'rtype);
+   else if null atom u or null u or null idp u then 'form
+   else if get(u,'simpfn) then 'operator
+   else if get(u,'avalue) then car get(u,'avalue)
+   else if getd u then 'procedure
+   else if globalp u then 'global
+   else if fluidp u then 'fluid
+   else if flagp(u,'parm) then 'parameter
+   else get(u,'rtype);
 
 % The following function maps reserved identifiers to internal names.
 % This is needed for t and nil, and possibly others.
@@ -214,15 +226,31 @@ symbolic procedure map!-reserved!-id u;
 % The same for a list of variables
 
 symbolic procedure map!-reserved!-ids l;
-   begin scalar v;
-    a: if null l then return reversip v;
-       v := map!-reserved!-id car l . v;
-       l := cdr l;
-       go to a;
+   begin
+      scalar v;
+      while l do <<
+         v := map!-reserved!-id car l . v;
+         l := cdr l >>;
+      return reversip v
    end;    
 
 symbolic procedure get!-print!-name u;
    idp u and get(u,'oldnam) or u;
+
+% If there is an error while a bootstrap version of Reduce is being built
+% the disgnostics associated with it can be unhelpful. Providing a dummy
+% print function here may help...
+
+symbolic procedure assgnpri(u, v, w);
+ << terpri();
+    prin2t "Bootstrap version of assgnpri:";
+    print u;
+    print v;
+    print w;
+    nil >>;
+
+% It looks to me as if this name-mapping was an idea that was being looked
+% at but never ended up activated...
 
 %put('t,'map!-reserved,'t!-reserved);
 %put('t!-reserved,'oldnam,'t);

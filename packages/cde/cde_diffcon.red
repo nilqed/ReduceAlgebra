@@ -1,4 +1,4 @@
-module cde_diffcon; % CDIFF package, computation of the
+module cde_diffcon; % CDE package, computation of the
                     % differential consequences of the initial system of PDEs.
 
 % Redistribution and use in source and binary forms, with or without
@@ -29,9 +29,6 @@ module cde_diffcon; % CDIFF package, computation of the
 % Dipartimento di Matematica, Universita' del Salento (Lecce, Italy)
 % email: raffaele.vitolo@unisalento.it
 % web: http://poincare.unisalento.it/vitolo
-%
-% Version and Date:  2.0, October 2015.
-%
 % ===============================================================
 
 %-----------------------------------------------------------------------------%

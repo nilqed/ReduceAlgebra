@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1995-2009 A. Dolzmann, T. Sturm, 2010 T. Sturm
-% ----------------------------------------------------------------------
+module clsimpl;  % Common logic simplification
+
+revision('clsimpl, "$Id: clsimpl.red 4055 2017-05-21 20:03:42Z thomas-sturm $");
+
+copyright('clsimpl, "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -28,21 +29,15 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
 
-lisp <<
-   fluid '(cl_simpl_rcsid!* cl_simpl_copyright!*);
-   cl_simpl_rcsid!* :=
-      "$Id$";
-   cl_simpl_copyright!* := "(c) 1995-2009 A. Dolzmann, T. Sturm, 2010 T. Sturm"
->>;
-
-module clsimpl;
-% Common logic simplification routines. Submodule of [cl]. Here the
-% standard simplifier is implemented.
-
 %DS
 % <theory> ::= (<atomic_formula>,...)
 
-procedure cl_simpl(f,atl,n);
+rl_provideService rl_simpl = cl_simpl using
+   rl_negateat, rl_simplat1, rl_smupdknowl, rl_smrmknowl, rl_smcpknowl,
+   rl_smmkatl, rl_smsimpl!-impl, rl_smsimpl!-equiv1, rl_ordatp, rl_susipost,
+   rl_susitf, rl_susibin, rl_b2terml, rl_simplb, rl_b2atl, rl_bsatp;
+
+asserted procedure cl_simpl(f: Formula, atl: List, n: Integer): Formula;
    % Common logic simplify. [f] is a formula; [atl] is a list of
    % atomic formulas, which are considered to describe a theory; [n]
    % is an integer. Depends on switches [!*rlsism], [!*rlsichk],
@@ -55,7 +50,7 @@ procedure cl_simpl(f,atl,n);
  	 return cl_simpl1(f,nil,n,nil);
       atl := cl_sitheo atl;
       if atl eq 'inctheo then
-	 return 'inctheo;
+	 return rl_exc 'inctheo;
       w := rl_smupdknowl('and,atl,nil,n+1);
       if w eq 'false then return 'inctheo;
       return cl_simpl1(f,w,n,nil)
@@ -810,7 +805,7 @@ procedure cl_susiinter(prg,knowl,a);
 	    if cdr p then
 	       delflg := t
 	    else
-	       knowl := delqip(a,knowl)
+	       knowl := lto_delqip(a,knowl)
       	 else if car p eq 'add then
 	    addl := cdr p . addl;
      return {knowl,addl,ignflg,delflg}
@@ -819,7 +814,11 @@ procedure cl_susiinter(prg,knowl,a);
 procedure cl_susiminlevel(l1,l2);
    if l1 eq 'ignore then l2 else if l2 eq 'ignore then l1 else min(l1,l2);
 
-procedure cl_qesil(fl,theo);
+rl_provideService rl_qesil = cl_qesil;
+
+asserted procedure cl_qesil(fl: List, theo: List);
+   % QE-based simplification of a list of formulas. Eliminated formulas that are
+   % implied by the conjunction of all others.
    begin scalar prem,test,sol,res; integer n;
       if !*rlverbose then <<
       	 n := length fl + 1;
@@ -840,9 +839,6 @@ procedure cl_qesil(fl,theo);
 	 ioto_cterpri();
       return res
    end;
-
-procedure cl_sign(f);
-   cl_apply2ats(f, 'rl_signat);
 
 endmodule;  % [clsimpl]
 

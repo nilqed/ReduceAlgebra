@@ -1,4 +1,4 @@
-//  arith07.cpp                       Copyright (C) 1990-2016 Codemist    
+//  arith07.cpp                           Copyright (C) 1990-2017 Codemist    
 
 //
 // Arithmetic functions.  negation plus a load of Common Lisp things
@@ -7,7 +7,7 @@
 //
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -36,7 +36,7 @@
  *************************************************************************/
 
 
-// $Id$
+// $Id: arith07.cpp 4142 2017-08-05 15:59:42Z arthurcnorman $
 
 #include "headers.h"
 
@@ -45,12 +45,11 @@ LispObject copyb(LispObject a)
 //
 // copy a bignum.
 //
-{   LispObject b, nil;
-    int32_t len = bignum_length(a), i;
+{   LispObject b;
+    size_t len = bignum_length(a), i;
     push(a);
-    b = getvector(TAG_NUMBERS, TYPE_BIGNUM, len);
+    b = get_basic_vector(TAG_NUMBERS, TYPE_BIGNUM, len);
     pop(a);
-    errexit();
     len = (len-CELL)/4;
     for (i=0; i<len; i++)
         bignum_digits(b)[i] = bignum_digits(a)[i];
@@ -60,41 +59,88 @@ LispObject copyb(LispObject a)
 LispObject negateb(LispObject a)
 //
 // Negate a bignum.  Note that negating the 1-word bignum
-// value of 0x08000000 will produce a fixnum as a result,
+// value of 0x08000000 will produce a fixnum as a result (for 32 bits),
 // which might confuse the caller... in a similar way negating
 // the value -0x40000000 will need to promote from a one-word
 // bignum to a 2-word bignum.  How messy just for negation!
+// And on 64 bit systems the same effect applies but with larger values!
+// In an analogous manner negating the positive number of the style
+// 0x40000000 can lead to a negative result that uses one less digit.
+// Well on a 64-bit machine it is a 2-word bignum that can end up
+// negated to get a fixnum result.
 //
-{   LispObject b, nil;
-    int32_t len = bignum_length(a), i, carry;
-    if (len == CELL+4)   // one-word bignum - do specially
-    {   len = -(int32_t)bignum_digits(a)[0];
-        if (len == fix_mask) return fixnum_of_int(len);
-        else if (len == 0x40000000) return make_two_word_bignum(0, len);
-        else return make_one_word_bignum(len);
+{   LispObject b;
+    size_t len = bignum_length(a), i;
+    int32_t carry;
+// There are two messy special cases here. The first is that there is a
+// positive value (2^27 or 2^59) which has to be represented as a bignum,
+// but when you negate it you get a fixnum.
+// Then there will be negative values (the smallest being -2^31 or -2^62)
+// that fit in a certain number of words of bignum, but their absolute
+// value needs one more word...
+// Note that on a 64-bit machine there ought never to be any one-word
+// bignums because all the values representable with just one 31-bit digit
+// can be handled as fixnums instead.
+    if (SIXTY_FOUR_BIT && len == CELL+8)   // two-word bignum - do specially
+    {   if (bignum_digits(a)[0] == 0 &&
+            bignum_digits(a)[1] == (int32_t)0x10000000)
+            return MOST_NEGATIVE_FIXNUM;
+        else if (bignum_digits(a)[0] == 0 &&
+            (int32_t)bignum_digits(a)[1] == -(int32_t)(1<<30))
+            return make_three_word_bignum(0, 1<<30, 0);
+        uint32_t d0 = bignum_digits(a)[0];
+        int32_t d1 = (int32_t)~bignum_digits(a)[1];
+        if (d0 == 0) d1++;
+        else return make_two_word_bignum(d1, (-d0) & 0x7fffffff);
+    }
+    if (!SIXTY_FOUR_BIT && len == CELL+4)   // one-word bignum - do specially
+    {   int32_t d0 = -(int32_t)bignum_digits(a)[0];
+        if (d0 == MOST_NEGATIVE_FIXVAL) return MOST_NEGATIVE_FIXNUM;
+        else if (d0 == 0x40000000) return make_two_word_bignum(0, d0);
+        else return make_one_word_bignum(d0);
     }
     push(a);
-    b = getvector(TAG_NUMBERS, TYPE_BIGNUM, len);
+    b = get_basic_vector(TAG_NUMBERS, TYPE_BIGNUM, len);
     pop(a);
-    errexit();
-    len = (len-CELL)/4-1;
+    len = (len-CELL-4)/4;
     carry = -1;
     for (i=0; i<len; i++)
-    {   carry = clear_top_bit(~bignum_digits(a)[i]) + top_bit(carry);
+    {
+// The next couple of lines really caught me out wrt compiler optimisation
+// before I put in all the casts. I used to have what was in effect
+//    carry = (signed_x ^ 0x7fffffff) + (int32_t)((uint32_t)carry>>31);
+//      ... ((uint32_t)carry >> 31);
+// and a compiler seems to have observed that the masking leaves the left
+// operand of the addition positive, and that the unsigned shift right
+// leaves the right operand positive too. So based on an assumption that
+// signed integer overflow will not happen it deduces that the sum will also
+// be positive, and hence that on the next line (carry>>31) will be zero.
+// For the assumption to fail there will have had to be integer overflow, and
+// the C/C++ standards say that the consequence of that are undefined - a term
+// that can include behaviour as per the optimised code here.
+//
+// To avoid that I am working on the basis that casts between int32_t and
+// uint32_t will leave bit representations unchanged and that arithmetic uses
+// twos complement for signed values. Then by casting to unsigned at times
+// I can allow a carry to propagate into the top bit of a word without that
+// counting as an overflow, and that should force the compiler to do the
+// arithmetic in full.
+//
+// Having spotted this particular case I now worry about how many related
+// ones there may be hiding in the code!
+//
+        carry = ADD32(clear_top_bit(~bignum_digits(a)[i]),
+                      top_bit(carry));
         bignum_digits(b)[i] = clear_top_bit(carry);
     }
-//
 // Handle the top digit separately since it is signed.
-//
-    carry = ~bignum_digits(a)[i] + top_bit(carry);
+    carry = ADD32(~bignum_digits(a)[i], top_bit(carry));
     if (!signed_overflow(carry))
     {
-//
 // If the most significant word ends up as -1 then I just might
 // have 0x40000000 in the next word down and so I may need to shrink
 // the number.  Since I handled 1-word bignums specially I have at
 // least two words to deal with here.
-//
         if (carry == -1 && (bignum_digits(b)[i-1] & 0x40000000) != 0)
         {   bignum_digits(b)[i-1] |= ~0x7fffffff;
             numhdr(b) -= pack_hdrlength(1);
@@ -110,11 +156,9 @@ LispObject negateb(LispObject a)
         else bignum_digits(b)[i] = carry;   // no shrinking needed
         return b;
     }
-//
 // Here I have overflow: this can only happen when I negate a number
 // that started off with 0xc0000000 in the most significant digit,
 // and I have to pad a zero word onto the front.
-//
     bignum_digits(b)[i] = clear_top_bit(carry);
     return lengthen_by_one_bit(b, carry);
 }
@@ -124,25 +168,13 @@ LispObject negateb(LispObject a)
 //
 
 LispObject negate(LispObject a)
-{   LispObject nil;   // needed for errexit()
-    switch ((int)a & TAG_BITS)
+{   switch ((int)a & TAG_BITS)
     {   case TAG_FIXNUM:
-        {   int32_t aa = -int_of_fixnum(a);
-//
-// negating the number -#x8000000 (which is a fixnum) yields a value
-// which just fails to be a fixnum.
-//
-            if (aa != 0x08000000) return fixnum_of_int(aa);
-            else return make_one_word_bignum(aa);
-        }
-#ifdef SHORT_FLOAT
-        case TAG_SFLOAT:
-        {   Float_union aa;
-            aa.i = a - TAG_SFLOAT;
-            aa.f = (float) (-aa.f);
-            return (aa.i & ~(int32_t)0xf) + TAG_SFLOAT;
-        }
-#endif
+            if (!SIXTY_FOUR_BIT && is_sfloat(a))
+                return a ^ 0x80000000U;
+            if (SIXTY_FOUR_BIT && is_sfloat(a))
+                return a ^ UINT64_C(0x8000000000000000);
+            else return make_lisp_integer64(-int_of_fixnum(a));
         case TAG_NUMBERS:
         {   int32_t ha = type_of_header(numhdr(a));
             switch (ha)
@@ -154,7 +186,6 @@ LispObject negate(LispObject a)
                     push(d);
                     n = negate(n);
                     pop(d);
-                    errexit();
                     return make_ratio(n, d);
                 }
                 case TYPE_COMPLEX_NUM:
@@ -163,26 +194,31 @@ LispObject negate(LispObject a)
                     push(i);
                     r = negate(r);
                     pop(i);
-                    errexit();
                     push(r);
                     i = negate(i);
                     pop(r);
-                    errexit();
                     return make_complex(r, i);
                 }
                 default:
-                    return aerror1("bad arg for minus",  a);
+                    aerror1("bad arg for minus",  a);
             }
         }
         case TAG_BOXFLOAT:
-        {   double d = float_of_number(a);
-// Trying to negate an infinity or a NaN could yield another edge case,
-// however it does not seem proper to test for that here since if I
-// am trapping overflows (ect) that will already have happened.
-            return make_boxfloat(-d, type_of_header(flthdr(a)));
-        }
+            switch (type_of_header(flthdr(a)))
+            {   case TYPE_SINGLE_FLOAT:
+                    return make_boxfloat(-single_float_val(a),
+                                         TYPE_SINGLE_FLOAT);
+                case TYPE_DOUBLE_FLOAT:
+                    return make_boxfloat(-double_float_val(a),
+                                         TYPE_DOUBLE_FLOAT);
+                case TYPE_LONG_FLOAT:
+                    {   float128_t aa = long_float_val(a);
+                        f128M_negate(&aa);
+                        return make_boxfloat128(aa);
+                    }
+            }
         default:
-            return aerror1("bad arg for minus",  a);
+            aerror1("bad arg for minus",  a);
     }
 }
 
@@ -207,13 +243,31 @@ LispObject negate(LispObject a)
 // It should, however, serve for IEEE and IBM FP formats.
 //
 
+typedef union _char_double
+{   double d;
+    char c[8];
+} char_double_union;
+
+#ifdef LITTLEENDIAN
+#define LOW_BITS_OFFSET 0
+#else
+#define LOW_BITS_OFFSET 4
+#endif
+
+// The code here explictly puns between a double and a row of char values
+// so that it can force the bottom 32-bits of the represenattion of the
+// double to be zero. The use of the char type here and then memset to clear
+// it is intended to keep me safe from strict-aliasing concerns, and modern
+// C compilers are liable to map the use of memset onto a simple store
+// instruction.
+
 #define _fp_normalize(high, low)                                          \
-    {   double temp;           /* access to representation     */         \
-        temp = high;           /* take original number         */         \
-        ((int32_t *)&temp)[current_fp_rep & FP_WORD_ORDER] = 0;           \
-                               /* make low part of mantissa 0  */         \
-        low += (high - temp);  /* add into low-order result    */         \
-        high = temp;                                                      \
+    {   char_double_union temp;  /* access to representation     */       \
+        temp.d = high;           /* take original number         */       \
+        memset(&temp.c[LOW_BITS_OFFSET], 0, 4);                           \
+                                 /* make low part of mantissa 0  */       \
+        low += (high - temp.d);  /* add into low-order result    */       \
+        high = temp.d;                                                    \
     }
 
 //

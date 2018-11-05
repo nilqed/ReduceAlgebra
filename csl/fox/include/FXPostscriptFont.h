@@ -19,7 +19,7 @@
 * License along with this library; if not, write to the Free Software           *
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.    *
 *********************************************************************************
-* $Id$                  *
+* $Id: FXPostscriptFont.h 3884 2017-02-05 19:17:16Z arthurcnorman $                  *
 ********************************************************************************/
 
 
@@ -44,9 +44,6 @@
 // that the "or later" clause does not (since that permits anybody to
 // unilaterally select just one version of the library to use, to the
 // potential detriment of those whose choice differs).
-
-
-/* Signature: 3fa81b54 04-Jun-2008 */
 
 
 #ifndef FXPOSTSCRIPTFONT_H

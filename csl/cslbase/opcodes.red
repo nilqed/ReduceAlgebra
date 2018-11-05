@@ -1,7 +1,7 @@
-% opcodes.red
+% opcodes.red                              Copyright (C) Codemist 2016-2017
 
 %%
-%% Copyright (C) 2016, A C Norman, Codemist.                              *
+%% Copyright (C) 2017, A C Norman, Codemist.                              *
 %%                                                                        *
 %% Redistribution and use in source and binary forms, with or without     *
 %% modification, are permitted provided that the following conditions are *
@@ -29,7 +29,7 @@
 %% DAMAGE.                                                                *
 %%
 
-% $Id$
+% $Id: opcodes.red 4188 2017-09-08 07:44:29Z arthurcnorman $
 
 
 s!:opcodelist := '(
@@ -71,13 +71,13 @@ CDRLOC4      CDRLOC5
 CAARLOC0     CAARLOC1     CAARLOC2     CAARLOC3
 
 % Function call support
-CALL0        CALL1        CALL2        CALL2R       CALL3        CALLN
+CALL0        CALL1        CALL2        CALL2R       CALL3        CALL4
 CALL0_0      CALL0_1      CALL0_2      CALL0_3
 CALL1_0      CALL1_1      CALL1_2      CALL1_3      CALL1_4      CALL1_5
 CALL2_0      CALL2_1      CALL2_2      CALL2_3      CALL2_4
 BUILTIN0     BUILTIN1     BUILTIN2     BUILTIN2R    BUILTIN3
 APPLY1       APPLY2       APPLY3       APPLY4   
-JCALL        JCALLN
+JCALL        spare66
 
 % Branches. The main collection come in variants with long or short
 % offsets and with the branch to go fowards or backwards.
@@ -164,6 +164,4 @@ SPARE
 )$
 
 end;
-
-
 

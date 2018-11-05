@@ -1,6 +1,6 @@
 /*
- * This is a "yacc" specification of the syntax of RLISP. It is used
- * to provide a (symbolic-mode) RLISP to Lisp translator that can be
+ * This is a "yacc"/"bison" specification of the syntax of RLISP. It is
+ * used to provide a (symbolic-mode) RLISP to Lisp translator that can be
  * made freely available without reference to anybody apart from
  * myself!  The Lisp dialect generated is Standard Lisp and in all reality
  * I intend it to be for use with CSL (my own Lisp). I am putting in
@@ -9,23 +9,13 @@
  * suitable for use with full Common Lisp: again it is tuned to my own
  * private purposes...
  *
- * I will think about making this work with Bison as wall as Yacc but
- * maybe I prefer the licence terms associated with Yacc. But it is quite
- * certain that if you receive this code and can make it work with Bison
- * you can use it internally: the only issues are to do with distribution,
- * and if you are careful to use a sufficiently modern release of Bison
- * its skeleton code may be distributed without bad license consequences.
- * Hmm when I wrote that the change in Bison's treamnet of its "skeleton"
- * code maybe felt new enough to worry about the thought of somebody using
- * an old version, now I feel able to standardize on bison.
- *
  * Usage:
  *      r2l -common -rights -Dname=val source1.red ... sourcen.red dest.lsp
  */
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -81,7 +71,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -116,12 +106,6 @@
 #include <stdlib.h>
 
 #include <stdint.h>
-/*
- * The next line is a bit of a cop-out! It was use din times before I could
- * rely on stdint.h
- *
- * typedef long int intptr_t;
- */
 
 intptr_t *heap;
 int heapfringe = 0;
@@ -140,7 +124,7 @@ int common;
 static char *rights_message[] =
 {
 "%",
-"% Copyright (C) 2016, following the master REDUCE source files.          *",
+"% Copyright (C) 2017, following the master REDUCE source files.          *",
 "%                                                                        *",
 "% Redistribution and use in source and binary forms, with or without     *",
 "% modification, are permitted provided that the following conditions are *",
@@ -231,6 +215,7 @@ int main(int argc, char *argv[])
         }
         fprintf(outputfile, "\n\n");
     }
+    fprintf(outputfile, "%% $Id: $\n\n");
     heap = (intptr_t *)malloc(2000000); /* Rather arbitrary size! */
     if (argc == 1) filestack[filestackp++] = stdin;
     else while (--argc != 0)
@@ -251,8 +236,8 @@ char *lookup_name(char *s)
     for (i=0; i<n_defined_names; i++)
     {   char *w = defined_names[i];  /* name or name=value */
         if (strncmp(s, w, n) == 0 &&
-            w[n] == 0 ||
-            w[n] == '=') return (w[n]==0 ? "" : &w[n+1]);
+            (w[n] == 0 ||
+             w[n] == '=')) return (w[n]==0 ? "" : &w[n+1]);
     }
     return NULL;
 }
@@ -910,11 +895,15 @@ proc_qual	:  EXPR			{ $<LO>$ = sym_de; }
 
 sym_list	:  ')'			{ $<LO>$ = C_nil; }
 		|  ',' SYMBOL sym_list	{ $<LO>$ = cons($<LO>2, $<LO>3); }
+		|  ',' SYMBOL ':' type sym_list	
+					{ $<LO>$ = cons($<LO>2, $<LO>5); }
 		;
 /*
  * RLISP seems to want to be able to write
  *    procedure a >= b; ...
  * with an infix operator being defined!
+ * This is an idiom that will not be supported in future versions of the
+ * parser, I suspect.
  */
 
 infix		:  SETQ			{ $<LO>$ = sym_setq; }
@@ -943,11 +932,27 @@ prefix		:  NOT			{ $<LO>$ = sym_not; }
 		|  '-'			{ $<LO>$ = sym_minus; }
 		;
 
+type            :  SYMBOL               { $<LO>$ = $<LO>1; }
+                ;
+
 proc_head	:  SYMBOL		{ $<LO>$ = cons($<LO>1, C_nil); }
 		|  SYMBOL SYMBOL	{ $<LO>$ = list2($<LO>1, $<LO>2); }
 		|  SYMBOL '(' ')'	{ $<LO>$ = cons($<LO>1, C_nil); }
 		|  SYMBOL '(' SYMBOL sym_list
 					{ $<LO>$ = cons($<LO>1, cons($<LO>3, $<LO>4)); }
+		|  SYMBOL ':' type	{ $<LO>$ = cons($<LO>1, C_nil); }
+		|  SYMBOL SYMBOL ':' type
+					{ $<LO>$ = list2($<LO>1, $<LO>2); }
+		|  SYMBOL SYMBOL ':' type ':' type
+					{ $<LO>$ = list2($<LO>1, $<LO>2); }
+		|  SYMBOL '(' ')' ':' type
+					{ $<LO>$ = cons($<LO>1, C_nil); }
+		|  SYMBOL '(' SYMBOL ':' type sym_list
+					{ $<LO>$ = cons($<LO>1, cons($<LO>3, $<LO>6)); }
+		|  SYMBOL '(' SYMBOL sym_list ':' type
+					{ $<LO>$ = cons($<LO>1, cons($<LO>3, $<LO>4)); }
+		|  SYMBOL '(' SYMBOL ':' type sym_list ':' type
+					{ $<LO>$ = cons($<LO>1, cons($<LO>3, $<LO>6)); }
 		|  prefix SYMBOL	{ $<LO>$ = list2($<LO>1, $<LO>2); }
 		|  SYMBOL infix SYMBOL	{ $<LO>$ = list3($<LO>2, $<LO>1, $<LO>3); }
 		;
@@ -1047,17 +1052,43 @@ group_tail	:  RSECT		{ $<LO>$ = C_nil; }
 group_expr	:  LSECT cmnd group_tail{ $<LO>$ = cons(sym_progn, cons($<LO>2, $<LO>3)); }
 		;
 
+
+/*
+ * At present at least this parse ignores the type specifiers.
+ * For initialzation it generates something like
+ *           (PROG (a (b Binit) c (d Dinit) e) ...)
+ * in a way that Common Lisp would be happy about for PROG and PROG*. Since
+ * the generated Lisp is only for use with CSL here I can be relaxed about
+ * this provided that both the CSL interpreter and compiler support this
+ * format.
+ */
 scalar_tail	:  sep			{ $<LO>$ = C_nil; }
 		|  ',' SYMBOL scalar_tail
 					{ $<LO>$ = cons($<LO>2, $<LO>3); }
-		|  ',' INTEGER scalar_tail
-					{ $<LO>$ = cons($<LO>2, $<LO>3); }
+		|  ',' SYMBOL ':' type scalar_tail
+					{ $<LO>$ = cons($<LO>2, $<LO>5); }
+		|  ',' SYMBOL SETQ expr scalar_tail
+					{ $<LO>$ = cons(list2($<LO>2, $<LO>4), $<LO>5); }
+		|  ',' SYMBOL ':' type SETQ expr scalar_tail
+					{ $<LO>$ = cons(list2($<LO>2, $<LO>6), $<LO>7); }
 		;
 
 scalar_def	:  SCALAR SYMBOL scalar_tail
 					{ $<LO>$ = cons($<LO>2, $<LO>3); }
-scalar_def	:  INTEGER SYMBOL scalar_tail
+		|  INTEGER SYMBOL scalar_tail
 					{ $<LO>$ = cons($<LO>2, $<LO>3); }
+		|  SCALAR SYMBOL ':' type scalar_tail
+					{ $<LO>$ = cons($<LO>2, $<LO>5); }
+		|  INTEGER SYMBOL ':' type scalar_tail
+					{ $<LO>$ = cons($<LO>2, $<LO>5); }
+		|  SCALAR SYMBOL SETQ expr scalar_tail
+					{ $<LO>$ = cons($<LO>2, $<LO>5); }
+		|  INTEGER SYMBOL SETQ expr scalar_tail
+					{ $<LO>$ = cons($<LO>2, $<LO>5); }
+		|  SCALAR SYMBOL ':' type SETQ expr scalar_tail
+					{ $<LO>$ = cons($<LO>2, $<LO>7); }
+		|  INTEGER SYMBOL ':' type SETQ expr scalar_tail
+					{ $<LO>$ = cons($<LO>2, $<LO>7); }
 		;
 
 scalar_defs	:  scalar_def

@@ -16,7 +16,7 @@ module tmprint; % Output module for TeXmacs interface
 
 
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: tmprint.red 4088 2017-06-21 21:41:58Z arthurcnorman $
 % ----------------------------------------------------------------------
 % Copyright (c) 1993-1994, 1999, 2003-2005 A. Dolzmann, T. Hearn, A.
 % Grozin, H. Melenk, W. Neun, A. Norman, A. Seidl, and T. Sturm
@@ -207,6 +207,7 @@ fluid  '(
          !*nosplit
          !*ratpri
          !*revpri
+         curline!*
          overflowed!*
          p!*!*
          testing!-width!*
@@ -302,7 +303,8 @@ procedure texmacsp;
    % Texmacs predicate. Returns [t] iff Texmacs is running.
    if getenv("TEXMACS_REDUCE_PATH") then t;
 
-copyd('linelength!-orig,'linelength);
+% Protect against copyd being called twice
+if not getd 'linelength!-orig then copyd('linelength!-orig,'linelength);
 remd('linelength);
 
 #if (memq 'psl lispsystem!*)
@@ -354,10 +356,10 @@ inline procedure writechar n;
 #else
 
 inline procedure string!-to!-list a;
-    string2list a;
+   string2list a;
 
 symbolic procedure raw!-print!-string s;
-     prin2 s;
+   prin2 s;
 
 % writechar already exists in PSL.
 
@@ -1145,7 +1147,7 @@ pound2!* := int2id 0xa3; % Unicode
 
 % I will force blank and tab to be declared and set here since there
 % are signs that in PSL they might not be!
-fluid '(blank tab);
+global '(blank tab);
 blank := '! ;
 tab := '!	;
 
@@ -1829,7 +1831,7 @@ symbolic procedure fancy!-intpri(u,p);
             >>;
             if hi then <<
                fancy!-prin2!*('!^,0);
-               fancy!-maprint!-tex!-bkt(hi,0,nil) where !*list=nil;
+               fancy!-maprint!-tex!-bkt(hi,0,t) where !*list=nil;
             >>;
             w1:=fancy!-maprint(cadr u,0);
             fancy!-prin2!*("\,d\,",2);

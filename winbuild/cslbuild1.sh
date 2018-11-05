@@ -25,9 +25,9 @@
 # 64-bit world.  
 
 here=`cygpath -a .`
-here=${here%/}
-here=`cygpath -m $here`
-here=`echo /cygdrive/$here | sed -e 's/://'`
+here="${here%/}"
+here=`cygpath -m "$here"`
+here=`echo /cygdrive/"$here" | sed -e 's/://'`
 reduce="$here/C"
 
 case $1 in
@@ -35,16 +35,19 @@ win32)
   host="--host=i686-w64-mingw32"
   extras=""
   cygopt=""
+  prefix="i686-w64-mingw32-"
   ;;
 win64)
   host="--host=x86_64-w64-mingw32"
   extras=""
   cygopt=""
+  prefix="x86_64-w64-mingw32-"
   ;;
 cyg32 | cyg64)
   host=""
   extras="--with-xft --with-xim"
   cygopt="--with-cygwin"
+  prefix=""
   ;;
 *)
   printf "\n+++ bad option $1 to cslbuild1.sh\n"
@@ -52,26 +55,68 @@ cyg32 | cyg64)
 ;;
 esac
 
-if test "x$2" = "x"
-then
-  cygalt=""
-else
-  cygalt="$here/cygalt.exe"
-fi
-
 rm -rf csl$1
 mkdir csl$1
 pushd csl$1
 
+printf "#! /bin/bash\nccache ${prefix}gcc \"\$@\"\n" > cachecc.sh
+printf "#! /bin/bash\nccache ${prefix}g++ \"\$@\"\n" > cachecxx.sh
+chmod +x cachecc.sh cachecxx.sh
+
+here1=`pwd`
+# Now I want to turn the path into one that is "very" absolute. I need to
+# do this because I will be building both cygwin32 and cygwin64 variants
+# of Reduce, and paths such as "/home/USER/..." are liable to mean different
+# things as between the 32 and 64-bit world. So what I need to end up with
+# may be more like
+#   /cygdrive/C/cygwin64/home/USER/reduce...
+# which will find the same file in both worlds. "cygpath -m" turns a path
+# into one that will start with a drive letter (C:/cygwin64...) and the
+# jolly use of sed should turn that into what I need.
+here1=`cygpath -m "$here1" | sed -e 's_^\([a-zA-Z]\):_/cygdrive/\1_'`
+CC="$here1/cachecc.sh"
+CXX="$here1/cachecxx.sh"
+
+pc1="CC=$CC"
+pc2="CXX=$CXX"
+
+if test "x$2" = "x"
+then
+  cygalt=""
+else
+  here=`cygpath -m "$here" | sed -e 's_^\([a-zA-Z]\):_/cygdrive/\1_'`
+  cygalt="$here/cygalt.exe"
+fi
+
+mkdir libedit
+pushd libedit
+$cygalt $reduce/libraries/libedit-20140620-3.1/configure --prefix=$here/csl$1
+$cygalt make install
+popd
+
+ln -s $reduce/libraries/wineditline .
+
+mkdir redfront
+pushd redfront
+$cygalt $reduce/generic/newfront/configure
+$cygalt make
+popd
+
 mkdir crlibm
 pushd crlibm
-$cygalt $reduce/libraries/crlibm/configure $host --prefix=$here/csl$1
+$cygalt $reduce/libraries/crlibm/configure "$pc1" "$pc2" $host --prefix=$here/csl$1
+$cygalt make install
+popd
+
+mkdir libffi
+pushd libffi
+$cygalt $reduce/libraries/libffi/configure "$pc1" "$pc2" $host --prefix=$here/csl$1
 $cygalt make install
 popd
 
 mkdir softfloat
 pushd softfloat
-$cygalt $reduce/libraries/SoftFloat-3a/source/configure $host --prefix=$here/csl$1
+$cygalt $reduce/libraries/SoftFloat-3a/source/configure "$pc1" "$pc2" $host --prefix=$here/csl$1
 $cygalt make install
 popd
 
@@ -80,17 +125,21 @@ pushd fox
 foxflags="--enable-release --with-opengl=no \
           --disable-jpeg --disable-zlib --disable-bz2lib \
           --disable-png --disable-tiff"
-$cygalt $reduce/csl/fox/configure $host --prefix=$here/csl$1 $foxflags $extras
+$cygalt $reduce/csl/fox/configure "$pc1" "$pc2" $host \
+    --prefix=$here/csl$1 $foxflags $extras
 $cygalt make install
 popd
 
 mkdir csl
 pushd csl
-$cygalt $reduce/csl/cslbase/configure $host --prefix=$here/csl$1 \
+$cygalt $reduce/csl/cslbase/configure "$pc1" "$pc2" $host --prefix=$here/csl$1 \
     $cygopt --with-fox=$here/csl$1 --with-fox-pending \
     --without-wx
 $cygalt make
-ls -lh reduce.exe reduce.img csl.exe csl.img
+$cygalt make bootstrapreduce.img
+ls -lh reduce.exe reduce.img \
+       bootstrapreduce.exe bootstrapreduce.img \
+       csl.exe csl.img
 popd
 
 popd

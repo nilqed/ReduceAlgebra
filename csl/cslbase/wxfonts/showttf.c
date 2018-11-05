@@ -1,6 +1,6 @@
 // showttf.c
 
-// $Id$
+// $Id: showttf.c 3199 2015-09-07 13:16:17Z arthurcnorman $
 
 // The comments here that relate to licensing were added by Arthur Norman
 // in September 2015. I hope that they are valid - anybody who knows otherwise

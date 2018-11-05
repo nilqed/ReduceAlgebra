@@ -1,4 +1,4 @@
-// machine.h                              Copyright (C) 1990-2016 Codemist
+// machine.h                               Copyright (C) 1990-2018 Codemist
 
 //
 // This was ONCE a place where all system-specific options were detected
@@ -14,7 +14,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2018, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -42,16 +42,181 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: machine.h 4593 2018-05-05 12:06:25Z arthurcnorman $
 
 
 #ifndef header_machine_h
 #define header_machine_h 1
 
+#ifndef DEBUG
+#ifndef NDEBUG
+#define NDEBUG 1
+#endif
+#endif
+
+//
+// If the header "complex.h" is available, the type "complex double" is
+// accepted and the function "csqrt" is present I will assume I can use the
+// standard C99 complex number support facilities. Aha SOME C++ systems
+// support this, but others use a template class, and I will adapt my code
+// to use that some time.
+//
+
+#if defined HAVE_COMPLEX_H && \
+    defined HAVE_COMPLEX_DOUBLE && \
+    defined HAVE_CSQRT
+#define HAVE_COMPLEX 1
+#endif
+
+//
+// I will check a number of things before I try to use sigaltstack()
+//
+#if defined HAVE_SIGNAL_H && defined HAVE_SETJMP_H
+#if defined HAVE_SIGSETJMP && defined HAVE_SIGLONGJMP
+#if defined HAVE_SIGACTION && defined HAVE_SIGALTSTACK
+#define USE_SIGALTSTACK 1
+#endif
+#endif
+#endif
+
+// WIth really old versions of C++ you may not be able to write
+// large literal integers without some decoration. So e.g.
+// 0x7fffffffffffffff might count as an overflow. In those old days you
+// could either add a suffix (typically L or LL, but different platforms
+// might not agree about how wide L made things) or use the C macros
+// such as INT64_C().
+//
+// A bit later C++ compilers started interpreting long strings of digits
+// as items with integer type wide enough to represent them. And then
+// INT64_C and friends only got defined if you had defined a symbol
+// __STDC_CONSTANT_MACROS before including <stdint.h>.
+//
+// Yet later the stance seems to have softened and INT64_C etc get
+// defined by <stdint.h> regardless, so use is not required but is
+// permitted. To cope with all these situations I will define the
+// magic symbols __STDC_CONSTANT_MACROS and __STDC_FORMAT_MACROS (which
+// helps for printf etc) and always write large-value literals in the
+// way that ancient systems and C required.
+
+#ifndef __STDC_CONSTANT_MACROS
+#define __STDC_CONSTANT_MACROS 1
+#endif
+
+#ifndef __STDC_LIMIT_MACROS
+#define __STDC_LIMIT_MACROS 1
+#endif
+
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS 1
+#endif
+
+// At some stage I might wish to move to "#include <cstdio>" etc however
+// that would put things in the std: namespace, and the killer for me is
+// that with g++ I can then not find putc_unlocked and getc_unlocked.
+
+#ifdef WIN32
+// The aim here is to avoid use of the Microsoft versions of printf and
+// friends and (hence) allow g++ to parse and check format strings reliably.
+#define __USE_MINGW_ANSI_STDIO 1
+#endif
+
+#ifdef WIN32
+
+#include <winsock.h>
+#include <windows.h>
+
+#else // WIN32
+
+#define unix_posix 1        // Assume all non-windows systems are Unix!
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <sys/time.h>
+#include <fcntl.h>
+#define WSAGetLastError()   errno  // retrieve error code
+#define WSACleanup()               // tidy up at end of day
+#define closesocket(a)      close(a)
+#define SOCKET              int
+#define SOCKET_ERROR        (-1)
+#ifndef INADDR_NONE
+#  define INADDR_NONE       0xffffffff
+#endif
+
+#endif //WIN32
+
+// I should possibly migrate to use of <iostream> rather than <stdio.h>,
+// but doing so will involve changes across rather a latge swathe of the
+// code!
+#include <stdio.h>
+// Similarly I should probably go either "#include <cstdlib>" or just
+// "#include <stdlib>" and in general migrate to be "more C++ than C"
+// with regard to all libraries. Maybe the main issue there will be that
+// I will need to fuss about namespaces at least a bit. That could be sensible
+// anyway!
+#include <stdlib.h>
+#include <stddef.h>
+#include <math.h>
+#include <float.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <limits.h>
+#include <string.h>
+#include <ctype.h>
+#include <wctype.h>
+#include <time.h>
+#include <stdarg.h>
+#include <setjmp.h>
+#include <signal.h>
+#include <exception>
+#include <errno.h>
+#include <assert.h>
+
+// As of May 2018 I will rely in C++11 for random number and thread support...
+
+#include <random>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
+
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+
+// In a manner that I view as bad, at least the Macintosh copy of libffi
+// installed via macports in August 2017 defined a bunch of autoconf-related
+// macros, potentially in conflict with my own set of values that autoconf
+// sets up for me. So here I do a load of #undef steps to avoid trouble, and
+// I then must not try using those macros at all.
+
+#undef PACKAGE
+#undef PACKAGE_NAME
+#undef PACKAGE_STRING
+#undef VERSION
+#undef PACKAGE_VERSION
+#undef PACKAGE_BUGREPORT
+#undef PACKAGE_TARNAME
+#undef PACKAGE_URL
+
+#include <ffi.h>
+
+#undef PACKAGE
+#undef PACKAGE_NAME
+#undef PACKAGE_STRING
+#undef VERSION
+#undef PACKAGE_VERSION
+#undef PACKAGE_BUGREPORT
+#undef PACKAGE_TARNAME
+#undef PACKAGE_URL
+
 extern "C"
 {
-// At present softfloat.h needs includion in C mode not C++ mode.
-// This must be included before tags.h.
+// At present softfloat.h needs inclusion in C mode not C++ mode.
+// This must be included before tags.h, but after __STDC_CONSTANT_MACROS
+// has been defined.
 
 #include "softfloat.h"
 }
@@ -62,7 +227,7 @@ extern "C"
 // symbol SOCKETS if I can use sockets...
 //
 //
-#if !defined UNDER_CE && !defined EMBEDDED
+#if !defined EMBEDDED
 #if ((defined HAVE_SOCKET && defined HAVE_SYS_SOCKET_H) || defined WIN32)
 #define SOCKETS                  1
 #endif
@@ -90,118 +255,83 @@ extern "C"
 #  endif
 #endif
 
-#ifdef HAVE_STDINT_H
+// The C and C++ refuse to define the behaviour of right shifts
+// on signed types. The underlying reason may relate to the possibility that
+// numbers might be stored in sign-and-magnitude notation or some other
+// scheme other than the 2s complement that is in practice universal these
+// days. I provide support here that will guarantee to do right shifts
+// in arithmetic mode - and hope that modern compilers will map them
+// onto the single machine instruction that is generally what I want.
 
-#ifndef __STDC_CONSTANT_MACROS
-#define __STDC_CONSTANT_MACROS 1
+// Shifts by more than the word-length are invalid, and I should not perform
+// any, but the code may indicate some guarded by SIXTY_FOUR_BIT, so
+// I will fudge things here! In MANY cases the extra tests here will be
+// ones where the compiler can remove them because the shift amount is
+// manifest. If that is not the case they are still cheap and ensure that
+// my code behaves in a defined manner (even if that could be wrong!).
+
+#define MAXSHIFT(n, a)   ((n) >= (int)(8*sizeof(a)) || (n) < 0 ? 0 : (n))
+
+#ifdef SIGNED_SHIFTS_ARE_ARITHMETIC
+
+// In this case I can make it simpler for the compiler! Something that is
+// "implementation defined" is much safer to use than anything that is
+// "undefined" in that the optimiser has to preserve whetever semantics the
+// implementation settled on!
+
+#define ASR(a, n) ((a) >> MAXSHIFT((n), a))
+
+#else // SIGNED_SHIFTS_ARE_ARITHMETIC
+
+// I use <type_traits> so ensure that I have a signed type for when I do the
+// division. It is a header file that was introduced in C++-11, but g++
+// supports it with -std-gnu++0x, and I have checked and it seems to
+// exists as far back as Fedora 9 (which is, I think, now as old as I am
+// interested in going).
+
+#include <type_traits>
+
+template <typename T>
+static inline T ASR(T a, int n)
+{   typedef typename std::make_signed<T>::type ST;
+    return ((ST)(a&~(((T)1<<MAXSHIFT(n,T))-1)))/((ST)1<<MAXSHIFT(n,T));
+}
+
+#endif // SIGNED_SHIFTS_ARE_ARITHMETIC
+
+// The behaviour of left shifts on negative (signed) values seems to be
+// labelled as undefined in C/C++, so any time I am going to do a left shift
+// I need to work in an unsigned type. Rather than messing with templates
+// again I will have versions for each possible width that I might use.
+
+#define ASL32(a,n)  ((int32_t)((uint32_t)(a)<<MAXSHIFT((n),uint32_t)))
+#define ASLptr(a,n) ((intptr_t)((uintptr_t)(a)<<MAXSHIFT((n),uintptr_t)))
+#define ASL64(a,n)  ((int64_t)((uint64_t)(a)<<MAXSHIFT((n),uint64_t)))
+// The following is provided in int128_t.h not here
+// #define ASL128(a,n) ((int128_t)((uint128_t)(a)<<MAXSHIFT((n),uint128_t)))
+
+// Tidy up re possible 128-bit arithemetic support.
+
+#ifdef HAVE_UINT128_T
+#define HAVE_NATIVE_UINT128 1
+#elif defined HAVE_UNSIGNED___INT128
+typedef unsigned __int128 uint128_t;
+#define HAVE_NATIVE_UINT128
+#else
+#include "uint128_t.h"  // For software emulation. Needs C++-11
 #endif
 
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS 1
+#ifdef HAVE_INT128_T
+#define HAVE_NATIVE_INT128 1
+#elif defined HAVE___INT128
+typedef __int128 int128_t;
+#define HAVE_NATIVE_INT128
+#elif defined HAVE_UINT128_T || defined HAVE_UNSIGNED___INT128
+#error Seem to have unsigned 128-bit type but not a signed one!
 #endif
 
-#include <stdint.h>
-
-#else // HAVE_STDINT_H
-//
-// Now it appears that some systems provide types with names like
-// u_int32_t where I count uint32_t as more standard. I will adapt
-// around that here. As C compilers become more standardised this
-// will become increasingly irrelevant.
-//
-
-#ifndef HAVE_UINT32_T
-#ifdef  HAVE_U_INT32_T
-typedef u_int32_t uint32_t;
-#define HAVE_UINT32_T 1
-#endif
-#endif
-
-#ifndef HAVE_UINT64_T
-#ifdef  HAVE_U_INT64_T
-typedef u_int64_t uint64_t;
-#define HAVE_UINT64_T 1
-#endif
-#endif
-
-#ifndef HAVE_UINTPTR_T
-#ifdef  HAVE_U_INTPTR_T
-typedef u_intptr_t uintptr_t;
-#define HAVE_UINTPTR_T 1
-#endif
-#endif
-
-//
-// Finally if those abstract widths have not been provided I will fall
-// back on information worked out at configure-time. Note that that could
-// be delicate in the context of cross-compilation and other odd cases.
-//
-
-#if !defined HAVE_INT32_T && defined SIZEOF_INT && (SIZEOF_INT == 4)
-typedef int int32_t;
-#define HAVE_INT32_T 1
-#endif
-
-#if !defined HAVE_UINT32_T && defined SIZEOF_INT && (SIZEOF_INT == 4)
-typedef unsigned int uint32_t;
-#define HAVE_UINT32_T 1
-#endif
-
-#if !defined HAVE_INT32_T && defined SIZEOF_SHORT_INT && (SIZEOF_SHORT_INT == 4)
-typedef short int int32_t;
-#define HAVE_INT32_T 1
-#endif
-
-#if !defined HAVE_UINT32_T && defined SIZEOF_SHORT_INT && (SIZEOF_SHORT_INT == 4)
-typedef unsigned short int uint32_t;
-#define HAVE_UINT32_T 1
-#endif
-
-#if !defined HAVE_INT64_T && defined SIZEOF_LONG && (SIZEOF_LONG == 8)
-typedef long int64_t;
-#define HAVE_INT64_T 1
-#endif
-
-#if !defined HAVE_UINT64_T && defined SIZEOF_LONG && (SIZEOF_LONG == 8)
-typedef unsigned long uint64_t;
-#define HAVE_UINT64_T 1
-#endif
-
-#if !defined HAVE_INT64_T && defined SIZEOF_LONG_LONG && (SIZEOF_LONG_LONG == 8)
-typedef long long int64_t;
-#define HAVE_INT64_T 1
-#endif
-
-#if !defined HAVE_UINT64_T && defined SIZEOF_LONG_LONG && (SIZEOF_LONG_LONG == 8)
-typedef unsigned long long uint64_t;
-#define HAVE_UINT64_T 1
-#endif
-
-#if !defined HAVE_INTPTR_T && defined SIZEOF_VOID_P && (SIZEOF_VOID_P == 4) && defined HAVE_INT32_T
-typedef int32_t intptr_t;
-#define HAVE_INTPTR_T 1
-#endif
-
-#if !defined HAVE_INTPTR_T && defined SIZEOF_VOID_P && (SIZEOF_VOID_P == 8) && defined HAVE_INT64_T
-typedef int64_t intptr_t;
-#define HAVE_INTPTR_T 1
-#endif
-
-#if !defined HAVE_UINTPTR_T && defined SIZEOF_VOID_P && (SIZEOF_VOID_P == 4) && defined HAVE_UINT32_T
-typedef uint32_t uintptr_t;
-#define HAVE_UINTPTR_T 1
-#endif
-
-#if !defined HAVE_UINTPTR_T && defined SIZEOF_VOID_P && (SIZEOF_VOID_P == 8) && defined HAVE_UINT64_T
-typedef uint64_t uintptr_t;
-#define HAVE_UINTPTR_T 1
-#endif
-
-#endif // HAVE_STDINT_H
-//
 // With luck that will have regularised the situation with regard to
 // integer types!
-//
 
 #endif // header_machine_h
 

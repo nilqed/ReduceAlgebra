@@ -8,14 +8,21 @@
 
 #
 # Usage:
-#     autogen.sh [options as for the configure script]
+#     autogen.sh [--sequential] [options as for the configure script]
 #
 # If no arguments are passed the script will rebuild everything. If
 # --with-csl or --with-psl is specified only that section of the tree
 # will be processed. In the CSL case "--with-wx", "--withoug-gui",
-# "--with-boehm" and perhaps other sub-options will be checked to try
-# to save reworking directories that would not be used.
+# and perhaps other sub-options will be checked to try to save reworking
+# directories that would not be used.
 #
+
+sequential="no"
+if test "x$1" = "x--sequential"
+then
+  sequential="yes"
+  shift
+fi
 
 # I want this script to be one I can launch from anywhere.
 
@@ -25,11 +32,21 @@ here=`cd \`dirname "$here"\` ; pwd -P`
 save=`pwd`
 cd $here
 
+# On the Mac with macports the command needed here is glibtoolize rather than
+# libtoolize.
+
+if which libtoolize > /dev/null
+then
+  LIBTOOLIZE=libtoolize
+else
+  LIBTOOLIZE=glibtoolize
+fi
+
 if ! which autoconf > /dev/null || \
    ! which automake > /dev/null || \
-   ! which libtool > /dev/null
+   ! which $LIBTOOLIZE > /dev/null
 then
-  printf "You need to have autoconf, automake and libtool installed.\n"
+  printf "You need to have autoconf, automake and $LIBTOOLIZE installed.\n"
   printf "I seem not to be able to find them.\n"
   printf "Note that on some Linux systems it is in a package called libtool-bin\n"
   printf "Stopping...\n"
@@ -42,25 +59,36 @@ fi
 # There are some directories that I have chosen not to process here:
 #  ./csl/foxtests
 #  ./generic/libreduce/src
-#  ./generic/redfront/libedit-20140620-3.1
-#  ./generic/redfront/src
 # taking a view that people who wish to build those already have to take
 # special steps... and so they can run autoconf etc for themselves if it
 # is needed. If I did so here it would slow things down for everybody in
-# a way I would view as unhelpful.
+# a way I would view as unhelpful. And this is already slow enough!
 
 printf "autogen.sh arguments: $*\n"
 
 if test $# -eq 0
 then
-  a="--with-psl --with-csl --with-fox --with-boehm"
+  a="--with-psl --with-csl --with-fox"
 else
   a="$*"
 fi
 
+# I will get rid of all config.cache files just to feel safe. If (say) the
+# set of libraries on your computer have changed since last time they
+# could contain misleading information.
+
+find . -name config.cache | xargs rm -f
+
+# I will re-process the top level first sequentially.
+mkdir -p m4
+$LIBTOOLIZE --force --copy
+aclocal --force
+autoreconf -f -i -v
+
 # Here are the directories that I will always process...
 
-L=". ./scripts libraries/crlibm"
+L="./scripts ./libraries/crlibm ./libraries/libedit-20140620-3.1 \
+   ./generic/newfront"
 
 case $a in
 *--without-psl* | *with-psl=no*)
@@ -89,22 +117,13 @@ case $a in
 *--without-csl* | *with-csl=no*)
   ;;
 *--with-csl*)
-  L="$L ./csl ./csl/cslbase ./libraries/SoftFloat-3a/source"
+  L="$L ./csl ./csl/cslbase ./libraries/SoftFloat-3a/source ./libraries/libffi"
   case $a in
   *--without-fox* | *with-fox=no* | \
   *--without-gui* | *with-gui=no*)
     ;;
   *)
     L="$L ./csl/fox"
-    ;;
-  esac
-  case $a in
-  *--without-boehm* | *with-boehm=no*)
-    ;;
-  *--with-boehm*)
-    L="$L ./csl/cslbase/gc-7"
-    ;;
-  *)
     ;;
   esac
   ;;
@@ -114,6 +133,8 @@ esac
 
 printf "About to process $L\n"
 
+procids=""
+
 for d in $L
 do
   printf "\nautoreconf in directory '%s'\n" $d
@@ -121,14 +142,57 @@ do
   then
     cd $d
     printf "autoreconf -f -i -v\n"
-    autoreconf -f -i -v
+# I will spawn all the calls to autoconf to run concurrently...
+    mkdir -p m4
+    if test "$sequential" = "yes"
+    then
+      ( aclocal --force; $LIBTOOLIZE --force --copy )
+    else
+      ( aclocal --force; $LIBTOOLIZE --force --copy ) &
+      procids="$procids $!"
+    fi
     cd $here
   fi
 done
-   
+
+if test "$sequential" != "yes"
+then
+  wait $procids
+fi
+
+procids=""
+
+for d in $L
+do
+  printf "\nautoreconf in directory '%s'\n" $d
+  if test -d $d
+  then
+    cd $d
+    printf "autoreconf -f -i -v\n"
+# I will spawn all the calls to autoconf to run concurrently...
+    if test "$sequential" = "yes"
+    then
+      autoreconf -f -i -v
+    else
+      autoreconf -f -i -v &
+      procids="$procids $!"
+    fi
+    cd $here
+  fi
+done
+
+# ...then wait until they have all finished.
+
+if test "$sequential" != "yes"
+then
+  wait $procids
+fi
+
 scripts/resetall.sh
 
 cd $save
+printf "\nAll autoconf files now up to date\n"
+
 exit 0
 
 # end of autogen.sh

@@ -43,7 +43,11 @@
 
 (rdf "$cslbase/compat.lsp")
 (rdf "$cslbase/extras.lsp")
-(rdf "$cslbase/compiler.lsp")
+(rdf (cond
+  ((memq 'jlisp lispsystem!*) "$cslbase/compiler-for-jlisp.lsp")
+  (t "$cslbase/compiler.lsp")))
+
+(setq !*print!-array!* t)
 
 % First I compile those things that appear to be most heavily used in the
 % compiler. This should speed up the whole bootstrap compilation process
@@ -82,7 +86,9 @@
 (setq !*native_code nil)
 
 (faslout 'compiler)
-(rdf "$cslbase/compiler.lsp")
+(rdf (cond
+  ((memq 'jlisp lispsystem!*) "$cslbase/compiler-for-jlisp.lsp")
+  (t "$cslbase/compiler.lsp")))
 (faslend)
 
 (bytecounts)
@@ -107,8 +113,28 @@
 (set!-autoload 'c_out        'compiler)
 
 
-% My choice for a Lisp system is to enable full compilation (but NOT
-% into DLL form) by default.
+(when (file!-readablep "stubs.lsp")
+   (de c!:install (name env c!-version !&optional c1)
+      (cond
+        (c1 "unused here")
+        (t (progn
+              (put name 'c!-version c!-version)
+              (cond (env (prog (v n)
+                 (setq v (mkvect (sub1 (length env))))
+                 (setq n 0)
+            top  (cond
+                    ((null env) (progn
+                     (put name 'funarg v)
+                     (return (symbol!-set!-env name v)))))
+                 (putv v n (car env))
+                 (setq n (add1 n))
+                 (setq env (cdr env))
+                 (go top))))
+              name))))
+    (rdf "stubs.lsp"))
+
+
+% My choice for a Lisp system is to enable full compilation by default.
 
 (setq !*comp t)
 (setq !*native_code nil)

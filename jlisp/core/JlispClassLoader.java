@@ -1,7 +1,7 @@
 package uk.co.codemist.jlisp.core;
 
 
-// $Id$
+// $Id: JlispClassLoader.java 3142 2015-06-21 22:27:59Z arthurcnorman $
 
 
 // 26/02/02 Load a class and return an instance of it.

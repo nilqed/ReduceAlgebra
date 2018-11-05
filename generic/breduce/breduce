@@ -1,6 +1,6 @@
 #!/bin/bash
 # ----------------------------------------------------------------------
-# $Id$
+# $Id: breduce 4017 2017-05-09 06:07:53Z thomas-sturm $
 # ----------------------------------------------------------------------
 # Copyright (c) 2008, 2011 T. Sturm
 # ----------------------------------------------------------------------
@@ -241,7 +241,7 @@ done
 
 REDUCE=${REDUCE:-"reduce"}
 
-seriesprintname=$(echo ${seriesprintname} | sed 's/\([^a-z]\)/!\1/g')
+seriesprintname=$(echo ${seriesprintname} | sed 's/\([^a-z]\)/\1/g')
 
 killtime=${killtime:-"0"}
 

@@ -1,7 +1,7 @@
 #!/bin/csh -f
 # Script to load lispvar redfront. Do not move this script.
 #
-# $Id$
+# $Id: redfront.lsp 113 2009-03-13 07:09:33Z thomas-sturm $
 #
 if ( -e /usr/bin/which) then
    set me=`/usr/bin/which $0`

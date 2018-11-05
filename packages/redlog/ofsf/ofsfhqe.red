@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 2003-2009 Andreas Dolzmann and Lorenz Gilch
-% ----------------------------------------------------------------------
+module ofsfhqe;  % Ordered fields standard form Hermitian quantifier elimination.
+
+revision('ofsfhqe, "$Id: ofsfhqe.red 3961 2017-03-19 08:24:03Z thomas-sturm $");
+
+copyright('ofsfhqe, "(c) 2003-2009 A. Dolzmann, L. Gilch, 2016-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -26,17 +27,7 @@
 % THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 % (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-% 
-
-lisp <<
-   fluid '(ofsf_hqe_rcsid!* ofsf_hqe_copyright!*);
-   ofsf_hqe_rcsid!* :=
-      "$Id$";
-   ofsf_hqe_copyright!* := "Copyright (c) 2003-2009 A. Dolzmann and L. Gilch"
->>;
-
-module ofsfhqe;
-% Ordered fields standard form Hermitian quantifier elimination.
+%
 
 % Real Root Counting Quantifier Elimination.
 % Input: A First-order formula
@@ -52,7 +43,7 @@ procedure ofsf_ghqe(f);
       res := ofsf_hqe f;
       !*rlhqegen := nil;
       ofsf_hqexvars!* := nil;
-      return {rl_smkn('and,rl_thsimpl ofsf_hqetheo!*),res}
+      return rl_thsimpl ofsf_hqetheo!* . res
    end;
 
 procedure ofsf_hqe(phi);
@@ -65,7 +56,7 @@ procedure ofsf_hqe(phi);
       if not !*rlverbose then
 	 off1 'rlhqevb;
       if not(!*cgbverbose and !*rlverbose and !*rlhqevb) then
-	 off1 'cgbverbose;      
+	 off1 'cgbverbose;
       w := ofsf_hqe0 phi;
       onoff('rlhqevb,svrlhqevb);
       onoff('cgbverbose,svcgbverbose);
@@ -715,7 +706,7 @@ procedure ofsf_consistent(xi,cond);
 	 {cond}
       else
 	 cdr cond;
-      return ofsf_consistent1(list2set xi2,cond2)
+      return ofsf_consistent1(lto_list2set xi2,cond2)
    end;
 
 procedure ofsf_consistent1(xi,cond);
@@ -789,8 +780,8 @@ procedure ofsf_getphi3phi4(xn,phi);
 	       	  phi4 := conj . phi4
 	 >>
       >>;
-      phi3 := list2set phi3;
-      phi4 := list2set phi4;
+      phi3 := lto_list2set phi3;
+      phi4 := lto_list2set phi4;
       return {phi3, phi4}
    end;
 
@@ -841,7 +832,7 @@ procedure ofsf_getneq0f(xn,f);
       if null res then
 	 return 'true
       else
-	 return list2set res
+	 return lto_list2set res
    end;
 
 
@@ -879,7 +870,7 @@ procedure ofsf_getneq0fgen(xn,f);
       if null res then
 	 return 'true
       else
-	 return list2set res
+	 return lto_list2set res
    end;
 
 procedure ofsf_getconj4(xn,f1,f2);
@@ -1820,9 +1811,9 @@ procedure ofsf_dimrec(s,varl,k,u,m);
       m2 := m;
       for i:=k:length varl do
 	 if not ofsf_intersectionp(
-	    list2set(ofsf_getxi(varl,i) . u),s) then <<
+	    lto_list2set(ofsf_getxi(varl,i) . u),s) then <<
 	       m2 := ofsf_dimrec(s,varl,i+1,
-		  list2set(ofsf_getxi(varl,i) . u),m2)>>;
+		  lto_list2set(ofsf_getxi(varl,i) . u),m2)>>;
       if not ofsf_subsetp(u,m2) then
 	 m2 := u . m2;
       return m2

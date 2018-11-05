@@ -6,6 +6,7 @@
 % Created:      27 August 1981 
 % Modified:     
 % Package:      Kernel 
+% Status:       Open Source: BSD License
 %
 % (c) Copyright 1982, University of Utah
 %
@@ -283,7 +284,8 @@
                         (go insideid)
                         (progn (raiselastchar)
                                (go insideraisedid)))))
-              ((11) % Delimiter, but not beginning of Diphthong
+              ((11 22) % Delimiter, but not beginning of Diphthong
+	               %  or delimiter if first char in token (like _ in rlisp) 
 
                (progn (setf toktype* '3)
                       (return (mkid tokch))))
@@ -346,6 +348,7 @@
    insideid
         (readinbuf)
         (cond ((or (wleq chtokentype 10)
+		   (weq chtokentype escapeiffirst)
                    (weq chtokentype plussign)
                    (weq chtokentype minussign))
                (go insideid))

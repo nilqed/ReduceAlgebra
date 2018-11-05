@@ -1,7 +1,5 @@
 module cde_ansatz;
-% CDE package, routines that generate ansatz of solutions of differential
-% and algebraic equations, and routines for solving algebraic equations
-% ("splitting" procedures).
+% CDE package, routines that generate ansatz of solutions of equations
 
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions are met:
@@ -31,9 +29,6 @@ module cde_ansatz;
 % Dipartimento di Matematica, Universita' del Salento (Lecce, Italy)
 % email: raffaele.vitolo@unisalento.it
 % web: http://poincare.unisalento.it/vitolo
-%
-% Version and Date:  2.0 October 2015.
-%
 % ===============================================================
 
 
@@ -41,7 +36,7 @@ module cde_ansatz;
 %-----------------------------------------------------------------------------%
 % Procedures for construction of ansatz to solve
 % determining equations. The aim is to generate monomials
-% with specified properties
+% of even or odd variables with specified properties
 %-----------------------------------------------------------------------------%
 
 symbolic procedure cde_grading(dindepvar,ddepvar,doddvar);
@@ -96,7 +91,12 @@ symbolic procedure mkallmon0(alg_grad,vars);
    end;
 
 symbolic procedure mkallmon(alg_grad,vars);
-  'list . mkallmon0(alg_grad,cdr vars);
+  begin
+    scalar templist;
+    templist:=mkallmon0(alg_grad,cdr vars);
+    templist:=for each el in templist collect aeval el;
+    return 'list . cde_mkset(templist)
+  end;
 
 symbolic operator mkallmon;
 
@@ -327,23 +327,22 @@ symbolic procedure mult_grad(gradmon,lmon);
 symbolic procedure mkallgradmon_evenind(alg_deg,grmon,degree);
   % takes graded monomials of independent variables constructed by
   % mkallgradmon_ind and multiplies them with even graded monomials
-  % of complementary degree in order to produce monomials
-  % possibly with independent variables and having scale degree `degree'.
-  begin scalar tempvars,tempdeg,tempgrmon,grmon_ind,n_grmon;
+  % of complementary degree, produced by graded_mon, starting from (1 0),
+  % in order to yield monomials containing independent variables
+  % and having scale degree `degree'.
+  begin scalar tempvars,tempdeg,grmon_dep,grmon_ind,n_grmon_dep;
     % clean the algebraic list
-    tempgrmon:=cdr grmon;
-    tempgrmon:=for each el in tempgrmon collect cdr el;
+    grmon_dep:=cdr grmon;
+    grmon_dep:=for each el in grmon_dep collect cdr el;
+    n_grmon_dep:=length grmon_dep;
     % prepare the list of graded monomials of independent variables
     grmon_ind:=mkallgradmon_ind(alg_deg);
-    % maximal scale degree plus one of the graded monomials
-    % of the independent variables
-    n_grmon:=length(tempgrmon);
     for each el in grmon_ind do
     <<
-      tempdeg:=aeval list('plus,degree,minus(cadr el));
-      if lessp(tempdeg,n_grmon) then
-	tempvars:=append(mult_grad(el,nth(tempgrmon,tempdeg+1)),tempvars)
-      else rederr "Algebraic degree too high with respect to scale degree!";
+      tempdeg:=degree - cadr el;
+      if lessp(tempdeg,n_grmon_dep) then
+	tempvars:=append(mult_grad(el,nth(grmon_dep,tempdeg+1)),tempvars)
+      else print "Warning: algebraic degree higher than scale degree."
     >>;
     return 'list . tempvars
   end;

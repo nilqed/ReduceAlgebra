@@ -30,7 +30,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-/* $Id$ */
+/* $Id: cygwin-isatty.c 2460 2014-03-26 20:41:33Z arthurcnorman $ */
 
 #include <stdio.h>
 #include <stdlib.h>

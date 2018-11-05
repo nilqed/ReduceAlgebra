@@ -245,20 +245,21 @@ symbolic procedure reform_denom(n,var);
         then if depends(cadr temp, var)
                then lst := {{'defint_choose,{'quotient,1,temp}},var}
               else temp := {'expt,'e,{'times,{'log,cadr temp},caddr temp}};
+
       % test for a single occurrence of e.
-      if temp and eqcar(caddr temp ,'quotient)
+      if temp and pairp temp and pairp cdr temp and pairp cddr temp
+ 	 and eqcar(caddr temp ,'quotient)
         then if eqcar(cadr caddr temp,'plus) and not depends(caddr caddr temp,var)
               then temp := {'expt,cadr temp,
                             'plus . for each term in cdr cadr caddr temp collect
                                    {'quotient,term,caddr caddr temp}}
               else if listp car cdaddr temp and listp cadr cdaddr temp then
       << off mcd; temp:= {'expt,'e,quotient_case(reval temp)}; on mcd>>;
-      if temp and car temp eq 'expt and (atom caddr temp or
-                              caaddr temp neq 'plus) then
+      if eqcar(temp,'expt) and not eqcar(caddr temp,'plus) then
       <<lst := {{'defint_choose,
                    {'quotient,1,{'expt,'e,caddr temp}},var}}>>
       % else if there are multiple occurrences of e
-      else if pairp caddr temp then
+      else if eqcar(temp,'expt) and eqcar(caddr temp,'plus) then
 %      else if listp temp and length temp > 2 and pairp caddr temp then
       << temp1 := cdaddr temp;
          for each i in temp1 do
@@ -283,12 +284,9 @@ denom := caddr n;
 
 % Check for constants
 
-if fixp num or atom num then << num_coef := num; num := nil>>
+if not depends(num,var) then << num_coef := num; num := nil>>
 
-else if num = 'e or fixp caddr num then
-        << num_coef := num; num := nil>>
-
-else if car num  = 'times then
+else if pairp num and car num  = 'times then
         << for each fctr in cdr num do
              if depends(fctr,var) then num1 := fctr . num1
               else num_coef := fctr . num_coef;
@@ -300,13 +298,10 @@ else if car num  = 'times then
 
 else num_coef := 1;
 
-if fixp denom or atom denom then
+if  not depends(denom,var) then
         << denom_coef := denom; denom := nil>>
 
-else if denom = 'e or fixp caddr denom then
-           << denom_coef := denom; denom := nil>>
-
-else if car denom  = 'times then 
+else if eqcar(denom,'times) then 
         << for each fctr in cdr denom do
              if depends(fctr,var) then denom1 := fctr . denom1
               else denom_coef := fctr . denom_coef; 
@@ -316,7 +311,7 @@ else if car denom  = 'times then
            if denom then
               denom := if cdr denom1 then 'times . reverse denom1 else car denom1>>;
    
-if denom and car denom = 'expt and (atom caddr denom or
+if eqcar(denom,'expt) and (atom caddr denom or
                         caaddr denom neq 'plus) then
      lst := {{'defint_choose,{'quotient,1,
                 {'expt,'e,caddr denom}},var}}
@@ -332,18 +327,19 @@ else if denom then
      lst := ({'defint_choose,{'quotient,1,
                 {'expt,'e,i}},var} . lst)>>;
 
-if not atom num and car num = 'expt and (atom caddr num or
-                        caaddr num neq 'plus) then
+if eqcar(num, 'expt) and not eqcar(caddr num,'plus) then
 
     lst := {'defint_choose,{'expt,'e,caddr num},var} . lst
 
-else if not atom num then
+else if eqcar(num,'expt) and eqcar(caddr num,'plus) then
 
 << num1 := cdaddr num;
    for each i in num1 do
    << lst := ({'defint_choose,{'expt,'e,car num1},var} . lst);
       num1 := cdr num1>>;
->>;
+>>
+
+else lst := {'defint_choose,num,var} . lst;
 
 if null denom_coef then lst := (num_coef . lst)
 
@@ -373,7 +369,7 @@ lst := cdaddr n;
 new_lst := {caaddr n};
 
 for each i in lst do
-<< if caddr i < 0 then
+<< if pairp i and pairp cdr i and pairp cddr i and numberp caddr i and caddr i < 0 then
    << caddr i := minus caddr i;
       i := {car i,cadr i, {'minus,caddr i}}>>;
   new_lst := append(new_lst,{i});

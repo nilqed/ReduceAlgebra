@@ -1,4 +1,4 @@
-// sysipaq.cpp                      Copyright (C) 1989-2015 Codemist    
+// sysipaq.cpp                             Copyright (C) 1989-2017 Codemist    
 
 // *** THIS CODE IS NO LONGER MAINTAINED ***
 
@@ -27,7 +27,7 @@
 //
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -56,7 +56,7 @@
  *************************************************************************/
 
 
-// $Id$
+// $Id: sysipaq.cpp 4611 2018-05-16 20:34:06Z arthurcnorman $
 
 #include "headers.h"
 
@@ -103,7 +103,7 @@ void report_time(int32_t t, int32_t gct)
     if ((window_heading & 1) == 0) fwin_report_left(time_string);
 }
 
-void report_space(int n, double percent)
+void report_space(int n, double percent, double mbytes)
 {   sprintf(space_string, "[GC %d]:%.2f%%", n, percent);
     if ((window_heading & 4) == 0) fwin_report_right(space_string);
 }
@@ -154,22 +154,13 @@ void my_pclose(FILE *stream)
 
 
 char *look_in_lisp_variable(char *o, int prefix)
-{   LispObject nil, var;
+{   LispObject var;
 //
 // I will start by tagging a '$' (or whatever) on in front of the
 // parameter name.
 //
     o[0] = (char)prefix;
     var = make_undefined_symbol(o);
-    nil = C_nil;
-//
-// make_undefined_symbol() could fail either if we had utterly run out
-// of memory or if somebody generated an interrupt (eg ^C) around now. Ugh.
-//
-    if (exception_pending())
-    {   flip_exception();
-        return NULL;
-    }
 //
 // If the variable $name was undefined then I use an empty replacement
 // text for it. Otherwise I need to look harder at its value.
@@ -183,22 +174,10 @@ char *look_in_lisp_variable(char *o, int prefix)
 // Mostly I expect that the value will be a string or symbol.
 //
 #ifdef COMMON
-        if (complex_stringp(var))
-        {   var = simplify_string(var);
-            nil = C_nil;
-            if (exception_pending())
-            {   flip_exception();
-                return NULL;
-            }
-        }
+        if (complex_stringp(var)) var = simplify_string(var);
 #endif // COMMON
         if (symbolp(var))
         {   var = get_pname(var);
-            nil = C_nil;
-            if (exception_pending())
-            {   flip_exception();
-                return NULL;
-            }
             h = vechdr(var);
         }
         else if (!is_vector(var) ||
@@ -265,7 +244,8 @@ int batchp()
 //
 const char *find_image_directory(int argc, const char *argv[])
 {   int n = strlen(programName) + strlen(programDir) + 6;
-    char *w = (char *)(*malloc_hook)(n);
+    char *w = (char *)malloc(n);
+    if (w == NULL) abort();
     strcpy(w, programDir);
     n = strlen(programDir);
     w[n] = '/';                 // Should be '\\' for Windows?
@@ -385,7 +365,7 @@ int fwin_windowmode()
 // particular application.
 //
 char about_box_title[32] = "About Reduce";
-char about_box_description[32] = "Version ???";
+char about_box_description[32] = "Version \?\?\?";
 char about_box_rights_1[32] = "A C Hearn";
 char about_box_rights_2[32] = "Codemist    ";
 char about_box_rights_3[32] = "Ipaq version March 2005";
@@ -708,7 +688,7 @@ char *get_truename(char *filename, const char *old, size_t n)
     return w;
 }
 
-extern bool file_exists(char *filename, char *old, size_t n, char *tt)
+extern bool file_exists(char *filename, const char *old, size_t n, char *tt)
 {   FILE *ff;
     process_file_name(filename, old, n);
     ff = fopen(filename, "r");

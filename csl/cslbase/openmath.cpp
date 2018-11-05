@@ -1,9 +1,9 @@
-// openmath.cpp                                 Copyright (C) 2016 NAG Ltd.
+// openmath.cpp                                 Copyright (C) 2017 NAG Ltd.
 
 // This file was contributed to CSL by NAG Ltd
 
 /**************************************************************************
- * Copyright (C) 2016, Codemist.                         A C Norman       *
+ * Copyright (C) 2017, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -31,7 +31,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: openmath.cpp 4170 2017-08-29 15:01:55Z arthurcnorman $
 
 
 #ifdef OPENMATH
@@ -89,8 +89,6 @@ LispObject om_setLispProperty(LispObject obj, LispObject name, LispObject val);
 //
 // External CCL functions.
 //
-extern char *get_string_data(LispObject name, char *why, int32_t *l);
-
 
 OMdev
 om_toDev(LispObject obj)
@@ -120,8 +118,7 @@ om_toDev(LispObject obj)
 }
 
 
-LispObject
-om_fromDev(OMdev dev)
+LispObject om_fromDev(OMdev dev)
 {   LispObject obj;
     obj = make_one_word_bignum((int32_t)dev);
     return obj;
@@ -138,8 +135,7 @@ om_toStatus(LispObject obj)
 }
 
 
-LispObject
-om_fromStatus(OMstatus status)
+LispObject om_fromStatus(OMstatus status)
 {   LispObject obj;
     obj = fixnum_of_int((int32_t)status);
     return obj;
@@ -156,8 +152,7 @@ om_toEncodingType(LispObject obj)
 }
 
 
-LispObject
-om_fromEncodingType(OMencodingType enc)
+LispObject om_fromEncodingType(OMencodingType enc)
 {   LispObject obj;
     obj = fixnum_of_int((int32_t)enc);
     return obj;
@@ -220,8 +215,7 @@ om_toBigNumStr(LispObject num)
 }
 
 
-LispObject
-om_fromBigNumStr(char *inData, int len, int sign, OMbigIntType fmt)
+LispObject om_fromBigNumStr(char *inData, int len, int sign, OMbigIntType fmt)
 {   LispObject obj, radix, digit;
     int i;
 
@@ -292,8 +286,7 @@ om_toConn(LispObject obj)
 }
 
 
-LispObject
-om_fromConn(OMconn conn)
+LispObject om_fromConn(OMconn conn)
 {   LispObject obj;
     obj = make_one_word_bignum((int32_t)conn);
     return obj;
@@ -330,7 +323,7 @@ om_toCString(LispObject obj)
     else
     {   char *tmp = NULL;
         int len = 0;
-        tmp = get_string_data(obj, "om_toCString", &len);
+        tmp = get_string_data(obj, "om_toCString", len);
         tmp[len] = '\0';
         pstr = (char **)malloc(sizeof(char *));
         *pstr = strdup(tmp);
@@ -339,24 +332,21 @@ om_toCString(LispObject obj)
 }
 
 
-LispObject
-om_fromCString(char **str)
+LispObject om_fromCString(char **str)
 {   LispObject obj;
     obj = make_one_word_bignum((int32_t)str);
     return obj;
 }
 
 
-LispObject
-om_cStringFromLispString(LispObject lstr)
+LispObject om_cStringFromLispString(LispObject lstr)
 {   LispObject cstr;
     cstr = om_fromCString(om_toCString(lstr));
     return cstr;
 }
 
 
-LispObject
-om_lispStringFromCString(LispObject cstr)
+LispObject om_lispStringFromCString(LispObject cstr)
 {   LispObject lstr;
     char **pstr = om_toCString(cstr);
     lstr = make_string(*pstr);
@@ -368,14 +358,12 @@ om_lispStringFromCString(LispObject cstr)
 // Local functions for dealing with property lists.
 //
 
-LispObject
-om_getLispProperty(LispObject obj, LispObject name)
-{   return get(obj, name, C_nil);
+LispObject om_getLispProperty(LispObject obj, LispObject name)
+{   return get(obj, name, nil);
 }
 
 
-LispObject
-om_setLispProperty(LispObject obj, LispObject name, LispObject val)
+LispObject om_setLispProperty(LispObject obj, LispObject name, LispObject val)
 {   return putprop(obj, name, val);
 }
 
@@ -384,8 +372,7 @@ om_setLispProperty(LispObject obj, LispObject name, LispObject val)
 // Exposed OpenMath Device manipulation functions.
 //
 
-LispObject
-om_openFileDev(LispObject nil, int nargs, ...)
+LispObject om_openFileDev(LispObject env, int nargs, ...)
 // Opens a file and creates an OpenMath device for it. The return value is the
 // LISP object which wraps the created device. The parameters are:
 //   fname  - string    - the name of the file to open.
@@ -398,7 +385,7 @@ om_openFileDev(LispObject nil, int nargs, ...)
     OMencodingType fenc;
     FILE *f;
     OMdev dev;
-    int32_t len;
+    int32_t len = 0;
     LispObject lispDev;
 
     // Unpack the parameters into Lisp_Objects.
@@ -413,22 +400,17 @@ om_openFileDev(LispObject nil, int nargs, ...)
 
     // Convert the parameters into their C equivalents.
     if (!is_vector(lname) || !(type_of_header(vechdr(lname)) == TYPE_STRING))
-        return aerror("om_openFileDev");
-    errexitn(3);
-    fname = get_string_data(lname, "om_openFileDev", &len);
-    errexitn(3);
+        aerror("om_openFileDev");
+    fname = get_string_data(lname, "om_openFileDev", len);
     fname[len] = '\0';
 
     if (!is_vector(lmode) || !(type_of_header(vechdr(lmode)) == TYPE_STRING))
-        return aerror("om_openFileDev");
-    errexitn(3);
-    fmode = get_string_data(lmode, "om_openFileDev", &len);
-    errexitn(3);
+        aerror("om_openFileDev");
+    fmode = get_string_data(lmode, "om_openFileDev", len);
     fmode[len] = '\0';
 
     if (!is_fixnum(lenc))
-        return aerror("om_openFileDev");
-    errexitn(3);
+        aerror("om_openFileDev");
     // This gets OMencodingTypes as an integer then casts it to OMencodingType.
 //   * That may be a bit dodgy...
     fenc = om_toEncodingType(lenc);
@@ -437,7 +419,7 @@ om_openFileDev(LispObject nil, int nargs, ...)
 
     f = fopen(fname, fmode);
     if (f == NULL)
-        return aerror("om_openFileDev: couldn't open named file!");
+        aerror("om_openFileDev: couldn't open named file!");
 
     // Create an OpenMath device on the given file.
     dev = OMmakeDevice(fenc, OMmakeIOFile(f));
@@ -449,8 +431,7 @@ om_openFileDev(LispObject nil, int nargs, ...)
 }
 
 
-LispObject
-om_openStringDev(LispObject nil, LispObject lstr, LispObject lenc)
+LispObject om_openStringDev(LispObject env, LispObject lstr, LispObject lenc)
 // Creates an OpenMath string device on an existing string. The return value is
 // the LISP object which wraps the created device. The parameters are:
 //  lstr    - string    - The string to create the device on. This must be a C
@@ -470,10 +451,8 @@ om_openStringDev(LispObject nil, LispObject lstr, LispObject lenc)
     push2(lstr, lenc);
 
     pstr = om_toCString(lstr);
-    errexitn(2);
 
     enc = om_toEncodingType(lenc);
-    errexitn(2);
 
     dev = OMmakeDevice(enc, OMmakeIOString(pstr));
     ldev = om_fromDev(dev);
@@ -483,14 +462,12 @@ om_openStringDev(LispObject nil, LispObject lstr, LispObject lenc)
 }
 
 
-LispObject
-om_closeDev(LispObject nil, LispObject ldev)
+LispObject om_closeDev(LispObject env, LispObject ldev)
 {   OMdev dev;
 
     push(ldev);
 
     dev = om_toDev(ldev);
-    errexitn(1);
     OMcloseDevice(dev);
 
     pop(ldev);
@@ -498,8 +475,7 @@ om_closeDev(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_setDevEncoding(LispObject nil, LispObject ldev, LispObject lenc)
+LispObject om_setDevEncoding(LispObject env, LispObject ldev, LispObject lenc)
 {   OMdev dev;
     OMencodingType enc;
 
@@ -507,16 +483,13 @@ om_setDevEncoding(LispObject nil, LispObject ldev, LispObject lenc)
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_setDevEncoding: invalid device");
-    errexitn(2);
+        aerror("om_setDevEncoding: invalid device");
 
     if (!is_fixnum(lenc))
-        return aerror("om_setDevEncoding: invalid encoding");
-    errexitn(2);
+        aerror("om_setDevEncoding: invalid encoding");
     // This gets OMencodingTypes as an integer then casts it to OMencodingType.
 //   * That may be a bit dodgy...
     enc = om_toEncodingType(lenc);
-    errexitn(2);
 
     pop2(ldev, lenc);
 
@@ -530,19 +503,16 @@ om_setDevEncoding(LispObject nil, LispObject ldev, LispObject lenc)
 //
 
 
-LispObject
-om_makeConn(LispObject nil, LispObject ltimeout)
+LispObject om_makeConn(LispObject env, LispObject ltimeout)
 {   OMconn conn;
     int32_t timeout;
 
     push(ltimeout);
 
     if (!is_fixnum(ltimeout))
-        return aerror("om_makeConn: timeout value must be a fixnum");
-    errexitn(1);
+        aerror("om_makeConn: timeout value must be a fixnum");
 
     timeout = int_of_fixnum(ltimeout);
-    errexitn(1);
     conn = OMmakeConn(timeout);
 
     pop(ltimeout);
@@ -551,18 +521,15 @@ om_makeConn(LispObject nil, LispObject ltimeout)
 }
 
 
-LispObject
-om_closeConn(LispObject nil, LispObject lconn)
+LispObject om_closeConn(LispObject env, LispObject lconn)
 {   OMconn conn;
     OMstatus status;
 
     push(lconn);
 
     conn = om_toConn(lconn);
-    errexitn(1);
     if (!conn)
-        return aerror("om_toConn");
-    errexitn(1);
+        aerror("om_toConn");
 
     pop(lconn);
 
@@ -574,18 +541,15 @@ om_closeConn(LispObject nil, LispObject lconn)
 }
 
 
-LispObject
-om_getConnInDev(LispObject nil, LispObject lconn)
+LispObject om_getConnInDev(LispObject env, LispObject lconn)
 {   OMconn conn;
     OMdev dev;
 
     push(lconn);
 
     conn = om_toConn(lconn);
-    errexitn(1);
     if (!conn)
-        return aerror("om_toConn");
-    errexitn(1);
+        aerror("om_toConn");
 
     pop(lconn);
 
@@ -594,18 +558,15 @@ om_getConnInDev(LispObject nil, LispObject lconn)
 }
 
 
-LispObject
-om_getConnOutDev(LispObject nil, LispObject lconn)
+LispObject om_getConnOutDev(LispObject env, LispObject lconn)
 {   OMconn conn;
     OMdev dev;
 
     push(lconn);
 
     conn = om_toConn(lconn);
-    errexitn(1);
     if (!conn)
-        return aerror("om_toConn");
-    errexitn(1);
+        aerror("om_toConn");
 
     pop(lconn);
 
@@ -618,13 +579,12 @@ om_getConnOutDev(LispObject nil, LispObject lconn)
 // Exposed OpenMath client/server functions.
 //
 
-LispObject
-om_connectTCP(LispObject nil, int nargs, ...)
+LispObject om_connectTCP(LispObject env, int nargs, ...)
 {   va_list args;
     LispObject lconn, lhost, lport;
     OMconn conn;
     char *host = NULL;
-    int32_t hostlen;
+    int32_t hostlen = 0;
     int32_t port;
     OMstatus status;
 
@@ -641,24 +601,18 @@ om_connectTCP(LispObject nil, int nargs, ...)
 
     // Convert the parameters into their C equivalents.
     conn = om_toConn(lconn);
-    errexitn(3);
     if (!conn)
-        return aerror("om_toConn");
-    errexitn(3);
+        aerror("om_toConn");
 
     if (!stringp(lhost))
-        return aerror("om_connectTCP: host name must be a string");
-    errexitn(3);
-    host = get_string_data(lhost, "om_putString", &hostlen);
-    errexitn(3);
+        aerror("om_connectTCP: host name must be a string");
+    host = get_string_data(lhost, "om_putString", hostlen);
     if (host != NULL)
         host[hostlen] = '\0';
 
     if (!is_fixnum(lport))
-        return aerror("om_connectTCP: port number must be a fixnum");
-    errexitn(3);
+        aerror("om_connectTCP: port number must be a fixnum");
     port = int_of_fixnum(lport);
-    errexitn(3);
 
     pop3(lconn, lhost, lport);
 
@@ -670,8 +624,7 @@ om_connectTCP(LispObject nil, int nargs, ...)
 }
 
 
-LispObject
-om_bindTCP(LispObject nil, LispObject lconn, LispObject lport)
+LispObject om_bindTCP(LispObject env, LispObject lconn, LispObject lport)
 {   OMconn conn;
     int32_t port;
     OMstatus status;
@@ -679,16 +632,12 @@ om_bindTCP(LispObject nil, LispObject lconn, LispObject lport)
     push2(lconn, lport);
 
     conn = om_toConn(lconn);
-    errexitn(2);
     if (!conn)
-        return aerror("om_toConn");
-    errexitn(2);
+        aerror("om_toConn");
 
     if (!is_fixnum(lport))
-        return aerror("om_bindTCP: port number must be a fixnum");
-    errexitn(2);
+        aerror("om_bindTCP: port number must be a fixnum");
     port = int_of_fixnum(lport);
-    errexitn(2);
 
     pop2(lconn, lport);
 
@@ -704,14 +653,13 @@ om_bindTCP(LispObject nil, LispObject lconn, LispObject lport)
 // Exposed OpenMath Device output functions.
 //
 
-LispObject
-om_putApp(LispObject nil, LispObject ldev)
+LispObject om_putApp(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputApp(dev);
     if (status != OMsuccess)
@@ -721,14 +669,13 @@ om_putApp(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putEndApp(LispObject nil, LispObject ldev)
+LispObject om_putEndApp(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputEndApp(dev);
     if (status != OMsuccess)
@@ -738,14 +685,13 @@ om_putEndApp(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putAtp(LispObject nil, LispObject ldev)
+LispObject om_putAtp(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputAtp(dev);
     if (status != OMsuccess)
@@ -755,14 +701,13 @@ om_putAtp(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putEndAtp(LispObject nil, LispObject ldev)
+LispObject om_putEndAtp(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputEndAtp(dev);
     if (status != OMsuccess)
@@ -772,14 +717,13 @@ om_putEndAtp(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putAttr(LispObject nil, LispObject ldev)
+LispObject om_putAttr(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputAttr(dev);
     if (status != OMsuccess)
@@ -789,14 +733,13 @@ om_putAttr(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putEndAttr(LispObject nil, LispObject ldev)
+LispObject om_putEndAttr(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputEndAttr(dev);
     if (status != OMsuccess)
@@ -806,14 +749,13 @@ om_putEndAttr(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putBind(LispObject nil, LispObject ldev)
+LispObject om_putBind(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputBind(dev);
     if (status != OMsuccess)
@@ -823,14 +765,13 @@ om_putBind(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putEndBind(LispObject nil, LispObject ldev)
+LispObject om_putEndBind(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputEndBind(dev);
     if (status != OMsuccess)
@@ -840,14 +781,13 @@ om_putEndBind(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putBVar(LispObject nil, LispObject ldev)
+LispObject om_putBVar(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputBVar(dev);
     if (status != OMsuccess)
@@ -857,14 +797,13 @@ om_putBVar(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putEndBVar(LispObject nil, LispObject ldev)
+LispObject om_putEndBVar(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputEndBVar(dev);
     if (status != OMsuccess)
@@ -874,14 +813,13 @@ om_putEndBVar(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putError(LispObject nil, LispObject ldev)
+LispObject om_putError(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputError(dev);
     if (status != OMsuccess)
@@ -891,14 +829,13 @@ om_putError(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putEndError(LispObject nil, LispObject ldev)
+LispObject om_putEndError(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputEndError(dev);
     if (status != OMsuccess)
@@ -908,14 +845,13 @@ om_putEndError(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putObject(LispObject nil, LispObject ldev)
+LispObject om_putObject(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputObject(dev);
     if (status != OMsuccess)
@@ -925,14 +861,13 @@ om_putObject(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putEndObject(LispObject nil, LispObject ldev)
+LispObject om_putEndObject(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMputEndObject(dev);
     if (status != OMsuccess)
@@ -942,8 +877,7 @@ om_putEndObject(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_putInt(LispObject nil, LispObject ldev, LispObject val)
+LispObject om_putInt(LispObject env, LispObject ldev, LispObject val)
 // This routine expects val to be a Lisp integer of some sort.
 // The decision of whether to put it as an int32_t or a bigint
 // will be made by this routine.
@@ -955,10 +889,10 @@ om_putInt(LispObject nil, LispObject ldev, LispObject val)
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     if (!is_number(val) || is_float(val))
-        return aerror("om_putInt");
+        aerror("om_putInt");
 
     if (is_fixnum(val))
     {   int32_t ival = int_of_fixnum(val);
@@ -979,8 +913,7 @@ om_putInt(LispObject nil, LispObject ldev, LispObject val)
 }
 
 
-LispObject
-om_putFloat(LispObject nil, LispObject ldev, LispObject val)
+LispObject om_putFloat(LispObject env, LispObject ldev, LispObject val)
 // This routine expects val to be a real-valued number of some
 // sort (this includes floats, rationals, etc.) and puts it
 // out as an IEEE 64-bit floating point number.
@@ -992,10 +925,10 @@ om_putFloat(LispObject nil, LispObject ldev, LispObject val)
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     if (!is_number(val))
-        return aerror("om_putFloat");
+        aerror("om_putFloat");
 
     fval = float_of_number(val);
 
@@ -1009,8 +942,7 @@ om_putFloat(LispObject nil, LispObject ldev, LispObject val)
 }
 
 
-LispObject
-om_putByteArray(LispObject nil, LispObject ldev, LispObject val)
+LispObject om_putByteArray(LispObject env, LispObject ldev, LispObject val)
 // This routine expects val to be a Lisp vector of 8-bit values.
 //
 {   OMdev dev;
@@ -1019,13 +951,13 @@ om_putByteArray(LispObject nil, LispObject ldev, LispObject val)
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     if (!is_vector(val) || !(type_of_header(vechdr(val)) == TYPE_VEC8))
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     // Get the length of the array.
-    len = length_of_byteheader(val) - CELL; // is this correct???
+    len = length_of_byteheader(val) - CELL; // is this correct?
 
     // Write out the array data.
     status = OMputByteArray(dev, ((char *)val - TAG_VECTOR + CELL), len);
@@ -1034,24 +966,23 @@ om_putByteArray(LispObject nil, LispObject ldev, LispObject val)
 }
 
 
-LispObject
-om_putVar(LispObject nil, LispObject ldev, LispObject val)
+LispObject om_putVar(LispObject env, LispObject ldev, LispObject val)
 // This routine expects val to be a symbol.
 //
 {   OMdev dev;
     OMstatus status;
     char *name;
-    int32_t len;
+    int32_t len = 0;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     if (!is_symbol(val))
-        return aerror("om_putVar");
+        aerror("om_putVar");
 
     // Do I need to free the memory for name myself? I don't know...
-    name = get_string_data(val, "om_putVar", &len);
+    name = get_string_data(val, "om_putVar", len);
     if (name == NULL)
         return om_error(OMinternalError);
     else
@@ -1064,24 +995,23 @@ om_putVar(LispObject nil, LispObject ldev, LispObject val)
 }
 
 
-LispObject
-om_putString(LispObject nil, LispObject ldev, LispObject val)
+LispObject om_putString(LispObject env, LispObject ldev, LispObject val)
 // This routine expects val to be a Lisp string.
 //
 {   OMdev dev;
     OMstatus status;
     char *name;
-    int32_t len;
+    int32_t len = 0;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     if (!is_vector(val) || !(type_of_header(vechdr(val)) == TYPE_STRING))
-        return aerror("om_putString");
+        aerror("om_putString");
 
     // Do I need to free the memory for name myself? I don't know...
-    name = get_string_data(val, "om_putString", &len);
+    name = get_string_data(val, "om_putString", len);
     if (name == NULL)
         return om_error(OMinternalError);
     else
@@ -1094,8 +1024,7 @@ om_putString(LispObject nil, LispObject ldev, LispObject val)
 }
 
 
-LispObject
-om_putSymbol(LispObject nil, LispObject ldev, LispObject val)
+LispObject om_putSymbol(LispObject env, LispObject ldev, LispObject val)
 // This routine expects val to be a cons cell where the first element is the
 // name of the content dictionary and the second (and final) element is the
 // name of the symbol.
@@ -1104,23 +1033,22 @@ om_putSymbol(LispObject nil, LispObject ldev, LispObject val)
 
     // Check that the value passed in is in the correct format.
     if (!is_cons(val))
-        return aerror("om_putSymbol");
+        aerror("om_putSymbol");
 
     // Get the cd and name properties (checking that they are set).
     cdObj = qcar(val);
     if (cdObj == nil)
-        return aerror("om_putSymbol: The cd property was not set");
+        aerror("om_putSymbol: The cd property was not set");
     nameObj = qcar(qcdr(val));
     if (nameObj == nil)
-        return aerror("om_putSymbol: The name property was not set");
+        aerror("om_putSymbol: The name property was not set");
 
     // Invoke the verbose form of the putSymbol routine to output the data.
     return om_putSymbol2(nil, 3, ldev, cdObj, nameObj);
 }
 
 
-LispObject
-om_putSymbol2(LispObject nil, int nargs, ...)
+LispObject om_putSymbol2(LispObject env, int nargs, ...)
 //
 // A different form of putSymbol, where the cd and symbol names are given as strings.
 // The parameters are: (om-putSymbol omdevice "cdname" "symbolname")
@@ -1130,7 +1058,7 @@ om_putSymbol2(LispObject nil, int nargs, ...)
     LispObject lcd, lname;
     OMdev dev;
     char *cd, *name;
-    int32_t cdLen, nameLen;
+    int32_t cdLen = 0, nameLen = 0;
     OMstatus status;
 
     // Get the arguments from the arglist.
@@ -1146,11 +1074,11 @@ om_putSymbol2(LispObject nil, int nargs, ...)
     // Convert the parameters into their C equivalents.
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     if (!is_vector(lcd) || !(type_of_header(vechdr(lcd)) == TYPE_STRING))
-        return aerror("om_putSymbol2");
-    cd = get_string_data(lcd, "om_putSymbol2", &cdLen);
+        aerror("om_putSymbol2");
+    cd = get_string_data(lcd, "om_putSymbol2", cdLen);
     if (cd == NULL)
     {   status = OMinternalError;
         return om_error(status);
@@ -1159,8 +1087,8 @@ om_putSymbol2(LispObject nil, int nargs, ...)
     // err_printf("[om_putSymbol2] converted cd name (%s)\n", cd);
 
     if (!is_vector(lname) || !(type_of_header(vechdr(lname)) == TYPE_STRING))
-        return aerror("om_putSymbol2");
-    name = get_string_data(lname, "om_putSymbol2", &nameLen);
+        aerror("om_putSymbol2");
+    name = get_string_data(lname, "om_putSymbol2", nameLen);
     if (name == NULL)
     {   status = OMinternalError;
         return om_error(status);
@@ -1181,14 +1109,13 @@ om_putSymbol2(LispObject nil, int nargs, ...)
 // OpenMath input routines.
 //
 
-LispObject
-om_getApp(LispObject nil, LispObject ldev)
+LispObject om_getApp(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetApp(dev);
     if (status != OMsuccess)
@@ -1198,14 +1125,13 @@ om_getApp(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getEndApp(LispObject nil, LispObject ldev)
+LispObject om_getEndApp(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetEndApp(dev);
     if (status != OMsuccess)
@@ -1215,14 +1141,13 @@ om_getEndApp(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getAtp(LispObject nil, LispObject ldev)
+LispObject om_getAtp(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetAtp(dev);
     if (status != OMsuccess)
@@ -1232,14 +1157,13 @@ om_getAtp(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getEndAtp(LispObject nil, LispObject ldev)
+LispObject om_getEndAtp(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetEndAtp(dev);
     if (status != OMsuccess)
@@ -1249,14 +1173,13 @@ om_getEndAtp(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getAttr(LispObject nil, LispObject ldev)
+LispObject om_getAttr(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetAttr(dev);
     if (status != OMsuccess)
@@ -1266,14 +1189,13 @@ om_getAttr(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getEndAttr(LispObject nil, LispObject ldev)
+LispObject om_getEndAttr(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetEndAttr(dev);
     if (status != OMsuccess)
@@ -1283,14 +1205,13 @@ om_getEndAttr(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getBind(LispObject nil, LispObject ldev)
+LispObject om_getBind(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetBind(dev);
     if (status != OMsuccess)
@@ -1300,14 +1221,13 @@ om_getBind(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getEndBind(LispObject nil, LispObject ldev)
+LispObject om_getEndBind(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetEndBind(dev);
     if (status != OMsuccess)
@@ -1317,14 +1237,13 @@ om_getEndBind(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getBVar(LispObject nil, LispObject ldev)
+LispObject om_getBVar(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetBVar(dev);
     if (status != OMsuccess)
@@ -1334,14 +1253,13 @@ om_getBVar(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getEndBVar(LispObject nil, LispObject ldev)
+LispObject om_getEndBVar(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetEndBVar(dev);
     if (status != OMsuccess)
@@ -1351,14 +1269,13 @@ om_getEndBVar(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getError(LispObject nil, LispObject ldev)
+LispObject om_getError(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetError(dev);
     if (status != OMsuccess)
@@ -1368,14 +1285,13 @@ om_getError(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getEndError(LispObject nil, LispObject ldev)
+LispObject om_getEndError(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetEndError(dev);
     if (status != OMsuccess)
@@ -1385,14 +1301,13 @@ om_getEndError(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getObject(LispObject nil, LispObject ldev)
+LispObject om_getObject(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetObject(dev);
     if (status != OMsuccess)
@@ -1402,14 +1317,13 @@ om_getObject(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getEndObject(LispObject nil, LispObject ldev)
+LispObject om_getEndObject(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetEndObject(dev);
     if (status != OMsuccess)
@@ -1419,8 +1333,7 @@ om_getEndObject(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getInt(LispObject nil, LispObject ldev)
+LispObject om_getInt(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
     OMtokenType ttype;
@@ -1428,7 +1341,7 @@ om_getInt(LispObject nil, LispObject ldev)
 
     dev = om_toDev(ldev);
     if (!dev)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetType(dev, &ttype);
     if (status == OMsuccess)
@@ -1473,8 +1386,7 @@ om_getInt(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getFloat(LispObject nil, LispObject ldev)
+LispObject om_getFloat(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
     OMtokenType ttype;
@@ -1482,7 +1394,7 @@ om_getFloat(LispObject nil, LispObject ldev)
 
     dev = om_toDev(ldev);
     if (dev == NULL)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetType(dev, &ttype);
     if (status == OMsuccess)
@@ -1498,8 +1410,7 @@ om_getFloat(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getByteArray(LispObject nil, LispObject ldev)
+LispObject om_getByteArray(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
     int len;
@@ -1507,14 +1418,14 @@ om_getByteArray(LispObject nil, LispObject ldev)
 
     dev = om_toDev(ldev);
     if (dev == NULL)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetLength(dev, &len);
     if (status != OMsuccess)
         return om_error(status);
     else
     {   // I hope this is right...
-        obj = getvector(TAG_VECTOR, TYPE_VEC8, len + 4);
+        obj = get_basic_vector(TAG_VECTOR, TYPE_VEC8, len + 4);
         status = OMgetByteArrayN(dev, ((char *)obj - TAG_VECTOR + 4), len);
         if (status != OMsuccess)
             return om_error(status);
@@ -1524,8 +1435,7 @@ om_getByteArray(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getVar(LispObject nil, LispObject ldev)
+LispObject om_getVar(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
     char *var;
@@ -1533,7 +1443,7 @@ om_getVar(LispObject nil, LispObject ldev)
 
     dev = om_toDev(ldev);
     if (dev == NULL)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetVar(dev, &var);
     if (status != OMsuccess)
@@ -1547,8 +1457,7 @@ om_getVar(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getString(LispObject nil, LispObject ldev)
+LispObject om_getString(LispObject env, LispObject ldev)
 {   OMdev dev;
     OMstatus status;
     char *str;
@@ -1556,7 +1465,7 @@ om_getString(LispObject nil, LispObject ldev)
 
     dev = om_toDev(ldev);
     if (dev == NULL)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetString(dev, &str);
     if (status != OMsuccess)
@@ -1569,8 +1478,7 @@ om_getString(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_getSymbol(LispObject nil, LispObject ldev)
+LispObject om_getSymbol(LispObject env, LispObject ldev)
 // This returns the Lisp symbol OMS, with a cd property and a name property set
 // to appropriate string values.
 //
@@ -1583,10 +1491,8 @@ om_getSymbol(LispObject nil, LispObject ldev)
     push(ldev);
 
     dev = om_toDev(ldev);
-    errexitn(1);
     if (dev == NULL)
-        return aerror("om_toDev");
-    errexitn(1);
+        aerror("om_toDev");
 
     pop(ldev);
 
@@ -1610,7 +1516,7 @@ om_getSymbol(LispObject nil, LispObject ldev)
     {   cdstr = make_string(cd);
         namestr = make_string(name);
         // FIXME: is this needed?  push2(cdstr, namestr);
-        obj = cons(cdstr, cons(namestr, C_nil));
+        obj = cons(cdstr, cons(namestr, nil));
     }
 
     free(cd);
@@ -1628,8 +1534,7 @@ om_getSymbol(LispObject nil, LispObject ldev)
     err_printf("[om_getType] %s%s%s\n", msg,a1,a2)
 
 
-LispObject
-om_getType(LispObject nil, LispObject ldev)
+LispObject om_getType(LispObject env, LispObject ldev)
 {   static char *typenames[] =
     {   "OMtokenApp",       "OMtokenEndApp",
         "OMtokenAtp",       "OMtokenEndAtp",
@@ -1654,7 +1559,7 @@ om_getType(LispObject nil, LispObject ldev)
 
     dev = om_toDev(ldev);
     if (dev == NULL)
-        return aerror("om_toDev");
+        aerror("om_toDev");
 
     status = OMgetType(dev, &ttype);
     if (status != OMsuccess)
@@ -1690,14 +1595,12 @@ om_getType(LispObject nil, LispObject ldev)
 }
 
 
-LispObject
-om_stringToStringPtr(LispObject nil, LispObject lstr)
+LispObject om_stringToStringPtr(LispObject env, LispObject lstr)
 {   return om_cStringFromLispString(lstr);
 }
 
 
-LispObject
-om_stringPtrToString(LispObject nil, LispObject lpstr)
+LispObject om_stringPtrToString(LispObject env, LispObject lpstr)
 {   return om_lispStringFromCString(lpstr);
 }
 

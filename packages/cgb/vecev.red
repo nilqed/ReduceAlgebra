@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: vecev.red 3046 2015-03-26 13:08:07Z thomas-sturm $
 % ----------------------------------------------------------------------
 % Copyright (c) 1999-2009 Andreas Dolzmann and Thomas Sturm
 % ----------------------------------------------------------------------
@@ -30,7 +30,7 @@
 
 lisp <<
    fluid '(vecev_rcsid!* vecev_copyright!*);
-   vecev_rcsid!* := "$Id$";
+   vecev_rcsid!* := "$Id: vecev.red 3046 2015-03-26 13:08:07Z thomas-sturm $";
    vecev_copyright!* := "Copyright (c) 1999-2009 A. Dolzmann and T. Sturm"
 >>;
 

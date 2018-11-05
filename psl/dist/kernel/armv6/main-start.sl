@@ -143,7 +143,7 @@
  (tokenbuffer       #.(compiler-constant 'maxtokensize))
  (bndstk            #.(compiler-constant 'bndstksize))
  (catchstack        #.(times2 (compiler-constant 'catchstacksize) 4))
- (hashtable         #.(quotient (compiler-constant 'hash-table-size) 2))
+ (hashtable         #.(compiler-constant 'hash-table-size))
  (onewordbuffer     1)
  (saveargc          1)
  (saveargv          1)
@@ -208,6 +208,15 @@
    *fastcar
    ))
 
+(compiletime (flag '($fluid fluid global $global) 'terminaloperand))
+
+(lap '((*entry move-regs-to-mem expr 0)
+       (*Alloc 0)
+       (*MOVE (reg r8) ($fluid heaplast))
+       (*MOVE (reg r9) ($fluid heaptrapbound))
+       (*exit 0)
+))
+
 (de init-pointers()
 % (setq stacklowerbound (wplus2 stack stacksize))
 % (setq stackupperbound (wplus2 stack 100))
@@ -248,26 +257,26 @@
   (setq *fastcar nil)
 )
 
-(lap '((*entry !m!a!i!n expr 0)
+(compiletime
+  (setq mainentrypointname* '!_!p!s!l!_!m!a!i!n))
 
-       (*move (displacement (reg st) 4) (fluid argc))
-       (*move (displacement (reg st) 8) (fluid argv))
+(lap '((*entry !_!p!s!l!_!m!a!i!n expr 0)
 
        (*alloc 3) % changes Stack pointer
 
-       (*move (fluid argc) (frame 1))
-       (*move (fluid argv) (frame 2))
-       (*move (reg 2) (frame 3)) % have to save %ebx
+       (*move (reg 1) (frame 1))	% argc
+       (*move (reg 2) (frame 2))	% argv
+       (*move (reg fp) (frame 3)) % have to save frame pointer
+       (*move (reg 3) (reg symval))	% pointer to symval array
 
-
-  %    (*move   (fluid stack) (reg st))
-  %    (*move   (reg st)      (fluid stackupperbound))
-  %    (*wplus2 (reg st)      (wconst (times (sub1 stacksize) 
-  % 				     addressingunitsperitem)))
+       (*MOVE ($global symfnc) (reg symfnc))
+ %      (*MOVE ($global symval) (reg symval))
+       (*move 256 (reg NIL))
+       (*mkitem (reg NIL) id-tag)                 % initialize NIL reg
 
        %  Do OS specific initializations (uses argc and argv)
-       (*move (fluid argc) (reg 1))
-       (*move (fluid argv) (reg 2))
+%       (*move (reg 1) (fluid argc))
+%       (*move (reg 2) (fluid argv))
        (*move infbitlength (fluid _infbitlength_))
        (*link os_startup_hook expr 2)
 
@@ -283,6 +292,9 @@
 
        (*link init-gcarray expr 0)
 
+       (*MOVE ($fluid heaplast) (reg R8))
+       (*MOVE ($fluid heaptrapbound) (reg R9))
+
        (*call pre-main)                                 % call PSL
 
 panic-exit                      % need to do UNIX cleanup after
@@ -296,7 +308,7 @@ panic-exit                      % need to do UNIX cleanup after
        (*link os_cleanup_hook expr 0)
        (*pop (reg 1))
        (*link external_exit expr 1)
-       (*exit 3)
+       (*exit 0)
        ))
 
 %
@@ -320,7 +332,9 @@ panic-exit                      % need to do UNIX cleanup after
   (begin1)
   (rds nil) (wrs nil) (close ch1) (close ch2)
 ))
-  
+ 
+(compiletime (remflag '($fluid fluid global $global) 'terminaloperand))
+
 (de init-gcarray() nil) % hook for garbage collector initialization 
 
 (de pre-main ()

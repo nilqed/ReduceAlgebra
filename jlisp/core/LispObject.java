@@ -35,7 +35,7 @@ package uk.co.codemist.jlisp.core;
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id$
+// $Id: LispObject.java 3139 2015-06-17 21:43:54Z arthurcnorman $
 
 
 // Lisp has a single inclusive data-type, which I call

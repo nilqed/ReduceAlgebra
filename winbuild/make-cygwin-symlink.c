@@ -1,16 +1,32 @@
 /*
- * make-cygwin-symlink.c                  Copyright (C) 2014 Codemist Ltd
+ * make-cygwin-symlink.c                     Copyright (C) 2014-16 Codemist
  *
  * This program is intended to allow one to find a cygwin installation
  * on the current machine. It makes fairly strong assumptions about where
  * one might be!
+ *
+ * Usage:
+ *
+ *(a)   make-cygwin-symlink name-for-cygwin
+ *          Delete the cygwin link in all /usr/local/bin directories
+ *          that it is found in.
+ *
+ *(b)   make-cygwin-symlink d:/installed/somewhere/foo.exe cygfoo
+ *          This is like
+ *            ln -s /cygdrive/d/installed/somewhere.foo.exe \
+ *                  /usr/local/bin/cygfoo
+ *
+ *(c)   make-cygwin-symlink WINPATH1 WINPATH2 name-for-cygwin
+ *          This is much the same but it links to WINPATH1 for any 32-bit
+ *          installation of cygwin and WINPATH2 for any 64-bit one.
+ *
  */
 
-/* $Id: findcygwin.c 2277 2014-01-06 10:33:50Z arthurcnorman $ */
+/* $Id: make-cygwin-symlink.c 4006 2017-04-17 16:21:43Z arthurcnorman $ */
 
 
 /**************************************************************************
- * Copyright (C) 2014, Codemist Ltd.                     A C Norman       *
+ * Copyright (C) 2016, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -41,12 +57,12 @@
 #include <stdio.h>
 #include <windows.h>
 
-const char *cygname, *winname;
+const char *cygname, *winname, *winname64;
 
 int processFile(char *path)
 {
     FILE *f;
-    const char *p;
+    const char *p, *wname;
     DWORD a = GetFileAttributes(path);
     if (a == INVALID_FILE_ATTRIBUTES ||
         (a & (FILE_ATTRIBUTE_DEVICE | FILE_ATTRIBUTE_DIRECTORY |
@@ -70,43 +86,48 @@ default:  /* Not a useful type */
         return 0;
 case SCS_32BIT_BINARY:
         printf("32-bit cygwin location identified\n");
+        wname = winname;
         break;
 case SCS_64BIT_BINARY:
         printf("64-bit cygwin location identified\n");
+        wname = winname64;
         break;
     }
     sprintf(path+strlen(path)-strlen("/bin/bash.exe"),
             "/usr/local/bin/%s", cygname);
-    f = fopen(path, "wb");
-    if (f == NULL)
-    {   printf("Unable to write to %s\n", path);
-        return 1;
-    }
-    fwrite("!<symlink>", 1, 10, f);
-    putc(0xff, f);
-    putc(0xfe, f);
+    DeleteFile(path); /* delete before trying to create it */
+    if (wname != NULL)
+    {   f = fopen(path, "wb");
+        if (f == NULL)
+        {   printf("Unable to write to %s\n", path);
+            return 1;
+        }
+        fwrite("!<symlink>", 1, 10, f);
+        putc(0xff, f);
+        putc(0xfe, f);
 /*
  * Here I have to do two things. One is to convert the Windows name to
  * on in cygwin format.
  */
-    for (p = "/cygdrive/"; *p!=0; p++)
-    {   putc(*p, f);
+        for (p = "/cygdrive/"; *p!=0; p++)
+        {   putc(*p, f);
+            putc(0, f);
+        }
+        p = wname;   // Expected to be of form "x:\..."
+        putc(*p++, f);
         putc(0, f);
-    }
-    p = winname;   // Expected to be of form "x:\..."
-    putc(*p++, f);
-    putc(0, f);
-    p++;           // Skip the ":"
-    while(*p!=0)
-    {   int c = *p++;
-        if (c == '\\') c = '/';
-        putc(c, f);
+        p++;           // Skip the ":"
+        while(*p!=0)
+        {   int c = *p++;
+            if (c == '\\') c = '/';
+            putc(c, f);
+            putc(0, f);
+        }
         putc(0, f);
+        putc(0, f);
+        fclose(f);
+        SetFileAttributes(path, FILE_ATTRIBUTE_SYSTEM);
     }
-    putc(0, f);
-    putc(0, f);
-    fclose(f);
-    SetFileAttributes(path, FILE_ATTRIBUTE_SYSTEM);
     return 0;
 }
 
@@ -120,9 +141,9 @@ int processDrive(const char *drive)
 /*
  * It seems that I can only put wildcards in the final component of
  * the path given to FindFirstFile, so the pattern I sort of wanted to
- * use, vi. "x:\cyg*\bin\cygwin1.dll" is not acceptable. I need to find
+ * use, viz "x:\cyg*\bin\cygwin1.dll" is not acceptable. I need to find
  * directories that match "x:\cyg*" and then check within them as a
- * separtate step.
+ * separate step.
  */
     sprintf(name, "%scyg*", drive);
     printf("Pattern is %s\n", name);
@@ -174,6 +195,12 @@ int processVolume(const char *volumeName)
 int main(int argc, char *argv[])
 {
     char volumeName[100];
+// When I am ready to abandom support for systeme prior to Windows 7
+// I ccan use SetThreadErrorMode.
+//     SetThreadErrorMode(SEM_FAILCRITICALERRORS, NULL);
+// This call is necessary so that (eg) having an SD card reader without an SD
+// card in it does not stall the installation and lead to failure.
+    SetErrorMode(SEM_FAILCRITICALERRORS);
     HANDLE v;
 #if 0
     {   int i;
@@ -183,9 +210,13 @@ int main(int argc, char *argv[])
         fclose(o);
     }
 #endif
-    if (argc != 3 || strncmp(argv[1], "--h", 3) == 0)
+    if ((argc != 2 && argc != 3 && argc != 4) ||
+        strncmp(argv[1], "--h", 3) == 0)
     {   printf("[%d] Usage:\n", argc);
+        printf("     make-cygwin-symlink cygname\n");
+        printf("Delete /usr/local/bin/cygname in all cywgin installations\n");
         printf("     make-cygwin-symlink winname cygname\n");
+        printf("or   make-cygwin-symlink winname winname64 cygname\n");
         printf("e.g. make-cygwin-symlink \"c:/Program Files/reduce/csl-reduce/reduce.exe\" redcsl\n");
         printf("This establishes cygwin soft links in the cygwin /usr/local/bin\n");
         printf("directory to point to the specified executable\n");
@@ -204,8 +235,24 @@ int main(int argc, char *argv[])
  * cygname should be a plain word with no suffix and no embedded slashes
  * or other unusual characters.
  */
+    switch (argc)
+    {
+case 2:
+    winname = NULL;   /* NULL used to indicate the "delete" option */
+    winname64 = NULL;
+    cygname = argv[1];
+    break;
+case 3:
     winname = argv[1];
+    winname64 = argv[1];
     cygname = argv[2];
+    break;
+case 4:
+    winname = argv[1];
+    winname64 = argv[2];
+    cygname = argv[3];
+    break;
+    }
 
     v = FindFirstVolume(volumeName, (DWORD)sizeof(volumeName));
     if (v == INVALID_HANDLE_VALUE)

@@ -7,6 +7,31 @@
 % Date :  4-May-1994
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Redistribution and use in source and binary forms, with or without
+% modification, are permitted provided that the following conditions are met:
+%
+%    * Redistributions of source code must retain the relevant copyright
+%      notice, this list of conditions and the following disclaimer.
+%    * Redistributions in binary form must reproduce the above copyright
+%      notice, this list of conditions and the following disclaimer in the
+%      documentation and/or other materials provided with the distribution.
+%
+% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+% THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+% PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNERS OR
+% CONTRIBUTORS
+% BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+% INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+% POSSIBILITY OF SUCH DAMAGE.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
 % Revisions:
 %
 (compiletime (load common))
@@ -122,7 +147,8 @@
 %% not present in 64bit mode
 %(fi 16#40 inc (rax) (rcx) (rdx) (rbx) (rsp) (rbp) (rsi) (rdi))
 
-(fi 16#48 rex (" ") (b) (x) (xb) (r) (rb) (rx) (rxb))
+(fi 16#40 rex   (" ") (b) (x) (xb) (r) (rb) (rx) (rxb)
+                (" ") (b) (x) (xb) (r) (rb) (rx) (rxb))
 
 (fi 16#50 push (rax) (rcx) (rdx) (rbx) (rsp) (rbp) (rsi) (rdi))
 
@@ -155,7 +181,10 @@
 
 (fi 16#86 xchg ((E b) (G b)) ((E v) (G v)))
 
-(fi 16#88 mov  ((E b)(G b)) ((E v) (G v))  ((G b)(E b)) ((G v) (E v)))
+(fi 16#88 movb ((E b)(G b)))
+(fi 16#89 mov  ((E v) (G v)))
+(fi 16#8a movb ((G b)(E b)))
+(fi 16#8b mov  ((G v) (E v)))
 
 (fi 16#8d lea  ((G v) (M)))
 
@@ -175,7 +204,7 @@
               (AH (I b))(CH (I b))(DH (I b))(BH (I b)))
 
 (fi 16#b8 mov (EAX (I v))(ECX (I v))(EDX (I v))(EBX (I v))
-              (ESP (I v))(ESP (I v))(ESI (I v))(EDI (I v)))
+              (ESP (I v))(EBP (I v))(ESI (I v))(EDI (I v)))
 
 (fi 16#c0 shift ((E b)(I b)) ((E v)(I b)))
 
@@ -228,9 +257,9 @@
 (fi 16#5e (sse div) ((V) (W)))
 (fi 16#5f (sse max) ((V) (W)))
 
-(fi 16#6e (sse movq) ((E q) (V q)))
+(fi 16#6e (sse movq) ((V q) (E q)))
 (fi 16#6f (sse movwa) ((W q) (V q)))
-(fi 16#7e (sse movq) ((V q) (E q)))
+(fi 16#7e (sse movq) ((E q) (V q)))
 (fi 16#7f (sse movwa) ((V q) (W q)))
 
 (fi 16#80 JO  ((j v)))
@@ -254,6 +283,12 @@
 
 (fi 16#af imul ((G v)(E v)))
 
+(fi 16#d6 (sse movq) ((W) (V)))
+(fi 16#db (sse pand) ((V) (W)))
+(fi 16#df (sse pandn) ((V) (W)))
+(fi 16#eb (sse por) ((V) (W)))
+(fi 16#ef (sse pxor) ((V) (W)))
+
 (dm make-the-instructions(u)
   `(progn
      (setq instrs1 ',instrs1)
@@ -271,7 +306,10 @@
 (setq rregs  '("rax" "rcx" "rdx" "rbx" "rsp" "rbp" "rsi" "rdi"
                "r8" "r9" "r10" "r11" "r12" "r13" "r14" "r15"))
 
-(fluid '( the-instruction* addr* rex_w rex_r rex_x rex_b size-override* sse-prefix* !0f-prefix* mod-is-3*))
+(deflist '((rax r8) (rcx r9) (rdx r10) (rbx r11) (rsp r12) (rbp r13) (rsi r14) (rdi r15)) 'upperreg)
+
+(fluid '( the-instruction* addr* rex_w rex_r rex_x rex_b size-override* sse-prefix* !0f-prefix* mod-is-3*
+			   byte-operand*))
 
 (de decode(p1 pl addr*)
   (prog(i lth name with-rex)
@@ -287,7 +325,7 @@
          (setq sse-prefix* p1)
 	 (setq p1 (pop pl))
          (setq lth (add1 lth)))
-      (when (and (wlessp p1 16#50) (wgeq p1 16#48))
+      (when (and (wlessp p1 16#50) (wgeq p1 16#40))
          (decode-rex-prefix p1)
 	 %% 66 prefix is ignored when REX.W bit is set
 	 (when (and rex_w (eq size-override* 16#66)) (setq size-override* nil))
@@ -318,8 +356,22 @@
 )
 
 
-(de decode-operands(bytes* lth* pat)
-  (prog (r reg* xreg*)
+(de decode-operands-special-pattern-cases (bytes lth pat)
+  %
+  % handle a number of special cases where the operands are interpreted
+  %  differently if some prefix is present
+  %				%
+  (cond ((and (pairp the-instruction*)
+	      (pairp (cdr the-instruction*))
+	      (equal (cadr the-instruction*) '(sse movq)) 
+	      (eq sse-prefix* 16#f3))
+	 '((V) (W)))
+	(t nil)))
+
+(de decode-operands (bytes* lth* pat)
+  (prog (r reg* xreg* byte-operand* x)
+    (setq x (decode-operands-special-pattern-cases bytes* lth* pat))
+    (when (and x (pairp x)) (setq pat x))
     (when (eqcar pat nil) (go done))
     (push (cons 'op1 (decode-operand1 (pop pat) t)) r)
     (when pat
@@ -337,9 +389,14 @@
  (let(w)
   (cond ((and rex_w (setq w (get p 'reg64)))
 	 (if *gassyntax (bldmsg "%%%w" w) w))
-	((atom p) 
+	((atom p)
+	 % for push and pop
+	 (if (and rex_b (idp p) (get p 'upperreg))
+	     (setq p (get p 'upperreg)))
 	 (if (and *gassyntax (idp p)) (bldmsg "%%%w" p) p))
-        ((eq (car p) 'G) 'reg)
+        ((eq (car p) 'G) 
+	 (if (eqcar (cdr p) 'b) (setq byte-operand* t))
+	 'reg)
         ((eq (car p) 'V) 'xreg)
            % immediate byte
         ((equal p '(I b)) 
@@ -364,7 +421,7 @@
          (plus addr* w 2))
         ((equal p '(J v))
          (setq  lth* (plus 4 lth*))
-         (plus addr* (bytes2word) 5))
+         (plus addr* (bytes2word) lth*))
            % mod R/M
         ((eqcar p 'E) (decode-modrm p))
         ((eqcar p 'R) (decode-modrm p))
@@ -383,7 +440,7 @@
          
 	((eqcar p 'ST) % x87fpu instruction
 	 (if (eq (wand (car bytes*) 2#11000000) 2#11000000)
-	     (decode-x87fpu p)
+	     (decode-x87fpu p bytes* addr* 0)
 	   (decode-modrm p)))
         (t (terpri)
            (prin2t (list "dont know operand declaration:" p))
@@ -400,9 +457,9 @@
      (setq rm (wand 7 b))
      (setq usexmm (and !0f-prefix* (not (eqcar p 'E))))
      (when rex_b (setq rm (wplus2 rm 8)))
-       %(terpri)(prin2t(list "modrm" b mod regnr* rm)) (print bytes*)
+%       (terpri)(prin2t(list "modrm" b mod regnr* rm)) (print bytes*)
      (return
-  (cond ((and (lessp mod 3)(eq rm 2#100))
+  (cond ((and (lessp mod 3)(or (eq rm 2#100) (eq rm 12)))
          (decode-sib p mod))
         ((and (eq mod 0)(eq rm 5))
                   % probably a sym*** reference
@@ -418,7 +475,9 @@
                      (setq *comment
                       (bldmsg " -> %w" 
                        (safe-int2id (wshift (wdifference w symval) -3))))))
-              (bldmsg "*%w" w))
+              (if *gassyntax 
+                  (bldmsg "%w(%%rip)" w)
+                (bldmsg "[rip%w0x%x]" (if (wlessp w 0) "-" "+") (if (wlessp w 0) (wminus w) w))))
         ((eq mod 0) (if *gassyntax
 			(bldmsg "(%%%w)" (reg-m rm))
 		      (bldmsg "[%w]" (reg-m rm) )))
@@ -448,8 +507,8 @@
      (setq base (wand 7 b))
      (when rex_b (setq base (wplus2 base 8)))
      (setq offset "")
-     (cond ((and (not rex_w) (eq scale 1)) (setq reg* (reg-m8 regnr*)))
-	   ((and (not rex_w) (eq scale 2)) (setq reg* (reg-m16 regnr*))))
+     (cond ((and (not rex_w) (eq size-override* 16#66)) (setq reg* (reg-m16 regnr*)))
+	   ((or byte-operand* (and (not rex_w) (eq scale 1))) (setq reg* (reg-m8 regnr*))))
      (when (eq mod 1)
            (setq offset (pop bytes*))
 	   (setq offset
@@ -491,7 +550,7 @@
    )
 
 (de reg-m(n)
-  (if (or rex_w !0f-prefix*) (reg-m64 n)
+  (if (or rex_w (wgreaterp n 7) !0f-prefix*) (reg-m64 n)
   (cond ((eq n 0) 'eax)
         ((eq n 1) 'ecx)
         ((eq n 2) 'edx)
@@ -566,7 +625,7 @@
     (setq name
       (cond ((or (eq p1 16#d8) (eq p1 16#dc)) (name-x87-d8-dc))
 	    ((eq p1 16#d9) (name-x87-d9))
-	    ((or (eq p1 16#da) (eq p1 16#dd)) (name-x87-da-dd))
+	    ((or (eq p1 16#da) (eq p1 16#dd)) (name-x87-da-de))
 	    ((eq p1 16#db) (name-x87-db))
 	    ((eq p1 16#dc) (name-x87-dc))
 	    ((eq p1 16#de) (name-x87-de))
@@ -826,7 +885,9 @@
        ((eq regnr* 5) 'shr)))
 
 (de nameconvert()
- (if (eq size-override* 16#66) 'cbw 'cwde))
+ (cond (rex_w 'cdqe)
+       ((eq size-override* 16#66) 'cbw)
+       (t 'cwde)))
 
 (de name-sse (rest)
   (or (name-sse1 rest) (name-sse2 rest) (name-sse3 rest)))
@@ -874,6 +935,7 @@
 	((eqcar rest 'comis)
 	 (cond ((eq sse-prefix* 16#66) 'comisd)
 	       (t 'comiss)))
+	((pairp rest) (car rest))
 	))
 
 (de name-sse2 (rest)
@@ -939,6 +1001,10 @@
 	       ((eq sse-prefix* 16#f3) 'maxss)
 	       ((eq sse-prefix* 16#f2) 'maxsd)
 	       (t 'maxps)))
+	((eqcar rest 'pand) 'pand)
+	((eqcar rest 'pandn) 'pandn)
+	((eqcar rest 'por) 'por)
+	((eqcar rest 'pxor) 'pxor)
 	))
 
 (de name-sse3 (rest)
@@ -1031,6 +1097,12 @@ loop
                   (wand 255 (byte base 7))
                   (wand 255 (byte base 8))
                   (wand 255 (byte base 9))
+                  (wand 255 (byte base 10))
+                  (wand 255 (byte base 11))
+                  (wand 255 (byte base 12))
+                  (wand 255 (byte base 13))
+                  (wand 255 (byte base 14))
+                  (wand 255 (byte base 15))
          ))
          (setq *curradr* base *currinst* pp)
          (setq !*comment nil)
@@ -1038,6 +1110,7 @@ loop
          (setq lth (pop instr))
          (setq name (when instr (pop instr)))
 
+         (when (and (eq name 'mov) (eq size-override* 16#66)) (setq name 'movw))
          (when (eq name 'grp1) (setq name (namegrp1)))
          (when (eq name 'grp5) (setq name (namegrp5)))
          (when (eq name 'grp3) (setq name (namegrp3)))
@@ -1074,13 +1147,20 @@ loop
          (when (greaterp lth 5) (prin2 " ") (prinbnx (pop pp) 2))
          (when (greaterp lth 6) (prin2 " ") (prinbnx (pop pp) 2))
          (when (greaterp lth 7) (prin2 " ") (prinbnx (pop pp) 2))
+         (when (greaterp lth 8) (prin2 " ") (prinbnx (pop pp) 2))
+         (when (greaterp lth 9) (prin2 " ") (prinbnx (pop pp) 2))
+         (when (greaterp lth 10) (prin2 " ") (prinbnx (pop pp) 2))
+         (when (greaterp lth 11) (prin2 " ") (prinbnx (pop pp) 2))
+         (when (greaterp lth 12) (prin2 " ") (prinbnx (pop pp) 2))
+         (when (greaterp lth 13) (prin2 " ") (prinbnx (pop pp) 2))
+         (when (greaterp lth 14) (prin2 " ") (prinbnx (pop pp) 2))
          (ttab 38)
          (when name (prin2 name))
          (ttab 46)
          (if pat (prinblx (subla instr pat)))
          (prin2 "    ")
 
-         (when *comment (ttab 63) (prin2 *comment))
+         (when *comment (ttab 65) (prin2 *comment))
          (setq *comment nil)
          (setq base (plus2 base lth))
          (setq lc (add1 lc))

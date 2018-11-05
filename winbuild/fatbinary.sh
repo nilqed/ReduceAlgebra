@@ -11,7 +11,7 @@ case ${1:-2} in
   ver=cslwin32
   ;;
 *)
-  echo argument $1 invalid: should ba 1, 2 or 3
+  echo argument $1 invalid: should be 1, 2 or 3
   exit 1
   ;;
 esac
@@ -19,6 +19,8 @@ esac
 mkdir -p cslbuild
 
 cp $ver/csl/reduce.img cslbuild/reduce.img
+cp $ver/csl/bootstrapreduce.img cslbuild/bootstrapreduce.img
+cp $ver/csl/csl.img cslbuild/csl.img
 cp -r $ver/csl/reduce.fonts cslbuild/reduce.fonts
 cp -r $ver/csl/reduce.resources cslbuild/reduce.resources
 
@@ -43,7 +45,7 @@ i686)
   x86_64-pc-cygwin-strip cygwin64-isatty.exe
   ;;
 x86_64)
-  i686-pc-cygwin32-gcc -O2 cygwin-isatty.c -o cygwin32-isatty.exe
+  i686-pc-cygwin-gcc -O2 cygwin-isatty.c -o cygwin32-isatty.exe
   i686-pc-cygwin-strip cygwin32-isatty.exe
 
   gcc -O2 cygwin-isatty.c -o cygwin64-isatty.exe
@@ -76,8 +78,14 @@ x86_64)
   ;;
 esac
 
+if test "x$2" = "xDEBUG"
+then
+  debugflag="-DDEBUG=1"
+else
+  debugflag=
+fi
 
-i686-w64-mingw32-gcc -DFAT64 -O2 stub.c \
+i686-w64-mingw32-gcc -DFAT64 $debugflag -O3 stub.c \
 	--static -lz -o cslbuild/reduce.exe
 i686-w64-mingw32-strip cslbuild/reduce.exe
 
@@ -97,7 +105,7 @@ i686-w64-mingw32-strip cslbuild/reduce.exe
 # not a console binary. As such it will not be useful in a cygwin world,
 # but it will be the correct thing to double click on.
 
-i686-w64-mingw32-gcc -DFATWIN -O2 stub.c \
+i686-w64-mingw32-gcc -DFATWIN $debugflag -O3 stub.c \
 	-Wl,--subsystem,windows --static -lz -o cslbuild/winreduce.exe
 i686-w64-mingw32-strip cslbuild/winreduce.exe
 
@@ -111,9 +119,59 @@ i686-w64-mingw32-strip cslbuild/winreduce.exe
 	cslwin32/csl/reduce.exe \
 	cslwin64/csl/reduce.exe
 
+i686-w64-mingw32-gcc -DFAT64 $debugflag -O3 stub.c \
+	--static -lz -o cslbuild/bootstrapreduce.exe
+i686-w64-mingw32-strip cslbuild/bootstrapreduce.exe
+
+# Also the real version of a "bootstrapreduce.exe" that will be launchable
+# from a console (either Windows or 32 or 64-bit cygwin) by packing
+# stuff on the end of the stub.
+
+./addresources cslbuild/bootstrapreduce.exe \
+	cygwin32-isatty.exe \
+	cygwin64-isatty.exe \
+	cslwin32/csl/bootstrapreduce.exe \
+	cslwin64/csl/bootstrapreduce.exe \
+	cslcyg32/csl/bootstrapreduce.exe \
+	cslcyg64/csl/bootstrapreduce.exe
+
+i686-w64-mingw32-gcc -DFAT64 $debugflag -O3 stub.c \
+	--static -lz -o cslbuild/csl.exe
+i686-w64-mingw32-strip cslbuild/csl.exe
+
+# Finally create the real version of a "csl.exe" that will be launchable
+# from a console (either Windows or 32 or 64-bit cygwin) by packing
+# stuff on the end of the stub.
+
+./addresources cslbuild/csl.exe \
+	cygwin32-isatty.exe \
+	cygwin64-isatty.exe \
+	cslwin32/csl/csl.com \
+	cslwin64/csl/csl.com \
+	cslcyg32/csl/csl.exe \
+	cslcyg64/csl/csl.exe
+
+# Now a rather similar process except that it will be linked as a windows
+# not a console binary. As such it will not be useful in a cygwin world,
+# but it will be the correct thing to double click on.
+
+i686-w64-mingw32-gcc -DFATWIN $debugflag -O3 stub.c \
+	-Wl,--subsystem,windows --static -lz -o cslbuild/wincsl.exe
+i686-w64-mingw32-strip cslbuild/wincsl.exe
+
+# Add the relevant things to this... Observe that actually the only thing
+# it has to do that is at all clever is to decide whether it is running
+# on a 32 or 64-bit machine. Yes you could make the installer decide whether
+# to install a 32 or 64-bit binary, but this way a single binary will be
+# good for everybody.
+
+./addresources cslbuild/wincsl.exe \
+	cslwin32/csl/csl.exe \
+	cslwin64/csl/csl.exe
+
 # Inspect the files created.
 
-ls -lhd cslbuild
+ls -lh cslbuild
 
 # Tidy up the the helper apps
 

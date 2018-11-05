@@ -1,8 +1,9 @@
-% ----------------------------------------------------------------------
-% $Id$
-% ----------------------------------------------------------------------
-% Copyright (c) 1998-2009 Andreas Dolzmann
-% ----------------------------------------------------------------------
+module ofsfxopt;  % Ordered field standard form extended optimization.
+
+revision('ofsfxopt, "$Id: ofsfxopt.red 4046 2017-05-15 16:47:36Z thomas-sturm $");
+
+copyright('ofsfxopt, "(c) 1998-2009 A. Dolzmann, 2016-2017 T. Sturm");
+
 % Redistribution and use in source and binary forms, with or without
 % modification, are permitted provided that the following conditions
 % are met:
@@ -28,15 +29,7 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %
 
-lisp <<
-   fluid '(ofsf_xopt_rcsid!* ofsf_xopt_copyright!*);
-   ofsf_xopt_rcsid!* :=
-      "$Id$";
-   ofsf_xopt_copyright!* := "Copyright (c) 1998-2009 A. Dolzmann"
->>;
-
-module ofsfxopt;
-% Ordered field standard form extended optimization. A very restricted
+% A very restricted
 % form of the QE by virtual substitution. Pnf of input must be an
 % existential quantified weak parametric linear formula containing only
 % weak relations.
@@ -255,9 +248,9 @@ procedure ofsf_xopt!-trans!-ansl(u);
    % Translate ansl. [u] is a ANSL. Returns a answer as required by
    % [cl_qea].
    for each ans in ofsf_xopt!-ansl!-ansl u collect
-      {ofsf_xopt!-ans!-gd ans,
+      ofsf_xopt!-ans!-gd ans .
 	 for each ct in ofsf_xopt!-pt!-ctl ofsf_xopt!-ans!-pt ans collect
-	    {'equal,ofsf_xopt!-ct!-var ct,ofsf_xopt!-ct!-value ct}};
+	    ofsf_xopt!-ct!-var ct . ofsf_xopt!-ct!-value ct;
 
 procedure ofsf_xopt!-qe(f);
    % Quantifier elimination with answer. [f] is an existentially
@@ -350,7 +343,7 @@ procedure ofsf_xopt!-qevar(ce,theo);
       v := ofsf_xopt!-varsel ce;
       cs := ofsf_xopt!-cset(ofsf_xopt!-ce!-f ce,v);
       if ofsf_xopt!-cs!-null cs then
-      	 return {ofsf_xopt!-ce!-mk(delq(v,ofsf_xopt!-ce!-vl ce),
+      	 return {ofsf_xopt!-ce!-mk(lto_delq(v,ofsf_xopt!-ce!-vl ce),
 	    ofsf_xopt!-ce!-f ce,
 	    ofsf_xopt!-pt!-mk(ofsf_xopt!-ct!-mk(v,'arbitrary) .
 	       ofsf_xopt!-pt!-ctl ofsf_xopt!-ce!-pt ce),
@@ -572,10 +565,10 @@ procedure ofsf_xopt!-succs1(ce,cp,v,npl,theo);
    begin scalar p,f,w;
       p := ofsf_xopt!-cp!-p cp;
       f := ofsf_xopt!-sub(ofsf_xopt!-ce!-f ce,v,p,theo);
-      return if w then
+      return if w then  % This never happens. TS
 	 ofsf_xopt!-ce!-mk(nil,'false,nil,nil)
       else
-      	 ofsf_xopt!-ce!-mk(delq(v,ofsf_xopt!-ce!-vl ce),
+      	 ofsf_xopt!-ce!-mk(lto_delq(v,ofsf_xopt!-ce!-vl ce),
 	    f,
 	    ofsf_xopt!-pt!-mk(ofsf_xopt!-ct!-mk(
 	       v,ofsf_xopt!-solv(p,v)) .
@@ -839,7 +832,7 @@ procedure ofsf_xopt!-ccoput(co,ce);
 	 >>
       >>;
       if flg then <<
-      	 co := delq(w,co);
+      	 co := lto_delq(w,co);
       	 pl := intersection(ofsf_xopt!-ce!-pl ce,ofsf_xopt!-ce!-pl w);
       	 ce := ofsf_xopt!-ce!-mk(
 	    ofsf_xopt!-ce!-vl ce,f,ofsf_xopt!-ce!-pt ce,pl);

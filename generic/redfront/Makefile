@@ -1,4 +1,4 @@
-# $Id$
+# $Id: Makefile 3960 2017-03-19 08:01:16Z thomas-sturm $
 #
 # This Makefile is a temporary solution.
 #
@@ -50,13 +50,13 @@ $(BUILD)/redfront/redfront: $(BUILD)/libedit/include/editline/readline.h src/con
 	mkdir -p $(BUILD)/redfront; \
 	cd $(BUILD)/redfront; \
 	../../src/configure --with-libedit=$(abspath $(BUILD)/libedit); \
-	make
+	$(MAKE)
 
 $(BUILD)/redfront-debug/redfront: $(BUILD)/libedit/include/editline/readline.h src/configure
 	mkdir -p $(BUILD)/redfront-debug; \
 	cd $(BUILD)/redfront-debug; \
 	../../src/configure --with-libedit=$(abspath $(BUILD)/libedit) --enable-debug; \
-	make
+	$(MAKE)
 
 $(LIBEDIT):
 	tar xvf ../../libedit/$(LIBEDIT_TGZ)
@@ -66,9 +66,17 @@ $(BUILD)/libedit/include/editline/readline.h: $(LIBEDIT)
 	mkdir -p $(BUILD_LIBEDIT)
 	cd $(BUILD_LIBEDIT); \
 	../../$(LIBEDIT)/configure --prefix=$$(pwd) --disable-dependency-tracking; \
-	make install
+	$(MAKE) install
 
-install-home-bin: install-home-bin-csl install-home-bin-psl
+install-home-bin: install-home-bin-cslb install-home-bin-csl install-home-bin-psl
+
+install-home-bin-cslb:
+	@if test ! -e ~/bin/rfcslb -a ! -h ~/bin/rfcslb; then \
+	   echo "Copying to ~/bin/rfcslb"; \
+	   cp $(BUILD)/redfront/redfront ~/bin/rfcslb; \
+	else \
+	   echo "File ~/bin/rfcslb already exists"; \
+	fi
 
 install-home-bin-csl:
 	@if test ! -e ~/bin/rfcsl -a ! -h ~/bin/rfcsl; then \
@@ -86,7 +94,16 @@ install-home-bin-psl:
 	   echo "File ~/bin/rfpsl already exists"; \
 	fi
 
-install: install-csl install-psl
+install: install-cslb install-csl install-psl
+
+install-cslb: $(BUILD)/redfront/redfront
+	@cd ../../bin && \
+	if test ! -e rfcslb -a ! -h rfcslb; then \
+	   echo "Creating symbolic link ../../bin/rfcslb"; \
+	   ln -s ../generic/redfront/$(BUILD)/redfront/redfront rfcslb; \
+	else \
+	   echo "File ../../bin/rfcslb already exists"; \
+	fi
 
 install-csl: $(BUILD)/redfront/redfront
 	@cd ../../bin && \
@@ -106,7 +123,16 @@ install-psl: $(BUILD)/redfront/redfront
 	   echo "File ../../bin/rfpsl already exists"; \
 	fi
 
-uninstall: uninstall-csl uninstall-psl
+uninstall: uninstall-cslb uninstall-csl uninstall-psl
+
+uninstall-cslb:
+	@cd ../../bin && \
+	if test ! -h rfcslb; then \
+	   echo "No symbolic link ../../bin/rfcslb found"; \
+	else \
+	   echo "Deleting symbolic link ../../bin/rfcslb"; \
+	   rm -f rfcslb; \
+	fi
 
 uninstall-csl:
 	@cd ../../bin && \
@@ -127,15 +153,15 @@ uninstall-psl:
 	fi
 
 clean:
-	cd $(BUILD)/libedit && make clean
-	cd $(BUILD)/redfront && make clean
+	cd $(BUILD)/libedit && $(MAKE) clean
+	cd $(BUILD)/redfront && $(MAKE) clean
 
 distclean: uninstall
 	/bin/rm -rf $(BUILD) csl psl libedit*
-	cd ../../bin && rm -f rfcsl rfpsl
+	cd ../../bin && rm -f rfcslb rfcsl rfpsl
 
 maintainer-clean: distclean
-	cd src && make -f Makefile.in maintainer-clean
+	cd src && $(MAKE) -f Makefile.in maintainer-clean
 
 echo:
 	@echo $(BUILD)

@@ -1,5 +1,5 @@
 % ----------------------------------------------------------------------
-% $Id$
+% $Id: fsimplex.red 3061 2015-03-30 10:31:50Z arthurcnorman $
 % ----------------------------------------------------------------------
 % (c) 2001 Dolzmann, Gilch, Sturm, Tsirou, 2013 T. Sturm
 % ----------------------------------------------------------------------
@@ -118,7 +118,7 @@ module simplex;
 
 fluid '(simplex_id!* simplex_copyright!*);
 
-simplex_id!* := "$Id$";
+simplex_id!* := "$Id: fsimplex.red 3061 2015-03-30 10:31:50Z arthurcnorman $";
 simplex_copyright!* := "(c) 2001 Dolzmann, Gilch, Sturm, Tsirou, 2013 Sturm";
 
 %**********************************************************************%

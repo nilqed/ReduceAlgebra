@@ -9,7 +9,7 @@
 //
 
 
-// $Id$
+// $Id: cmfont-info.cpp 3897 2017-02-12 11:33:33Z arthurcnorman $
 
 
 typedef struct cm_font_info

@@ -6,6 +6,7 @@
 % Created:      ??? 
 % Modified:     22-Mar-84 09:23:19 (Brian Beach) 
 % Package:      Kernel 
+% Status:       Open Source: BSD License
 %
 % (c) Copyright 1982, University of Utah
 %
@@ -61,15 +62,19 @@
 
 (global '(heapupperbound stacklowerbound))
 
+%%  on-altstack* indicates that we are on an alternate signal stack
+%%  and that stack-pointer* is the real stack pointer 
+(fluid '(stack-pointer* on-altstack*))
+
 (de interpbacktrace ()
   (prog (here)
-        (setq here (loc here))
+        (setq here (if on-altstack* stack-pointer* (loc here)))
         (printf "Backtrace, including interpreter functions, from top of stack:%n")
         (return (backtracerange here (wshift stacklowerbound 5) 1))))
 
 (de backtrace ()
   (prog (here x)
-        (setq here (loc here))
+        (setq here (if on-altstack* stack-pointer* (loc here)))
         (printf "Backtrace from top of stack:%n")
         (return (backtracerange here (wshift stacklowerbound 5) 0))))
 
@@ -79,7 +84,8 @@
 	       (wminus
 		(wtimes2 addressingunitsperitem
 			 stackdirection)))
-	 (do (cond ((weq (tag (getmem i)) btr-tag)
+	 (do (cond ((and (weq (tag (getmem i)) btr-tag)
+                         (wlessp (inf (getmem i)) maxsymbols))
 		    (backtrace1 (mkid (inf (getmem i))) interpflag))
 		   ((setq x (returnaddressp (getmem i)))
 		    (backtrace1 x interpflag)))))

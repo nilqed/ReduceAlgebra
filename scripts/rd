@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # rd
 #  This script is intended to compile a single ".red" file letting
@@ -6,7 +6,7 @@
 # and with options moticated by those one might pass to a C compiler.
 
 # ----------------------------------------------------------------------
-# $Id$
+# $Id: rd 4588 2018-04-28 11:07:48Z arthurcnorman $
 # ----------------------------------------------------------------------
 # Copyright (c) 2009 Thomas Sturm
 # ----------------------------------------------------------------------
