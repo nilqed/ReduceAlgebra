@@ -35,6 +35,8 @@ Links:
 
 * [Pure-Reduce](https://github.com/agraef/pure-lang/wiki/Reduce)
 
+* [Pure-Reduce Introduction](https://agraef.github.io/pure-docs/pure-reduce.html)
+
 * [Scientific Computing](https://github.com/agraef/pure-lang/wiki/ScientificComputing)
 
 * [Pure Quick Reference (pdf)](https://agraef.github.io/pure-lang/quickref/pure-quickref.pdf)
