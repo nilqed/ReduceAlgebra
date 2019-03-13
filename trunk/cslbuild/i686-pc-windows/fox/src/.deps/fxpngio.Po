@@ -1,0 +1,13 @@
+fxpngio.o: F:/REDUCE-SVN/trunk/csl/fox/src/fxpngio.cpp \
+ F:/REDUCE-SVN/trunk/csl/fox/include/fxver.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/fxdefs.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXHash.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXStream.h
+
+F:/REDUCE-SVN/trunk/csl/fox/include/fxver.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/fxdefs.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXHash.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXStream.h:

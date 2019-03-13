@@ -1,0 +1,1 @@
+link ../brock/comp-decls.sl

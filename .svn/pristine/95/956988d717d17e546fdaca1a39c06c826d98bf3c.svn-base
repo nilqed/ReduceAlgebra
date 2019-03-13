@@ -1,0 +1,1 @@
+link ../linux/geninstr.sl

@@ -1,0 +1,11 @@
+prefix=/f/REDUCE-SVN/trunk/cslbuild/x86_64-pc-windows
+exec_prefix=${prefix}
+libdir=/f/REDUCE-SVN/trunk/cslbuild/x86_64-pc-windows/lib
+toolexeclibdir=/f/REDUCE-SVN/trunk/cslbuild/x86_64-pc-windows/lib
+includedir=/f/REDUCE-SVN/trunk/cslbuild/x86_64-pc-windows/include
+
+Name: libffi
+Description: Library supporting Foreign Function Interfaces
+Version: 3.99999
+Libs: -L${toolexeclibdir} -lffi
+Cflags: -I${includedir}

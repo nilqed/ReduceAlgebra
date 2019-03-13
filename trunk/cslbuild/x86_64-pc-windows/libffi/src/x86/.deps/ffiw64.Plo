@@ -1,0 +1,68 @@
+src/x86/ffiw64.lo: F:/REDUCE-SVN/trunk/libraries/libffi/src/x86/ffiw64.c \
+ include/ffi.h include/ffitarget.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stddef.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stddef.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/crtdefs.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_mac.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_secapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/vadefs.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_directx.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_ddk.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include-fixed/limits.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include-fixed/syslimits.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/limits.h \
+ F:/REDUCE-SVN/trunk/libraries/libffi/include/ffi_common.h fficonfig.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/string.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/string_s.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdlib.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/stdlib_s.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/malloc.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdint.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdint.h
+
+include/ffi.h:
+
+include/ffitarget.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stddef.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stddef.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/crtdefs.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_mac.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_secapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/vadefs.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_directx.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_ddk.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include-fixed/limits.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include-fixed/syslimits.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/limits.h:
+
+F:/REDUCE-SVN/trunk/libraries/libffi/include/ffi_common.h:
+
+fficonfig.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/string.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/string_s.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdlib.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/stdlib_s.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/malloc.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdint.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdint.h:

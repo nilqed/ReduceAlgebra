@@ -1,0 +1,610 @@
+\chapter{Statements}
+
+A statement\index{Statement} is any combination of reserved words and
+expressions, and has the syntax \index{Proper statement}
+\begin{syntax}
+  \meta{statement} \bnfprod \meta{expression} | \meta{proper statement}
+\end{syntax}
+A {\REDUCE} program consists of a series of commands which are statements
+followed by a terminator:\index{Terminator, statement}
+\index{Statement terminator}
+\index{Semicolon}\ttindextype{;}{(statement terminator)}
+\index{Dollar sign}\ttindextype{\$}{(statement terminator)}
+\begin{syntax}
+        \meta{terminator} \bnfprod \texttt{;}|\texttt{\$}
+\end{syntax}
+The division of the program into lines is arbitrary. Several statements
+can be on one line, or one statement can be freely broken onto several
+lines. If the program is run interactively, statements ending with ; or \$
+are not processed until an end-of-line character is encountered. This
+character can vary from system to system, but is normally the \key{Return}
+key on an ASCII terminal.  Specific systems may also use additional keys
+as statement terminators.
+
+If a statement is a proper statement\index{Proper statement}, the
+appropriate action takes place.
+
+Depending on the nature of the proper statement some result or response may
+or may not be printed out, and the response may or may not depend on the
+terminator used.
+
+If a statement is an expression, it is evaluated. If the terminator is a
+semicolon, the result is printed. If the terminator is a dollar sign, the
+result is not printed. Because it is not usually possible to know in
+advance how large an expression will be, no explicit format statements are
+offered to the user. However, a variety of output declarations are
+available so that the output can be produced in different forms. These
+output declarations are explained in Section~\ref{sec-output}.
+
+The following sub-sections describe the types of proper statements
+\index{Proper statement} in {\REDUCE}.
+
+\hypertarget{reserved:assignop}{\section{Assignment Statements}}
+
+\label{reserved:assignop}
+
+These statements\index{Assignment}\index{Assignment statement}
+\index{Statement!assignment} have the syntax
+\begin{syntax}
+    \meta{assignment statement} \bnfprod \meta{expression} \texttt{:=} \meta{expression}
+\end{syntax}
+The \meta{expression} on the left side is normally the name of a variable, an
+operator symbol with its list of arguments filled in, or an array name with
+the proper number of integer subscript values within the array bounds. For
+example:
+\begin{quote}
+\begin{tabbing}
+\texttt{a1 := b + c} \\
+\texttt{h(l,m) := x-2*y} \hspace{1in} \= (where \texttt{h} is an operator) \\
+\texttt{k(3,5) := x-2*y} \> (where \texttt{k} is a 2-dim. array)
+\end{tabbing}
+\end{quote}
+More general assignments\index{Assignment} such as \texttt{a+b := c} are also
+allowed.  The effect of these is explained in Section~\ref{sec-gensubs}.
+
+An assignment statement causes the expression on the right-hand-side to be
+evaluated.  If the left-hand-side is a variable, the value of the
+right-hand-side is assigned to that unevaluated variable.  If the
+left-hand-side is an operator or array expression, the arguments of that
+operator or array are evaluated, but no other simplification done.  The
+evaluated right-hand-side is then assigned to the resulting expression.
+For example, if \texttt{a} is a single-dimensional array, \texttt{a(1+1) := b}
+assigns the value \texttt{b} to the array element \texttt{a(2)}.
+
+If a semicolon is used as the terminator when an assignment
+\index{Assignment} is issued as a command (i.e. not as a part of a group
+statement or procedure or other similar construct), the left-hand side
+symbol of the assignment statement is printed out, followed by a
+``\texttt{:=}'', followed by the value of the expression on the right.
+
+It is also possible to write a multiple assignment statement:
+\index{Multiple assignment statement}
+\index{Assignment statement!multiple}
+\begin{syntax}
+    \meta{expression} \texttt{:=} \dots \texttt{:=} \meta{expression} \texttt{:=} \meta{expression}
+\end{syntax}
+In this form, each \meta{expression} but the last is set to the value of
+the last \meta{expression}.  If a semicolon is used as a terminator, each
+expression except the last is printed followed by a ``\texttt{:=}'' ending
+with the value of the last expression.
+
+
+\subsection{Set and Unset Statements}
+\hypertarget{command:SET}{}
+\hypertarget{command:UNSET}{}
+\index{Set Statement}\index{Statement!Set}
+\index{Unset Statement}\index{Statement!Unset}
+
+In some cases, it is desirable to perform an assignment in which \emph{both}
+the left- and right-hand sides of an assignment\index{Assignment} are
+evaluated.  In this case, the \texttt{SET}\ttindextype{SET}{statement} statement can
+be used with the syntax:
+\begin{syntax}
+        \texttt{SET(}\meta{expression}\texttt{,}\meta{expression}\texttt{);}
+\end{syntax}
+For example, the statements
+\begin{verbatim}
+        j := 23;
+        set(mkid(a,j),x);
+\end{verbatim}
+assigns the value \texttt{X} to \texttt{A23}.
+
+To remove a value from such a variable, the \texttt{UNSET}\ttindextype{UNSET}{statement}
+statement can be used with the syntax:
+\begin{syntax}
+        \texttt{UNSET(}\meta{expression}\texttt{);}
+\end{syntax}
+For example, the statement
+\begin{verbatim}
+        j := 23;
+        unset(mkid(a,j));
+\end{verbatim}
+clears the value of \texttt{A23}.
+
+\section{Group Statements}
+
+\index{<<@\texttt{<}\texttt{<} (begin group)}
+\index{>>@\texttt{>}\texttt{>} (end group)}
+The group statement\index{Group statement}
+\index{Statement!Group} is a construct used where
+{\REDUCE} expects a single statement, but a series of actions needs to be
+performed.  It is formed by enclosing one or more statements (of any kind)
+between the symbols \texttt{<}\texttt{<} and \texttt{>}\texttt{>}, 
+separated by semicolons or
+dollar signs -- it doesn't matter which.  The statements are executed one
+after another.
+
+Examples will be given in the sections on \texttt{IF}\ttindex{IF} and other
+types of statements in which the \texttt{<}\texttt{<} \ldots \texttt{>}\texttt{>} 
+construct is useful.
+
+If the last statement in the enclosed group has a value, then that is also
+the value of the group statement.  Care must be taken not to have a
+semicolon or dollar sign after the last grouped statement, if the value of
+the group is relevant: such an extra terminator causes the group to have
+the value NIL or zero.
+
+\section{Conditional Statements}
+\hypertarget{command:IF}{}
+\hypertarget{reserved:THEN}{}
+\hypertarget{reserved:ELSE}{}
+
+The conditional statement\index{Conditional statement}\index{Statement!conditional}
+has the following syntax:
+\begin{syntaxtable}
+ \meta{conditional statement} &\bnfprod &
+    \texttt{IF } \meta{boolean expression} \texttt{ THEN } \meta{statement} \\
+      && [\texttt{ELSE } \meta{statement}]
+\end{syntaxtable}
+The boolean expression is evaluated. If this is \emph{true}, the first
+\meta{statement} is executed.  If it is \emph{false}, the second is.
+
+\textit{Examples:}
+\begin{verbatim}
+        if x=5 then a:=b+c else d:=e+f
+
+        if x=5 and numberp y
+           then <<ff:=q1; a:=b+c>>
+           else <<ff:=q2; d:=e+f>>
+\end{verbatim}
+Note the use of the group statement\index{Group statement}.
+
+Conditional statements associate to the right; i.e.,\ttindex{IF}
+\begin{verbatim}
+        IF <a> THEN <b> ELSE IF <c> THEN <d> ELSE <e>
+\end{verbatim}
+is equivalent to:
+\begin{verbatim}
+        IF <a> THEN <b> ELSE (IF <c> THEN <d> ELSE <e>)
+\end{verbatim}
+In addition, the construction
+\begin{verbatim}
+        IF <a> THEN IF <b> THEN <c> ELSE <d>
+\end{verbatim}
+parses as
+\begin{verbatim}
+        IF <a> THEN (IF <b> THEN <c> ELSE <d>).
+\end{verbatim}
+If the value of the conditional statement\index{Conditional
+statement} is of primary interest, it is often called a conditional
+expression instead.  Its value is the value of whichever statement was
+executed. (If the executed statement has no value, the conditional
+expression has no value or the value 0, depending on how it is used.)
+
+\textit{Examples:}
+\begin{verbatim}
+        a:=if x<5 then 123 else 456;
+        b:=u + v^(if numberp z then 10*z  else 1) + w;
+\end{verbatim}
+If the value is of no concern, the \texttt{ELSE} clause may be omitted if no
+action is required in the \emph{false} case.
+\begin{verbatim}
+        if x=5 then a:=b+c;
+\end{verbatim}
+Note:  As explained in Section~\ref{sec-boolean},
+if a scalar or numerical expression is used in place of
+the boolean expression -- for example, a variable is written there -- the
+\emph{true} alternative is followed unless the expression has the value 0.
+
+\section{FOR Statements}
+\hypertarget{command:FOR}{}
+\hypertarget{command:FOREACH}{}
+\hypertarget{reserved:IN}{}
+\hypertarget{reserved:DO}{}
+\hypertarget{reserved:SUM}{}
+\hypertarget{reserved:PRODUCT}{}
+
+The \texttt{FOR} statement\ttindextype{FOR}{statement}\index{Statement!FOR@\texttt{FOR}}
+is used to define a variety of program
+loops\index{Loop}.  Its general syntax is as follows:\ttindex{UNTIL}
+\ttindextype{DO}{keyword}\ttindextype{PRODUCT}{keyword}\ttindextype{SUM}{keyword}
+\ttindextype{COLLECT}{keyword}\ttindextype{JOIN}{keyword}
+\ttindextype{ON}{keyword}\ttindextype{IN}{keyword}
+\begin{small}
+\[ \mbox{\texttt{FOR}} \left\{ \begin{array}{@{}ccc@{}}
+    \mbox{\meta{var} \texttt{:=} \meta{number} } \left\{ \begin{array}{@{}c@{}}
+    \mbox{\texttt{STEP} \meta{number} \texttt{UNTIL}} \\
+    \mbox{\texttt{:}}
+    \end{array}
+    \right\} \mbox{\meta{number}} \\[3mm]
+    \multicolumn{1}{c}{\mbox{\texttt{EACH} \meta{var}
+       \(\left\{
+          \begin{tabular}{@{}c@{}}
+              \texttt{IN} \\ \texttt{ON}
+          \end{tabular}
+       \right\}\)
+       \meta{list}}}
+    \end{array}
+    \right\} \mbox{ \meta{action} \meta{exprn}} \]
+\end{small}%
+%
+where
+\begin{syntax}
+     \meta{action} \bnfprod \texttt{do}|\texttt{product}|\texttt{sum}|
+                            \texttt{collect}|\texttt{join}.
+\end{syntax}
+The assignment\index{Assignment} form of the \texttt{FOR} statement defines an
+iteration over the indicated numerical range.  If expressions that do not
+evaluate to numbers are used in the designated places, an error will
+result.
+
+The \texttt{FOR EACH}\ttindex{FOR EACH} form of the \texttt{FOR} statement is
+designed to iterate down a list.  Again, an error will occur if a list is
+not used.
+
+The action \texttt{DO}\ttindex{DO} means that \meta{exprn} is simply
+evaluated and no value kept; the statement returning 0 in this case (or no
+value at the top level). \texttt{COLLECT} means that the results of
+evaluating \meta{exprn} each time are linked together to make a list,
+and \texttt{JOIN} means that the values of \meta{exprn} are themselves
+lists that are joined to make one list (similar to \texttt{CONC} in Lisp).
+Finally, \texttt{PRODUCT} and \texttt{SUM}
+form the respective combined value out of the values of \meta{exprn}.
+
+In all cases, \meta{exprn} is evaluated algebraically within the
+scope of the current value of \meta{var}.  If \meta{action} is
+\texttt{DO}\ttindex{DO}, then nothing else happens.  In other cases, \meta{action}
+is a binary operator that causes a result to be built up and
+returned by \texttt{FOR}.  In those cases, the loop\index{Loop} is
+initialized to a default value (\texttt{0} for \texttt{SUM},\ttindex{SUM} {\tt
+1} for \texttt{PRODUCT},\ttindex{PRODUCT} and an empty list for the other
+actions).  The test for the end condition is made before any action is
+taken.  As in Pascal, if the variable is out of range in the assignment
+case, or the \meta{list} is empty in the \texttt{FOR EACH}\ttindex{FOR EACH}
+case, \meta{exprn} is not evaluated at all.
+
+\textit{Examples:}
+\begin{enumerate}
+\item If \texttt{A}, \texttt{B} have been declared to be arrays, the following
+stores $5^{2}$ through $10^{2}$ in \texttt{A(5)} through \texttt{A(10)}, and at
+the same time stores the cubes in the \var{B} array:
+\begin{verbatim}
+    for i := 5 step 1 until 10 do 
+        <<a(i):=i^2; b(i):=i^3>>
+\end{verbatim}
+\item As a convenience, the common construction
+\begin{verbatim}
+        step 1 until
+\end{verbatim}
+may be abbreviated to a colon. Thus, instead of the above we could write:
+\begin{verbatim}
+    for i := 5:10 do <<a(i):=i^2; b(i):=i^3>>
+\end{verbatim}
+\item The following sets \texttt{C} to the sum of the squares of 1,3,5,7,9;
+and \var{D} to the expression \texttt{x*(x+1)*(x+2)*(x+3)*(x+4):}
+\begin{verbatim}
+        c := for j:=1 step 2 until 9 sum j^2;
+        d := for k:=0 step 1 until 4 product (x+k);
+\end{verbatim}
+\item The following forms a list of the squares of the elements of the list
+\texttt{\{a,b,c\}:}\ttindex{FOR EACH}
+\begin{verbatim}
+        for each x in {a,b,c} collect x^2;
+\end{verbatim}
+\item The following forms a list of the listed squares of the elements of the
+list \texttt{\{a,b,c\}}
+(i.e., \texttt{\{\{A\textasciicircum 2\},\{B\textasciicircum 2\},\{C\textasciicircum 2\}\}):}
+\begin{verbatim}
+        for each x in {a,b,c} collect {x^2};
+\end{verbatim}
+\item The following also forms a list of the squares of the elements of
+the list \texttt{\{a,b,c\},} since the \texttt{JOIN} operation joins the
+individual lists into one list:\ttindex{FOR EACH}
+\begin{verbatim}
+        for each x in {a,b,c} join {x^2};
+\end{verbatim}
+\end{enumerate}
+The control variable used in the \texttt{FOR} statement is actually a new
+variable, not related to the variable of the same name outside the 
+\texttt{FOR} statement.  In other words, executing a statement 
+\texttt{for i:=} \ldots
+doesn't change the system's assumption that $i^{2} = -1$.
+Furthermore, in algebraic mode, the value of the control variable is
+substituted in \meta{exprn} only if it occurs explicitly in that
+expression.  It will not replace a variable of the same name in the value
+of that expression.  For example:
+\begin{verbatim}
+        b := a; for a := 1:2 do write b;
+\end{verbatim}
+prints \texttt{A} twice, not 1 followed by 2.
+
+\section{WHILE \ldots DO}
+\hypertarget{command:WHILE}{}
+
+The\ttindex{WHILE} \texttt{FOR} \ldots{} \texttt{DO}\ttindex{DO} feature
+\index{WHILE statement}\index{Statement!WHILE}
+allows easy coding of a repeated operation in which the number of repetitions
+is known in advance.  If the criterion for repetition is more complicated,
+\texttt{WHILE} \ldots{} \texttt{DO} can often be used.  Its syntax is:
+\begin{syntax}
+      \texttt{WHILE }\meta{boolean expression} \texttt{ DO }\meta{statement}
+\end{syntax}
+The \texttt{WHILE} \ldots{} \texttt{DO} controls the single statement
+following \texttt{DO}.
+If several statements are to be repeated, as is almost always the case,
+they must be grouped using the \texttt{<}\texttt{<} \ldots{} \texttt{>}\texttt{>} 
+or \texttt{BEGIN} \ldots{} \texttt{END}
+as in the example below.
+
+The \texttt{WHILE} condition is tested each time \emph{before} the action
+following the \texttt{DO} is attempted.  If the condition is false to begin
+with, the action is not performed at all.  Make sure that what is to be
+tested has an appropriate value initially.
+
+\textit{Example:}
+
+Suppose we want to add up a series of terms, generated one by one, until
+we reach a term which is less than 1/1000 in value.  For our simple
+example, let us suppose the first term equals 1 and each term is obtained
+from the one before by taking one third of it and adding one third its
+square. We would write:
+\begin{verbatim}
+    ex:=0; term:=1;
+    while num(term - 1/1000) >= 0  do
+            <<ex := ex+term; term:=(term + term^2)/3>>;
+    ex;
+\end{verbatim}
+As long as \var{TERM} is greater than or equal to (\texttt{>=}) 1/1000 it will
+be added to \var{EX} and the next \var{TERM} calculated.  As soon as
+\var{TERM} becomes less than 1/1000 the \texttt{WHILE} test fails and the
+\var{TERM} will not be added.
+
+
+\section{REPEAT \ldots UNTIL}
+\hypertarget{command:REPEAT}{}
+\hypertarget{reserved:UNTIL}{}
+
+\index{REPEAT statement}\index{Statement!REPEAT}
+\ttindex{REPEAT}\texttt{REPEAT} \ldots{} \texttt{UNTIL} is very similar
+in purpose to \texttt{WHILE} \ldots{} \texttt{DO}.  Its syntax is:
+\begin{syntax}
+        \texttt{REPEAT }\meta{statement}\texttt{ UNTIL }\meta{boolean expression}
+\end{syntax}
+(PASCAL users note: Only a single statement -- usually a group statement
+-- is allowed between the \texttt{REPEAT} and the \texttt{UNTIL}.)
+
+There are two essential differences:
+\begin{enumerate}
+\item The test is performed \emph{after} the controlled statement (or group of
+statements) is executed, so the controlled statement is always executed at
+least once.
+
+\item The test is a test for when to stop rather than when to continue, so its
+``polarity'' is the opposite of that in \texttt{WHILE} \ldots{} \texttt{DO.}
+\end{enumerate}
+
+As an example, we rewrite the example from the \texttt{WHILE \ldots DO} section:
+\begin{samepage}
+\begin{verbatim}
+    ex:=0; term:=1;
+    repeat <<ex := ex+term; term := (term + term^2)/3>>
+       until num(term - 1/1000) < 0;
+    ex;
+\end{verbatim}
+\end{samepage}
+In this case, the answer will be the same as before, because in neither
+case is a term added to \texttt{EX} which is less than 1/1000.
+
+\section{Compound Statements}
+\hypertarget{command:BEGIN}{}
+
+\index{Compound statement}\index{Statement!compound}Often the desired process
+can best (or only) be
+described as a series of steps to be carried out one after the other.  In
+many cases, this can be achieved by use of the group statement\index{Group
+statement}.  However, each step often provides some intermediate
+result, until at the end we have the final result wanted.  Alternatively,
+iterations on the steps are needed that are not possible with constructs
+such as \texttt{WHILE}\ttindex{WHILE} or \texttt{REPEAT}\ttindex{REPEAT}
+statements.  In such cases the steps of the process must be
+enclosed between the words \texttt{BEGIN} and \texttt{END}\ttindex{BEGIN \ldots{}
+END} forming what is technically called a \emph{block}\index{Block} or
+\emph{compound} statement.  Such a compound statement can in fact be used
+wherever a group statement appears.  The converse is not true: {\tt BEGIN
+\ldots END} can be used in ways 
+that \texttt{<}\texttt{<} \ldots{} \texttt{>}\texttt{>} cannot.
+
+\hypertarget{command:SCALAR}{}
+\hypertarget{command:INTEGER}{}
+\hypertarget{command:REAL}{}
+
+If intermediate results must be formed, local variables must be provided
+in which to store them. \emph{Local} means that their values are deleted as
+soon as the block's operations are complete, and there is no conflict with
+variables outside the block that happen to have the same name.  Local
+variables are created by a \texttt{SCALAR}\ttindex{SCALAR} declaration
+immediately after the \texttt{BEGIN}:
+\begin{verbatim}
+     scalar a,b,c,z;
+\end{verbatim}
+If more convenient, several \texttt{SCALAR} declarations can be given one after
+another:
+\begin{verbatim}
+     scalar a,b,c;
+     scalar z;
+\end{verbatim}
+In place of \texttt{SCALAR} one can also use the declarations
+\texttt{INTEGER}\ttindex{INTEGER} or \texttt{REAL}\ttindex{REAL}.
+In the present version of {\REDUCE} variables declared \texttt{INTEGER}
+are expected to have only integer values, and are initialized to 0.
+\texttt{REAL} variables on the other hand are currently treated as algebraic
+mode \texttt{SCALAR}s.
+
+\textit{CAUTION:} \texttt{INTEGER}, \texttt{REAL} and \texttt{SCALAR} declarations can
+only be given immediately after a \texttt{BEGIN}.  An error will result if
+they are used after other statements in a block (including \texttt{ARRAY} and
+\texttt{OPERATOR} declarations, which are global in scope), or outside the
+top-most block (e.g., at the top level).  All variables declared 
+\texttt{SCALAR} are automatically initialized to zero in algebraic mode
+(\texttt{NIL} in symbolic mode).
+
+Any symbols not declared as local variables in a block refer to the
+variables of the same name in the current calling environment. In
+particular, if they are not so declared at a higher level (e.g., in a
+surrounding block or as parameters in a calling procedure), their values can
+be permanently changed.
+
+Following the \texttt{SCALAR}\ttindex{SCALAR} declaration(s), if any, write the
+statements to be executed, one after the other, separated by delimiters
+(e.g., \texttt{;} or \texttt{\$}) (it doesn't matter which).  However, from a
+stylistic point of view, \texttt{;} is preferred.
+
+The last statement in the body, just before \texttt{END}, need not have a
+terminator (since the \texttt{BEGIN} \ldots{} \texttt{END} are in a sense brackets
+confining the block statements).  The last statement must also be the
+command \texttt{RETURN}\ttindex{RETURN} followed by the variable or
+expression whose value is to be the value returned by the procedure.  If
+the \texttt{RETURN} is omitted (or nothing is written after the word
+\texttt{RETURN}) the procedure will have no value or the value zero, depending
+on how it is used (and \texttt{NIL} in symbolic mode).  Remember to put a
+terminator after the \texttt{END}.
+
+\textit{Example:}
+
+Given a previously assigned integer value for \var{N}, the following block
+will compute the Legendre polynomial of degree \var{N} in the variable
+\texttt{X}:
+\begin{verbatim}
+        begin scalar seed,deriv,top,fact;
+           seed:=1/(y^2 - 2*x*y +1)^(1/2);
+           deriv:=df(seed,y,n);
+           top:=sub(y=0,deriv);
+           fact:=for i:=1:n product i;
+           return top/fact
+        end;
+\end{verbatim}
+
+\subsection{Compound Statements with GO TO}
+
+\index{GO TO statement}\index{Statement!GO TO}
+It is possible to have more complicated structures inside the \texttt{BEGIN}
+\ldots{} \texttt{END}\ttindex{BEGIN \ldots{} END} brackets than indicated in the
+previous example.  That the individual lines of the program need not be
+assignment\index{Assignment} statements, but could be almost any other
+kind of statement or command, needs no explanation.  For example,
+conditional statements, and \texttt{WHILE}\ttindex{WHILE} and \texttt{REPEAT}
+\ttindex{REPEAT} constructions, have an obvious role in defining more
+intricate blocks.
+
+If these structured constructs don't suffice, it is possible to use labels
+\index{Label} and \texttt{GO} \texttt{TO}s\ttindex{GO TO} within a compound
+statement,\index{Compound statement} and also to use \texttt{RETURN}
+\ttindex{RETURN} in places within the block other than just before the
+\texttt{END}.  The following subsections discuss these matters in detail.
+For many readers the following example, presenting one possible definition
+of a process to calculate the factorial of \var{N} for preassigned \var{N}
+will suffice:
+
+\textit{Example:}
+\begin{verbatim}
+        begin scalar m;
+            m:=1;
+         l: if n=0 then return m;
+            m:=m*n;
+            n:=n-1;
+            go to l
+        end;
+\end{verbatim}
+
+\subsection{Labels and GO TO Statements}
+\hypertarget{command:GOTO}{}
+
+\index{Label}\ttindex{GO TO}Within a \texttt{BEGIN \ldots END} compound
+statement it is possible to label statements, and transfer to them out of
+sequence using \texttt{GO} \texttt{TO} statements.  Only statements on the top
+level inside compound statements can be labeled, not ones inside
+subsidiary constructions like \texttt{$<<$} \ldots \texttt{$>>$}, \texttt{IF} \ldots
+\texttt{THEN} \ldots , \texttt{WHILE} \ldots \texttt{DO} \ldots , etc.
+
+Labels and \texttt{GO TO} statements have the syntax:
+\begin{syntaxtable}
+  \meta{go to statement} &\bnfprod& \texttt{GO TO } \meta{label} | 
+                                    \texttt{GOTO } \meta{label} \\
+  \meta{label} &\bnfprod& \meta{identifier}\\
+  \meta{labeled statement} &\bnfprod& \meta{label}\texttt{:}\meta{statement}
+\end{syntaxtable}
+Note that statement names cannot be used as labels.
+
+While \texttt{GO TO} is an unconditional transfer, it is frequently used
+in conditional statements such as
+\begin{verbatim}
+        if x>5 then go to abcd;
+\end{verbatim}
+giving the effect of a conditional transfer.
+
+Transfers using \texttt{GO TO}s can only occur within the block in which the
+\texttt{GO TO} is used.  In other words, you cannot transfer from an inner
+block to an outer block using a \texttt{GO TO}.  However, if a group statement
+occurs within a compound statement, it is possible to jump out of that group
+statement to a point within the compound statement using a \texttt{GO TO}.
+
+\subsection{RETURN Statements}
+\hypertarget{command:RETURN}{}
+
+The value corresponding to a \texttt{BEGIN} \ldots{} \texttt{END} compound
+statement,\index{RETURN statement}\index{Statement!RETURN}
+\ttindex{BEGIN \ldots{} END} such as a procedure body, is normally 0
+(\texttt{NIL} in symbolic mode).  By executing a \texttt{RETURN}\ttindex{RETURN}
+statement in the compound statement a different value can be returned.
+After a \texttt{RETURN} statement is executed, no further statements within
+the compound statement are executed.
+
+\texttt{Examples:}
+\begin{verbatim}
+        return x+y;
+        return m;
+        return;
+\end{verbatim}
+Note that parentheses are not required around the \texttt{x+y}, although they
+are permitted.  The last example is equivalent to \texttt{return 0} or 
+\texttt{return nil}, depending on whether the block is used as part of an
+expression or not.
+
+Since \texttt{RETURN}\ttindex{RETURN} actually moves up only one
+block\index{Block} level, in a sense the casual user is not expected to
+understand, we tabulate some cautions concerning its use.
+\begin{enumerate}
+\item \texttt{RETURN} can be used on the top level inside the compound
+statement, i.e. as one of the statements bracketed together by the 
+\texttt{BEGIN} \ldots{} \texttt{END}\ttindex{BEGIN \ldots{} END}
+
+\item \texttt{RETURN} can be used within a top level \texttt{<}\texttt{<}
+  \ldots{} \texttt{>}\texttt{>} construction within the compound statement. In
+  this case, the \texttt{RETURN} transfers control out of both the
+  group statement and the compound statement.
+
+\item \texttt{RETURN} can be used within an \texttt{IF} \ldots{}
+  \texttt{THEN} \ldots{} \texttt{ELSE} \ldots{} on the top level within
+  the compound statement.
+\end{enumerate}
+NOTE:  At present, there is no construct provided to permit early
+termination of a \texttt{FOR}\ttindex{FOR}, \texttt{WHILE}\ttindex{WHILE},
+or \texttt{REPEAT}\ttindex{REPEAT} statement.  In particular, the use of
+\texttt{RETURN} in such cases results in a syntax error.  For example,
+\begin{verbatim}
+    begin scalar y;
+       y := for i:=0:99 do if a(i)=x then return b(i);
+       ...
+\end{verbatim}
+will lead to an error.
+

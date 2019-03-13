@@ -1,0 +1,67 @@
+expm1-standalone.o: \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/expm1-standalone.c \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/crlibm.h \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/crlibm_private.h \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/scs_lib/scs.h crlibm_config.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/inttypes.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/crtdefs.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_mac.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_secapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/vadefs.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sdks/_mingw_directx.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sdks/_mingw_ddk.h \
+ C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include/stdint.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/stdint.h \
+ C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include/stddef.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/stddef.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_print_push.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_print_pop.h \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/scs_lib/scs_private.h \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/scs_lib/scs.h \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/triple-double.h \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/expm1.h
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/crlibm.h:
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/crlibm_private.h:
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/scs_lib/scs.h:
+
+crlibm_config.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/inttypes.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/crtdefs.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_mac.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_secapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/vadefs.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sdks/_mingw_directx.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sdks/_mingw_ddk.h:
+
+C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include/stdint.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/stdint.h:
+
+C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include/stddef.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/stddef.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_print_push.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_print_pop.h:
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/scs_lib/scs_private.h:
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/scs_lib/scs.h:
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/triple-double.h:
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/expm1.h:

@@ -1,0 +1,52 @@
+s_f64UIToCommonNaN.o: \
+ F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/8086-SSE/s_f64UIToCommonNaN.c \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdint.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdint.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/crtdefs.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_mac.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_secapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/vadefs.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_directx.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_ddk.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stddef.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stddef.h platform.h \
+ F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/8086-SSE/specialize.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdbool.h \
+ F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/softfloat_types.h \
+ F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/softfloat.h \
+ F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/softfloat_types.h
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdint.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdint.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/crtdefs.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_mac.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_secapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/vadefs.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_directx.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_ddk.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stddef.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stddef.h:
+
+platform.h:
+
+F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/8086-SSE/specialize.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdbool.h:
+
+F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/softfloat_types.h:
+
+F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/softfloat.h:
+
+F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/softfloat_types.h:

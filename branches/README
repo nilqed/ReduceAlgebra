@@ -1,0 +1,4 @@
+This location is for subversion-maintained branches that can be used to
+work on significant global rearrangement of parts of the system without the
+trunk being disturbed until such time as the fresh development is stable
+and can be merged back in.

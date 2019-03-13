@@ -1,0 +1,1 @@
+link ../AMD64_ext/binding.sl

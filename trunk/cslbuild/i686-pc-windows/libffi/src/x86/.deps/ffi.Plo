@@ -1,0 +1,71 @@
+src/x86/ffi.lo: F:/REDUCE-SVN/trunk/libraries/libffi/src/x86/ffi.c \
+ include/ffi.h include/ffitarget.h \
+ C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include/stddef.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/stddef.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/crtdefs.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_mac.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_secapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/vadefs.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sdks/_mingw_directx.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sdks/_mingw_ddk.h \
+ C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include-fixed/limits.h \
+ C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include-fixed/syslimits.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/limits.h \
+ F:/REDUCE-SVN/trunk/libraries/libffi/include/ffi_common.h fficonfig.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/string.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/string_s.h \
+ C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include/stdint.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/stdint.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/stdlib.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/stdlib_s.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/malloc.h \
+ F:/REDUCE-SVN/trunk/libraries/libffi/src/x86/internal.h
+
+include/ffi.h:
+
+include/ffitarget.h:
+
+C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include/stddef.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/stddef.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/crtdefs.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_mac.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_secapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/vadefs.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sdks/_mingw_directx.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sdks/_mingw_ddk.h:
+
+C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include-fixed/limits.h:
+
+C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include-fixed/syslimits.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/limits.h:
+
+F:/REDUCE-SVN/trunk/libraries/libffi/include/ffi_common.h:
+
+fficonfig.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/string.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/string_s.h:
+
+C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include/stdint.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/stdint.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/stdlib.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/stdlib_s.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/malloc.h:
+
+F:/REDUCE-SVN/trunk/libraries/libffi/src/x86/internal.h:

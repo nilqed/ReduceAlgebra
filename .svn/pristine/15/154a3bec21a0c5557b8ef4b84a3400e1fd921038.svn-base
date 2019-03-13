@@ -1,0 +1,1 @@
+link ../linux/make-ins.bat

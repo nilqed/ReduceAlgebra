@@ -1,0 +1,14 @@
+src/x86/win64.lo: F:/REDUCE-SVN/trunk/libraries/libffi/src/x86/win64.S \
+ fficonfig.h include/ffi.h include/ffitarget.h \
+ F:/REDUCE-SVN/trunk/libraries/libffi/include/ffi_cfi.h \
+ F:/REDUCE-SVN/trunk/libraries/libffi/src/x86/asmnames.h
+
+fficonfig.h:
+
+include/ffi.h:
+
+include/ffitarget.h:
+
+F:/REDUCE-SVN/trunk/libraries/libffi/include/ffi_cfi.h:
+
+F:/REDUCE-SVN/trunk/libraries/libffi/src/x86/asmnames.h:

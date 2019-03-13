@@ -1,0 +1,1153 @@
+FXShowMath.o: F:/REDUCE-SVN/trunk/csl/fox/src/FXShowMath.cpp \
+ C:/msys64/mingw32/i686-w64-mingw32/include/windows.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_mac.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_secapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/vadefs.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sdks/_mingw_directx.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sdks/_mingw_ddk.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sdkddkver.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/excpt.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/crtdefs.h \
+ C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include/stdarg.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/stdarg.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_stdarg.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/windef.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/minwindef.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winapifamily.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/specstrings.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sal.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/driverspecs.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winnt.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_unicode.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/ctype.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/apiset.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/intrin-impl.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/basetsd.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/guiddef.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/string.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/string_s.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/pshpack4.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/poppack.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/pshpack4.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/pshpack2.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/poppack.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/pshpack2.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/pshpack8.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/pshpack8.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/ktmtypes.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winbase.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/apisetcconv.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/minwinbase.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/bemapiset.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/debugapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/errhandlingapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/fibersapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/fileapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/handleapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/heapapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/ioapiset.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/interlockedapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/jobapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/libloaderapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/memoryapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/namedpipeapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/namespaceapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/processenv.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/processthreadsapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/processtopologyapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/profileapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/realtimeapiset.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/securityappcontainer.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/securitybaseapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/synchapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sysinfoapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/systemtopologyapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/threadpoolapiset.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/threadpoollegacyapiset.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/utilapiset.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/wow64apiset.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winerror.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/fltwinerror.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/timezoneapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/wingdi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/pshpack1.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winuser.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/tvout.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winnls.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/datetimeapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/stringapiset.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/wincon.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winver.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winreg.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/reason.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winnetwk.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/wnnc.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/virtdisk.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/cderr.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/dde.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/ddeml.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/dlgs.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/lzexpand.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/mmsystem.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/nb30.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/rpc.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/rpcdce.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/rpcdcep.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/rpcnsi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/rpcnterr.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/rpcasync.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/shellapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winperf.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winsock.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_timeval.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_bsd_types.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/inaddr.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_socket_types.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_fd_types.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_ip_types.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_ip_mreq1.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_wsadata.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_xmitfile.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_wsa_errnos.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/wincrypt.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/bcrypt.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/ncrypt.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/dpapi.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winefs.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winscard.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/wtypes.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/rpcndr.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/rpcnsip.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/rpcsal.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/ole2.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/objbase.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/combaseapi.h \
+ C:/msys64/mingw32/include/c++/7.2.0/stdlib.h \
+ C:/msys64/mingw32/include/c++/7.2.0/cstdlib \
+ C:/msys64/mingw32/include/c++/7.2.0/i686-w64-mingw32/bits/c++config.h \
+ C:/msys64/mingw32/include/c++/7.2.0/i686-w64-mingw32/bits/os_defines.h \
+ C:/msys64/mingw32/include/c++/7.2.0/i686-w64-mingw32/bits/cpu_defines.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/stdlib.h \
+ C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include-fixed/limits.h \
+ C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include-fixed/syslimits.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/limits.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/stdlib_s.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/malloc.h \
+ C:/msys64/mingw32/include/c++/7.2.0/bits/std_abs.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/wtypesbase.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/unknwnbase.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/objidlbase.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/cguid.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/objidl.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/unknwn.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/urlmon.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/oleidl.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/servprov.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/msxml.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/oaidl.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/propidl.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/oleauto.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winioctl.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winsmcrd.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winspool.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/prsht.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/commdlg.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/stralign.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/stralign_s.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/winsvc.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/mcx.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/imm.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/fwin.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/stdio.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_print_push.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_off_t.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/swprintf.inl \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/stdio_s.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_print_pop.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/signal.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/pthread_signal.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/fx.h \
+ C:/msys64/mingw32/include/c++/7.2.0/math.h \
+ C:/msys64/mingw32/include/c++/7.2.0/cmath \
+ C:/msys64/mingw32/include/c++/7.2.0/bits/cpp_type_traits.h \
+ C:/msys64/mingw32/include/c++/7.2.0/ext/type_traits.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/math.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/fxver.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/fxdefs.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/fxascii.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/fxunicode.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXHash.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXException.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXThread.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXStream.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXIO.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXFile.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXPipe.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSocket.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXFileStream.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMemoryStream.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXString.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSize.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXPoint.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRectangle.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXObject.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDelegator.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDict.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXPath.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSystem.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXStat.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDir.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDate.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXURL.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXStringDict.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSettings.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRegistry.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXObjectList.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXAccelTable.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRecentFiles.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXApp.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXId.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXVisual.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXFont.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXCursor.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXGUISignal.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXCURCursor.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXGIFCursor.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDrawable.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXBitmap.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXImage.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXIcon.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXGIFImage.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXIFFImage.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXBMPImage.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXICOImage.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXXBMImage.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXXPMImage.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXPCXImage.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXTGAImage.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRGBImage.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXPPMImage.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRASImage.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXGIFIcon.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXIFFIcon.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXBMPIcon.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXICOIcon.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXXBMIcon.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXXPMIcon.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXPCXIcon.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXTGAIcon.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRGBIcon.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXPPMIcon.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRASIcon.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRegion.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDC.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDCWindow.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDCPrint.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXIconSource.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXIconDict.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXFileDict.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXWindow.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXFrame.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSeparator.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXLabel.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FX7Segment.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDial.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXKnob.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXColorBar.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXColorRing.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXColorWell.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXColorWheel.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXTextField.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXButton.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXPicker.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXToggleButton.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXTriStateButton.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXCheckButton.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRadioButton.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXArrowButton.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuButton.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXComposite.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXPacker.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXHorizontalFrame.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXVerticalFrame.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSpring.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMatrix.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSpinner.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRealSpinner.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRootWindow.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXCanvas.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXGroupBox.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXShell.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXToolTip.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXPopup.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXTopWindow.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDialogBox.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMainWindow.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuPane.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXScrollPane.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuCaption.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuSeparator.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuTitle.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuCascade.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuCommand.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuCheck.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuRadio.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuBar.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXToolBar.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDockBar.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXOptionMenu.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSwitcher.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXTabBar.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXTabBook.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXTabItem.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXScrollBar.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXScrollArea.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXScrollWindow.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXList.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXComboBox.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXListBox.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXTreeList.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXTreeListBox.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXFoldingList.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXBitmapView.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXBitmapFrame.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXImageView.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXImageFrame.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXTable.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDragCorner.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXStatusBar.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXStatusLine.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXChoiceBox.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMessageBox.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDirList.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSlider.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRealSlider.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSplitter.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FX4Splitter.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXHeader.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXShutter.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXIconList.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXFileList.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDirBox.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDriveBox.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDirSelector.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDirDialog.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXFileSelector.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXFileDialog.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXColorSelector.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXColorDialog.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXFontSelector.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXFontDialog.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXUndoList.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRex.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXText.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDataTarget.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXProgressBar.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXReplaceDialog.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRuler.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRulerView.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSearchDialog.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXInputDialog.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXProgressDialog.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXWizard.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMDIButton.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMDIClient.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMDIChild.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDocument.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDockSite.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDockHandler.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDockTitle.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXToolBarGrip.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXToolBarShell.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXToolBarTab.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXPrintDialog.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDebugTarget.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSplashWindow.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/fxkeys.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXTerminal.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDCNativePrinter.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDCPrint.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXPostscriptFont.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXFont.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/unistd.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/io.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/process.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sys/types.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/getopt.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/pthread_unistd.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXShowMath.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDCNativePrinter.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/time.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sys/timeb.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/sys/timeb_s.h \
+ C:/msys64/mingw32/i686-w64-mingw32/include/pthread_time.h \
+ F:/REDUCE-SVN/trunk/csl/fox/src/cmfont-info.cpp
+
+C:/msys64/mingw32/i686-w64-mingw32/include/windows.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_mac.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_secapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/vadefs.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sdks/_mingw_directx.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sdks/_mingw_ddk.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sdkddkver.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/excpt.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/crtdefs.h:
+
+C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include/stdarg.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/stdarg.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_stdarg.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/windef.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/minwindef.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winapifamily.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/specstrings.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sal.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/driverspecs.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winnt.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_unicode.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/ctype.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/apiset.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/intrin-impl.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/basetsd.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/guiddef.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/string.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/string_s.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/pshpack4.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/poppack.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/pshpack4.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/pshpack2.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/poppack.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/pshpack2.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/pshpack8.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/pshpack8.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/ktmtypes.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winbase.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/apisetcconv.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/minwinbase.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/bemapiset.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/debugapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/errhandlingapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/fibersapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/fileapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/handleapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/heapapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/ioapiset.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/interlockedapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/jobapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/libloaderapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/memoryapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/namedpipeapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/namespaceapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/processenv.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/processthreadsapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/processtopologyapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/profileapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/realtimeapiset.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/securityappcontainer.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/securitybaseapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/synchapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sysinfoapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/systemtopologyapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/threadpoolapiset.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/threadpoollegacyapiset.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/utilapiset.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/wow64apiset.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winerror.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/fltwinerror.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/timezoneapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/wingdi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/pshpack1.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winuser.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/tvout.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winnls.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/datetimeapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/stringapiset.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/wincon.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winver.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winreg.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/reason.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winnetwk.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/wnnc.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/virtdisk.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/cderr.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/dde.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/ddeml.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/dlgs.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/lzexpand.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/mmsystem.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/nb30.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/rpc.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/rpcdce.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/rpcdcep.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/rpcnsi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/rpcnterr.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/rpcasync.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/shellapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winperf.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winsock.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_timeval.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_bsd_types.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/inaddr.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_socket_types.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_fd_types.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_ip_types.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_ip_mreq1.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_wsadata.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_xmitfile.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/psdk_inc/_wsa_errnos.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/wincrypt.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/bcrypt.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/ncrypt.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/dpapi.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winefs.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winscard.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/wtypes.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/rpcndr.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/rpcnsip.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/rpcsal.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/ole2.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/objbase.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/combaseapi.h:
+
+C:/msys64/mingw32/include/c++/7.2.0/stdlib.h:
+
+C:/msys64/mingw32/include/c++/7.2.0/cstdlib:
+
+C:/msys64/mingw32/include/c++/7.2.0/i686-w64-mingw32/bits/c++config.h:
+
+C:/msys64/mingw32/include/c++/7.2.0/i686-w64-mingw32/bits/os_defines.h:
+
+C:/msys64/mingw32/include/c++/7.2.0/i686-w64-mingw32/bits/cpu_defines.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/stdlib.h:
+
+C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include-fixed/limits.h:
+
+C:/msys64/mingw32/lib/gcc/i686-w64-mingw32/7.2.0/include-fixed/syslimits.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/limits.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/stdlib_s.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/malloc.h:
+
+C:/msys64/mingw32/include/c++/7.2.0/bits/std_abs.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/wtypesbase.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/unknwnbase.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/objidlbase.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/cguid.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/objidl.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/unknwn.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/urlmon.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/oleidl.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/servprov.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/msxml.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/oaidl.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/propidl.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/oleauto.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winioctl.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winsmcrd.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winspool.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/prsht.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/commdlg.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/stralign.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/stralign_s.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/winsvc.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/mcx.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/imm.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/fwin.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/stdio.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_print_push.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_off_t.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/swprintf.inl:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/stdio_s.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/_mingw_print_pop.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/signal.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/pthread_signal.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/fx.h:
+
+C:/msys64/mingw32/include/c++/7.2.0/math.h:
+
+C:/msys64/mingw32/include/c++/7.2.0/cmath:
+
+C:/msys64/mingw32/include/c++/7.2.0/bits/cpp_type_traits.h:
+
+C:/msys64/mingw32/include/c++/7.2.0/ext/type_traits.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/math.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/fxver.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/fxdefs.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/fxascii.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/fxunicode.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXHash.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXException.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXThread.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXStream.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXIO.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXFile.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXPipe.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSocket.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXFileStream.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMemoryStream.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXString.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSize.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXPoint.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRectangle.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXObject.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDelegator.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDict.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXPath.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSystem.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXStat.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDir.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDate.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXURL.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXStringDict.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSettings.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRegistry.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXObjectList.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXAccelTable.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRecentFiles.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXApp.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXId.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXVisual.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXFont.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXCursor.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXGUISignal.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXCURCursor.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXGIFCursor.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDrawable.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXBitmap.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXImage.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXIcon.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXGIFImage.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXIFFImage.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXBMPImage.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXICOImage.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXXBMImage.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXXPMImage.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXPCXImage.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXTGAImage.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRGBImage.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXPPMImage.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRASImage.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXGIFIcon.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXIFFIcon.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXBMPIcon.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXICOIcon.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXXBMIcon.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXXPMIcon.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXPCXIcon.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXTGAIcon.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRGBIcon.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXPPMIcon.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRASIcon.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRegion.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDC.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDCWindow.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDCPrint.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXIconSource.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXIconDict.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXFileDict.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXWindow.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXFrame.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSeparator.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXLabel.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FX7Segment.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDial.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXKnob.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXColorBar.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXColorRing.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXColorWell.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXColorWheel.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXTextField.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXButton.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXPicker.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXToggleButton.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXTriStateButton.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXCheckButton.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRadioButton.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXArrowButton.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuButton.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXComposite.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXPacker.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXHorizontalFrame.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXVerticalFrame.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSpring.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMatrix.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSpinner.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRealSpinner.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRootWindow.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXCanvas.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXGroupBox.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXShell.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXToolTip.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXPopup.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXTopWindow.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDialogBox.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMainWindow.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuPane.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXScrollPane.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuCaption.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuSeparator.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuTitle.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuCascade.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuCommand.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuCheck.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuRadio.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMenuBar.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXToolBar.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDockBar.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXOptionMenu.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSwitcher.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXTabBar.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXTabBook.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXTabItem.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXScrollBar.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXScrollArea.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXScrollWindow.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXList.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXComboBox.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXListBox.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXTreeList.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXTreeListBox.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXFoldingList.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXBitmapView.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXBitmapFrame.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXImageView.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXImageFrame.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXTable.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDragCorner.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXStatusBar.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXStatusLine.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXChoiceBox.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMessageBox.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDirList.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSlider.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRealSlider.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSplitter.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FX4Splitter.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXHeader.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXShutter.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXIconList.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXFileList.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDirBox.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDriveBox.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDirSelector.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDirDialog.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXFileSelector.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXFileDialog.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXColorSelector.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXColorDialog.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXFontSelector.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXFontDialog.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXUndoList.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRex.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXText.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDataTarget.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXProgressBar.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXReplaceDialog.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRuler.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRulerView.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSearchDialog.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXInputDialog.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXProgressDialog.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXWizard.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMDIButton.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMDIClient.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMDIChild.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDocument.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDockSite.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDockHandler.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDockTitle.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXToolBarGrip.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXToolBarShell.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXToolBarTab.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXPrintDialog.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDebugTarget.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSplashWindow.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/fxkeys.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXTerminal.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDCNativePrinter.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDCPrint.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXPostscriptFont.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXFont.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/unistd.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/io.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/process.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sys/types.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/getopt.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/pthread_unistd.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXShowMath.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDCNativePrinter.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/time.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sys/timeb.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/sec_api/sys/timeb_s.h:
+
+C:/msys64/mingw32/i686-w64-mingw32/include/pthread_time.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/src/cmfont-info.cpp:

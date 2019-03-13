@@ -1,0 +1,1 @@
+link ../linux/386-spec.sl

@@ -1,0 +1,249 @@
+\chapter{Expressions}
+
+{\REDUCE} expressions\index{Expression} may be of several types and consist
+of sequences of numbers, variables, operators, left and right parentheses
+and commas.  The most common types are as follows:
+
+\section{Scalar Expressions}
+
+\index{Scalar}Using the arithmetic operations \texttt{+ - * / \textasciicircum}
+\ttindextype{+}{operator}
+\ttindextype{-}{operator}
+\ttindextype{*}{operator}
+\ttindextype{/}{operator}
+\ttindextype{"\^}{operator}
+(power) and parentheses, scalar expressions are composed from numbers,
+ordinary ``scalar'' variables (identifiers), array names with subscripts,
+operator or procedure names with arguments and statement expressions.
+
+\textit{Examples:}
+\begin{verbatim}
+        x
+        x^3 - 2*y/(2*z^2 - df(x,z))
+        (p^2 + m^2)^(1/2)*log (y/m)
+        a(5) + b(i,q)
+\end{verbatim}
+The symbol \texttt{**} may be used as an alternative to the caret symbol
+\ttindextype{**}{operator}
+(\texttt{\textasciicircum})
+for forming powers, particularly in those systems that do not support a
+caret symbol.
+
+Statement expressions, usually in parentheses, can also form part of
+a scalar\index{Scalar} expression, as in the example
+\begin{verbatim}
+        w + (c:=x+y) + z .
+\end{verbatim}
+When the algebraic value of an expression is needed, {\REDUCE} determines it,
+starting with the algebraic values of the parts, roughly as follows:
+
+Variables and operator symbols with an argument list have the algebraic
+values they were last assigned, or if never assigned stand for themselves.
+However, array elements have the algebraic values they were last assigned,
+or, if never assigned, are taken to be 0.
+
+Procedures are evaluated with the values of their actual parameters.
+
+In evaluating expressions, the standard rules of algebra are applied.
+Unfortunately, this algebraic evaluation of an expression is not as
+unambiguous as is numerical evaluation. This process is generally referred
+to as ``simplification''\index{Simplification} in the sense that the
+evaluation usually but not always produces a simplified form for the
+expression.
+
+There are many options available to the user for carrying out such
+simplification\index{Simplification}.  If the user doesn't specify any
+method, the default method is used.  The default evaluation of an
+expression involves expansion of the expression and collection of like
+terms, ordering of the terms, evaluation of derivatives and other
+functions and substitution for any expressions which have values assigned
+or declared (see assignments and \texttt{LET} statements).  In many cases,
+this is all that the user needs.
+
+The declarations by which the user can exercise some control over the way
+in which the evaluation is performed are explained in other sections.  For
+example, if a real (floating point) number is encountered during
+evaluation, the system will normally convert it into a ratio of two
+integers.  If the user wants to use real arithmetic, he can effect this by
+the command \texttt{on rounded;}.\ttindexswitch{ROUNDED} Other modes for
+coefficient arithmetic are described elsewhere.
+
+If an illegal action occurs during evaluation (such as division by zero)
+or functions are called with the wrong number of arguments, and so on, an
+appropriate error message is generated.
+% A list of such error messages is given in an appendix.
+
+\section{Integer Expressions}
+
+\index{Integer}These are expressions which, because of the values of the
+constants and variables in them, evaluate to whole numbers.
+
+\textit{Examples:}
+\begin{verbatim}
+        2,      37 * 999,       (x + 3)^2 - x^2 - 6*x
+\end{verbatim}
+are obviously integer expressions.
+\begin{verbatim}
+        j + k - 2 * j^2
+\end{verbatim}
+is an integer expression when \texttt{J} and \texttt{K} have values that are
+integers, or if not integers are such that ``the variables and fractions
+cancel out'', as in
+\begin{verbatim}
+        k - 7/3 - j + 2/3 + 2*j^2.
+\end{verbatim}
+
+\section{Boolean Expressions}
+\label{sec-boolean}
+A boolean expression\index{Boolean expression}\index{Expression!boolean} returns 
+a truth value.  In the
+algebraic mode of {\REDUCE}, boolean expressions have the syntactical form:
+\begin{syntax}
+        \meta{expression} \meta{relational operator} \meta{expression}
+\end{syntax}
+or
+\begin{syntax}
+        \meta{boolean operator} \texttt{(}\meta{arguments}\texttt{)}
+\end{syntax}
+or
+\begin{syntax}
+        \meta{boolean expression} \meta{logical operator}
+        \meta{boolean expression}.
+\end{syntax}
+Parentheses can also be used to control the precedence of expressions.
+
+\hypertarget{operator:EVENP}{}
+\hypertarget{operator:FIXP}{}
+\hypertarget{operator:FREEOF}{}
+\hypertarget{operator:NUMBERP}{}
+\hypertarget{operator:ORDP}{}
+\hypertarget{operator:PRIMEP}{}
+In addition to the logical and relational operators defined earlier as
+infix operators, the following boolean operators are also defined:\\
+\mbox{}\\
+\ttindextype{EVENP}{boolean operator}\ttindextype{FIXP}{boolean operator}
+\ttindextype{FREEOF}{boolean operator}\ttindextype{NUMBERP}{boolean operator}
+\ttindextype{ORDP}{boolean operator}\ttindextype{PRIMEP}{boolean operator}
+{\renewcommand{\arraystretch}{2}
+\begin{tabular}{lp{\redboxwidth}}
+\texttt{EVENP(U)} & determines if the number \texttt{U} is even or not; \\
+
+\texttt{FIXP(U)} & determines if the expression \texttt{U} is integer or not; \\
+
+\texttt{FREEOF(U,V)} & determines if the expression
+\texttt{U} does not contain the kernel \texttt{V} anywhere in its
+structure; \\
+
+\texttt{NUMBERP(U)} & determines if \texttt{U} is a number or not; \\
+
+\texttt{ORDP(U,V)} & determines if \texttt{U} is ordered
+ahead of \texttt{V} by some canonical ordering (based on the expression structure
+and an internal ordering of identifiers); \\
+
+\texttt{PRIMEP(U)} & true if \texttt{U} is a prime object, i.e., any object
+other than 0 and plus or minus 1 which is only exactly divisible
+by itself or a unit.
+ \\
+\end{tabular}}
+
+\textit{Examples:}
+\begin{verbatim}
+        j<1
+        x>0  or  x=-2
+        numberp x
+        fixp x and evenp x
+        numberp x and x neq 0
+\end{verbatim}
+Boolean expressions can only appear directly within \texttt{IF}, \texttt{FOR},
+\texttt{WHILE}, and \texttt{UNTIL} statements, as described in other sections.
+Such expressions cannot be used in place of ordinary algebraic expressions,
+or assigned to a variable.
+
+NB:  For those familiar with symbolic mode, the meaning of some of
+these operators is different in that mode.  For example, \texttt{NUMBERP} is
+true only for integers and reals in symbolic mode.
+
+\hypertarget{operator:AND}{}
+\index{AND logical operator@\texttt{AND} logical operator}
+When two or more boolean expressions are combined with \texttt{AND}, they are
+evaluated one by one until a \emph{false} expression is found. The rest are
+not evaluated. Thus
+\begin{verbatim}
+        numberp x and numberp y and x>y
+\end{verbatim}
+does not attempt to make the \texttt{x>y} comparison unless \texttt{X} and \texttt{Y}
+are both verified to be numbers.
+
+\hypertarget{operator:OR}{}
+\index{OR logical operator@\texttt{OR} logical operator}
+Similarly, evaluation of a sequence of boolean expressions connected by
+\texttt{OR} stops as soon as a \emph{true} expression is found.
+
+NB:  In a boolean expression, and in a place where a boolean expression is
+expected, the algebraic value 0 is interpreted as \emph{false}, while all
+other algebraic values are converted to \emph{true}.  So in algebraic mode
+a procedure can be written for direct usage in boolean expressions,
+returning say 1 or 0 as its value as in
+
+\begin{verbatim}
+   procedure polynomialp(u,x);
+      if den(u)=1 and deg(u,x)>=1 then 1 else 0;
+\end{verbatim}
+
+One can then use this in a boolean construct, such as
+\begin{verbatim}
+   if polynomialp(q,z) and not polynomialp(q,y) then ...
+\end{verbatim}
+
+In addition, any procedure that does not have a defined return value
+(for example, a block without a \texttt{RETURN} statement in it)
+has the boolean value \emph{false}. 
+
+\section{Equations}
+
+Equations\index{Equation} are a particular type of expression with the syntax
+\begin{syntax}
+      \meta{expression} \texttt{=} \meta{expression}.
+\end{syntax}
+In addition to their role as boolean expressions, they can also be used as
+arguments to several operators (e.g., \texttt{SOLVE}), and can be
+returned as values.
+
+\hypertarget{switch:EVALLHSEQP}{}
+Under normal circumstances, the right-hand-side of the equation is
+evaluated but not the left-hand-side.  This also applies to any substitutions
+made by the \texttt{SUB}\ttindextype{SUB}{operator} operator.  If both sides are to be
+evaluated, the switch \sw{EVALLHSEQP}\ttindexswitch{EVALLHSEQP} should be
+turned on.
+
+\hypertarget{operator:LHS}{}
+\hypertarget{operator:RHS}{}
+To facilitate the handling of equations, two selectors, \texttt{LHS}
+\ttindextype{LHS}{operator} and \texttt{RHS},\ttindextype{RHS}{operator} which return the left- and
+right-hand sides of an equation\index{Equation} respectively, are provided.
+For example,
+\begin{verbatim}
+        lhs(a+b=c) -> a+b
+and
+        rhs(a+b=c) -> c.
+\end{verbatim}
+
+\section{Proper Statements as Expressions}
+
+Several kinds of proper statements\index{Proper statement} deliver
+an algebraic or numerical result of some kind, which can in turn be used as
+an expression or part of an expression.  For example, an assignment
+statement itself has a value, namely the value assigned.  So
+\begin{verbatim}
+        2 * (x := a+b)
+\end{verbatim}
+is equal to \texttt{2*(a+b)}, as well as having the ``side-effect''\index{Side
+effect} of assigning the value \texttt{a+b} to \texttt{X}.  In context,
+\begin{verbatim}
+        y := 2 * (x := a+b);
+\end{verbatim}
+sets \texttt{X} to \texttt{a+b} and \texttt{Y} to \texttt{2*(a+b)}.
+
+The sections on the various proper statement\index{Proper statement} types
+indicate which of these statements are also useful as expressions.
+

@@ -1,0 +1,1 @@
+link ../linux/nbig32a.sl

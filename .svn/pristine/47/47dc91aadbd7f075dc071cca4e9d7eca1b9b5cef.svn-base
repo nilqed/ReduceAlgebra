@@ -1,0 +1,932 @@
+% Test cases for the parser generator. This all runs in symbolic mode...
+
+
+%
+% This is where (for now) I will put documentation of the syntax I
+% will use when creating a grammer. There is a main function called
+% lalr_construct_parser and that is passed a list that describes
+% a grammar. It is in the form of a sequence of productions, and the first
+% one given is taken to be the top-level target.
+%
+% Each production is in the form
+%     (LHS   ((rhs1.1 rhs1.2 ...) a1.1 a1.2 ...)
+%            ((rhs2.1 rhs2.1 ...) a2.1 a2.2 ...)
+%            ...)
+% which in regular publication style for grammars might be interpreted
+% as meaning
+%      LHS ::= rhs1.1 rhs1.2 ... { a1.1 a1.2 ... }
+%          |   rhs2.1 rhs2.2 ... { a2.1 a2.2 ... }
+%          ...
+%          ;
+%
+% Each LHS is treated as a non-terminal symbol and is specified as a simple
+% name. Note that by default the Reduce parser will be folding characters
+% within names to lower case and so it will be best to choose names for
+% non-terminals that are unambiguous even when case-folded, but I would like
+% to establish a convention that in source code they are written in capitals.
+%
+% The rhs items may be either non-terminals (identified because they are
+% present in the left hand side of some production) or terminals. Terminal
+% symbols can be specified in two different ways.
+% The lexer has built-in recipies that decode certain sequences of characters
+% and return the special markers for !:symbol, !:number, !:string, !:list for
+% commonly used cases. In these cases the variable yylval gets left set
+% to associated data, so for instance in the case of !:symbol it gets set
+% to the particular symbol concerned.
+% The token type :list is used for Lisp or rlisp-like notation where the
+% input contains
+%     'expression
+% or  `expression
+% so for instance the input `(a b c) leads to the lexer returning !:list and
+% yylvel being set to (backquote (a b c)). This treatment is specialised for
+% handling rlisp-like syntax.
+%
+% Other terminals are indicated by writing a string. That may either
+% consist of characters that would otherwise form a symbol (ie a letter
+% followed by letters, digits and underscores) or a sequence of
+% non-alphanumeric characters. In the latter case if a sequence of three or
+% more punctuation marks make up a terminal then all the shorter prefixes
+% of it will also be grouped to form single entities. So if "<-->" is a
+% terminal then '<', '<-' and '<--' will each by parsed as single tokens, and
+% any of them that are not used as terminals will be classified as !:symbol.
+%
+% As well as terminals and non-terminals (which are wrirrent as symbols or
+% strings) it is possible to write one of
+%     (OPT s1 s2 ...)           0 or 1 instances of the sequence s1, ...
+%     (STAR s1 s2 ...)          0, 1, 2, ... instances
+%     (PLUS s1 s2 ...)          1, 2, 3, ... instances
+%     (LIST sep s1 s2 ...)      like (STAR s1 s2 ...) but with the single
+%                               item sep between each instance.
+%     (LISTPLUS sep s1 ...)     like (PLUS s2 ...) but with sep interleaved.
+%     (OR s1 s2 ...)            one or other of the tokens shown.
+%
+% When the lexer processes input it will return a numeric code that identifies
+% the type of the item seen, so in a production one might write
+%     (!:symbol ":=" EXPRESSION)
+% and as it recognises the first two tokens the lexer will return a numeric
+% code for !:symbol (and set yylval to the actual symbol as seen) and then
+% a numeric code that it allocates for ":=". In the latter case it will
+% also set yylval to the symbol !:!= in case that is useful.
+%
+% Precedence can be set using lalr_precedence. See examples lower down in this
+% file.
+
+% Limitations are
+% (1) At present the parser generator will not cope with large grammars
+%     because it does not merge rules promptly enough.
+% (2) The lexer is hand-written and can not readily be reconfigured for
+%     use with languages other than rlisp. For instance it has use of "!"
+%     as a character escape built into it.
+%
+%
+
+
+symbolic;
+
+
+nil
+
+
+% Before testing parser generation I will demonstrate the lexer..
+% If I was jumpy about the exact behaviour of the lexer I could go
+%               on tracelex;
+% to get some more tracing.
+
+lex_cleanup();
+
+
+nil
+
+
+lex_keywords '("begin" "<=>" "<==");
+
+
+nil
+
+
+% The output from this is expected to be
+
+%  Result: (2 symbol)
+%  Result: (4 200)
+%  Result: (4 3.542)
+%  Result: (3 "a string")
+%  Result: (2 nil)
+%  Result: (5 (quote (quoted lisp)))
+%  Result: (5 (backquote (backquoted (!, comma) (!,!@ comma_at))))
+%  Result: (2 !+)
+%  Result: (7 !<!=!>)
+%  Result: (2 !-)
+%  Result: (2 !=)
+%  Result: (2 !>)
+%  Result: (9 !<)
+%  Result: (8 !<!=)
+%  Result: (5 begin)
+%  Result: (2 !;)
+%  Result: (2 !;)
+%  Result: (2 !;)
+%
+%  nil
+
+% The row of "; ; ;" at the end provides some protection so that
+% if faults in the lexer were to cause it to read more or less than it ought
+% to then what is left over is reasonably likely to remain as valid rlisp
+% syntax and so the rest of this test file will be able to continue happily.
+
+
+<< off echo;
+   lex_init();
+   for i := 1:18 do <<
+     tt := yylex();
+     if not zerop posn() then terpri();
+     princ "Result: ";
+     print list(tt, yylval) >>;
+   on echo >>;
+
+Result: (1 symbol)
+Result: (3 200)
+Result: (3 3.542)
+Result: (2 "a string")
+Result: (1 nil)
+Result: (4 (quote (quoted lisp)))
+Result: (4 (backquote (backquoted (!, comma) (!,!@ comma_at))))
+Result: (1 !+)
+Result: (6 !<!=!>)
+Result: (1 !-)
+Result: (1 !=)
+Result: (1 !>)
+Result: (8 !<)
+Result: (7 !<!=)
+Result: (5 begin)
+Result: (1 !;)
+Result: (1 !;)
+Result: (1 !;)
+
+nil
+ ;
+
+
+nil
+
+
+
+on lalr_verbose;
+
+
+nil
+
+
+% Here I set up a sample grammar
+%    S' -> S
+%    S  -> C C        { }
+%    C  -> "c" C      { }
+%        | "d"        { }
+% This is example 4.42 from Aho, Sethi and Ullman's Red Dragon book.
+% It is example 4.54 in the more recent Purple book.
+
+% Note that this grammar will introduce "c" and "d" as keywords rather than
+% being general symbols. When I construct a subsequent grammar that will
+% undo that setting. I will omit semantic actions here so that the default
+% action of building a form of tree is used.
+
+
+
+grammar := '(
+  (S  ((C C)    )   % One production for S, no semantic actions
+  )
+  (C  (("c" C)  )   % First production for C
+      (("d")    )   % Second production for C
+  ));
+
+
+((s ((c c))) (c (("c" c)) (("d"))))
+
+
+lalr_construct_parser grammar;
+
+Terminal symbols are:
+ !:eof:0 !:symbol:1 !:string:2 !:number:3 !:list:4 "d":5
+    "c":6
+Non-terminal symbols are:
+[0]S'               : S                         { }
+                    ;
+[1]S                : C C                       { }
+                    ;
+[2]C                : "c" C                     { }
+                    | "d"                       { }
+                    ;
+
+3 semantic actions
+Action map:
+0:          nil
+1:          nil
+2:          nil
+3:          nil
+FIRST sets for each non-terminal:
+S':             "c" "d"
+S:              "c" "d"
+C:              "c" "d"
+Number of items put into goto cache = 9
+Merged Items:
+Item number 0
+  S' -> . S  :  $
+  C -> . "c" C  :  "c"
+  C -> . "c" C  :  "d"
+  C -> . "d"  :  "c"
+  C -> . "d"  :  "d"
+  S -> . C C  :  $
+          C GOTO state 1
+          S GOTO state 2
+          "c" GOTO state 4
+          "d" GOTO state 3
+Item number 1
+  C -> . "c" C  :  $
+  C -> . "d"  :  $
+  S -> C . C  :  $
+          C GOTO state 6
+          "c" GOTO state 4
+          "d" GOTO state 3
+Item number 2
+  S' -> S .  :  $
+Item number 3
+  C -> "d" .  :  "c"
+  C -> "d" .  :  "d"
+  C -> "d" .  :  $
+Item number 4
+  C -> . "c" C  :  "c"
+  C -> . "c" C  :  "d"
+  C -> . "c" C  :  $
+  C -> . "d"  :  "c"
+  C -> . "d"  :  "d"
+  C -> . "d"  :  $
+  C -> "c" . C  :  "c"
+  C -> "c" . C  :  "d"
+  C -> "c" . C  :  $
+          C GOTO state 5
+          "c" GOTO state 4
+          "d" GOTO state 3
+Item number 5
+  C -> "c" C .  :  "c"
+  C -> "c" C .  :  "d"
+  C -> "c" C .  :  $
+Item number 6
+  S -> C C .  :  $
+End of Merged Items:
+Action index size = 6
+Actions:
+0                   "c"                 (shift 4)
+0                   "d"                 (shift 3)
+1                   "c"                 (shift 4)
+1                   "d"                 (shift 3)
+2                   $                   accept
+3                   "c"                 reduce C -> "d" { 3 }
+3                   "d"                 reduce C -> "d" { 3 }
+3                   $                   reduce C -> "d" { 3 }
+4                   "c"                 (shift 4)
+4                   "d"                 (shift 3)
+5                   "c"                 reduce C -> "c" C { 2 }
+5                   "d"                 reduce C -> "c" C { 2 }
+5                   $                   reduce C -> "c" C { 2 }
+6                   $                   reduce S -> C C { 1 }
+Action terminal table size = 14
+action_index #V16[0 2 4 5 8 10 13]
+action_terminal #V16[6 -1 6 -1 -1 6 5 -1 6 -1 6 5 -1 -1]
+action_result #V16[4 3 4 3 0 -3 -3 -3 4 3 -2 -2 -2 -1]
+action_fn [nil nil nil]
+action_n #V8[2 2 1]
+action_A #V16[1 2 2]
+4         C GOTO state 5
+1         C GOTO state 6
+0         C GOTO state 1
+0         S GOTO state 2
+goto table size = 4
+goto_index: #V16[0 3 0]
+goto_old_state: #V16[4 1 -1 -1]
+goto_new_state: #V16[5 6 1 2]
+
+nil
+
+
+symbolic procedure pparse();
+  begin
+    scalar r;
+    r := yyparse();
+    terpri();
+    princ "= ";
+    print r
+  end;
+
+
+pparse
+
+
+pparse()$
+
+
+
+c c c d c ("action" 2 "state" 3 "non_terminals" (!S!' s c) "A" 2)
+RHS count 1 turn into c
+Apply nil to 1 items (d)
+now get goto for 4 and c = ("get_goto" 4 2)
+("next state" 5)
+5
+("get_goto" 4 2)
+("next state" 5)
+("action" 1 "state" 5 "non_terminals" (!S!' s c) "A" 2)
+RHS count 2 turn into c
+Apply nil to 2 items (c d)
+now get goto for 4 and c = ("get_goto" 4 2)
+("next state" 5)
+5
+("get_goto" 4 2)
+("next state" 5)
+("action" 1 "state" 5 "non_terminals" (!S!' s c) "A" 2)
+RHS count 2 turn into c
+Apply nil to 2 items (c (c d))
+now get goto for 4 and c = ("get_goto" 4 2)
+("next state" 5)
+5
+("get_goto" 4 2)
+("next state" 5)
+("action" 1 "state" 5 "non_terminals" (!S!' s c) "A" 2)
+RHS count 2 turn into c
+Apply nil to 2 items (c (c (c d)))
+now get goto for 0 and c = ("get_goto" 0 2)
+("next state" 1)
+1
+("get_goto" 0 2)
+("next state" 1)
+d ;("action" 2 "state" 3 "non_terminals" (!S!' s c) "A" 2)
+RHS count 1 turn into c
+Apply nil to 1 items (d)
+now get goto for 4 and c = ("get_goto" 4 2)
+("next state" 5)
+5
+("get_goto" 4 2)
+("next state" 5)
+("action" 1 "state" 5 "non_terminals" (!S!' s c) "A" 2)
+RHS count 2 turn into c
+Apply nil to 2 items (c d)
+now get goto for 1 and c = ("get_goto" 1 2)
+("next state" 6)
+6
+("get_goto" 1 2)
+("next state" 6)
+("action" 0 "state" 6 "non_terminals" (!S!' s c) "A" 1)
+RHS count 2 turn into s
+Apply nil to 2 items ((c (c (c d))) (c d))
+now get goto for 0 and s = ("get_goto" 0 1)
+("next state" 2)
+2
+("get_goto" 0 1)
+("next state" 2)
+Seems to have finished... 
+= ((c (c (c d))) (c d))
+
+
+pparse()$
+
+
+
+d d ("action" 2 "state" 3 "non_terminals" (!S!' s c) "A" 2)
+RHS count 1 turn into c
+Apply nil to 1 items (d)
+now get goto for 0 and c = ("get_goto" 0 2)
+("next state" 1)
+1
+("get_goto" 0 2)
+("next state" 1)
+;("action" 2 "state" 3 "non_terminals" (!S!' s c) "A" 2)
+RHS count 1 turn into c
+Apply nil to 1 items (d)
+now get goto for 1 and c = ("get_goto" 1 2)
+("next state" 6)
+6
+("get_goto" 1 2)
+("next state" 6)
+("action" 0 "state" 6 "non_terminals" (!S!' s c) "A" 1)
+RHS count 2 turn into s
+Apply nil to 2 items (d d)
+now get goto for 0 and s = ("get_goto" 0 1)
+("next state" 2)
+2
+("get_goto" 0 1)
+("next state" 2)
+Seems to have finished... 
+= (d d)
+
+
+
+% Now switch off the tracing. It is useful whiloe debugging this
+% package but is typically rather over the top for normal use.
+
+off tracelex, lalr_verbose;
+
+
+nil
+
+
+% Example 4.46 from the Red Dragon (4.61 in Aho, Lam, Sethi and Ullman,
+% "Compilers: principles, techniques and tools", second edition 2007).
+%
+% This is used there as an example of a grammar that is not SLR(1) but
+% that can be handled by LALR .
+
+% The semantic actions here contain print statements that will
+% print some sort of trace as the parsing progresses.
+
+symbolic procedure neatprintc x;
+ << if not zerop posn() then terpri();
+    printc x >>;
+
+
+neatprintc
+
+
+g4_46 := '((S   ((L "=" R)   (neatprintc "## S => L = R")
+                             (list 'equal !$1 !$3))
+                ((R)         (neatprintc "## S => R")
+                             !$1))
+           (L   (("*" R)     (neatprintc "## L => * R")
+                             (list 'star !$2))
+                ((!:symbol)  (neatprintc "## L => symbol")
+                             !$1))
+           (R   ((L)         (neatprintc "## R => L")
+                             !$1)));
+
+
+((s ((l "=" r) (neatprintc "## S => L = R") (list (quote equal) !$1 !$3)) ((r) (
+neatprintc "## S => R") !$1)) (l (("*" r) (neatprintc "## L => * R") (list (
+quote star) !$2)) ((!:symbol) (neatprintc "## L => symbol") !$1)) (r ((l) (
+neatprintc "## R => L") !$1)))
+
+
+lalr_construct_parser g4_46;
+
+5 semantic actions
+Number of items put into goto cache = 13
+Action index size = 9
+Action terminal table size = 17
+goto table size = 6
+
+nil
+
+
+pparse()$
+
+
+
+leftsym =
+## L => symbol
+ rightsym ;
+## L => symbol
+## R => L
+## S => L = R
+
+= (equal leftsym rightsym)
+
+
+
+pparse()$
+
+
+
+****abc =
+## L => symbol
+## R => L
+## L => * R
+## R => L
+## L => * R
+## R => L
+## L => * R
+## R => L
+## L => * R
+ *def ;
+## L => symbol
+## R => L
+## L => * R
+## R => L
+## S => L = R
+
+= (equal (star (star (star (star abc)))) (star def))
+
+
+% This next example is expected to be reasonably representative of
+% small grammars. It needs precedence rules to disambiguate the
+% grammar, and illustrates both left and right associativity, and
+% cases where two operators have the same precedence.
+
+gtest := '((S  ((P))
+               ((S "^" S) (list 'pow !$1 !$3))
+               ((S "**" S) (list 'pow !$1 !$3))
+               ((S "*" S) (list 'tms !$1 !$3))
+               ((S "/" S) (list 'quot !$1 !$3))
+               ((S "+" S) (list 'plus !$1 !$3))
+               ((S "-" S) (list 'diff !$1 !$3))
+               ((S "=" S) (list 'eq !$1 !$3))
+               (("-" S) (list 'minus !$2))
+               (("+" S) !$2))
+
+           (P  (("(" S ")") !$2)
+               ((!:symbol))
+               ((!:string))
+               ((!:number))));
+
+
+((s ((p)) ((s "^" s) (list (quote pow) !$1 !$3)) ((s "**" s) (list (quote pow)
+!$1 !$3)) ((s "*" s) (list (quote tms) !$1 !$3)) ((s "/" s) (list (quote quot)
+!$1 !$3)) ((s "+" s) (list (quote plus) !$1 !$3)) ((s "-" s) (list (quote diff)
+!$1 !$3)) ((s "=" s) (list (quote eq) !$1 !$3)) (("-" s) (list (quote minus) !$2
+)) (("+" s) !$2)) (p (("(" s ")") !$2) ((!:symbol)) ((!:string)) ((!:number))))
+
+
+% "^" and "**" both have the same high precedence and are right
+% associative. Next come "*" and "/" which are left associative,
+% and after that "+" and "-". Finally "=" has lowest precedence and
+% must not associate with itself, so (a=b=c) should be a syntax error.
+
+lalr_precedence '(!:right ("^" "**") !:left ("*" "/") ("+" "-") !:none "=");
+
+
+nil
+
+
+lalr_construct_parser gtest;
+
+11 semantic actions
+Number of items put into goto cache = 101
+Action index size = 83
+Action terminal table size = 347
+goto table size = 21
+
+nil
+
+
+pparse()$
+
+
+a^b^c;
+= (pow a (pow b c))
+
+
+pparse()$
+
+
+a*b+c*d;
+= (plus (tms a b) (tms c d))
+
+
+pparse()$
+
+
+a * (b/c + d/e/f) ^ 2 ^ g - "str" 
+= (diff (tms a (pow (plus (quot b c) (quot (quot d e) f)) (pow 2 g))) "str")
+;
+
+
+nil
+
+
+% Demonstrate various of the short-hand notations...
+
+lalr_construct_parser '(
+ (S
+% (opt ...) means that the included material is optional.
+          (("begin" (opt "and" "also") "end"))));
+
+3 semantic actions
+Number of items put into goto cache = 6
+Action index size = 6
+Action terminal table size = 8
+goto table size = 2
+
+nil
+
+
+pparse()$
+
+
+begin end
+
+= (begin nil end)
+;
+
+
+nil
+;
+
+
+nil
+
+
+pparse()$
+
+
+begin and also end
+
+= (begin (and also) end)
+;
+
+
+nil
+;
+
+
+nil
+
+
+lalr_construct_parser '(
+ (S
+% (star ...) is for zero or mor instances of something.
+          (((star "a") "end") !$1)));
+
+3 semantic actions
+Number of items put into goto cache = 5
+Action index size = 5
+Action terminal table size = 8
+goto table size = 3
+
+nil
+
+
+pparse()$
+
+
+end
+
+= nil
+;
+
+
+nil
+;
+
+
+nil
+
+
+pparse()$
+
+
+a a a a a a end
+
+= (a a a a a a)
+;
+
+
+nil
+;
+
+
+nil
+
+
+lalr_construct_parser '(
+ (S
+% (plus ...) is for one or more repetitions of an item
+          (((plus "a") "end") !$1)));
+
+3 semantic actions
+Number of items put into goto cache = 5
+Action index size = 5
+Action terminal table size = 7
+goto table size = 3
+
+nil
+
+
+pparse()$
+
+
+a end
+
+= (a)
+;
+
+
+nil
+;
+
+
+nil
+
+
+pparse()$
+
+
+a a a a a a end
+
+= (a a a a a a)
+;
+
+
+nil
+;
+
+
+nil
+
+
+lalr_construct_parser '(
+ (S
+% (list delimiter item-description) is a sequence of zero
+% or more items, and if there are several that are separated by the
+% indicated delimiter. 
+          (((list ";" !:symbol) "eof") !$1)));
+
+5 semantic actions
+Number of items put into goto cache = 8
+Action index size = 8
+Action terminal table size = 12
+goto table size = 4
+
+nil
+
+
+pparse()$
+
+
+
+several ; words ; here eof
+
+= (several words here)
+;
+
+
+nil
+;
+
+
+nil
+
+
+lalr_construct_parser '(
+ (S
+% (listplus delimiter item-description) is as (list ...) however it
+% requires at least one item.
+          (((listplus ";" !:symbol) "eof") !$1)));
+
+4 semantic actions
+Number of items put into goto cache = 8
+Action index size = 8
+Action terminal table size = 11
+goto table size = 4
+
+nil
+
+
+pparse()$
+
+
+
+several ; words ; here eof
+
+= (several words here)
+;
+
+
+nil
+;
+
+
+nil
+
+
+lalr_construct_parser '(
+ (S
+% (or x y z) may be a more compact way of writing what could
+% otherwise by given as multiple productions, so for instance
+% (or "+" "-" "*" "/") would match one of the listed operators.
+          (((star (or "a" "b")) "end") !$1)));
+
+5 semantic actions
+Number of items put into goto cache = 8
+Action index size = 8
+Action terminal table size = 19
+goto table size = 5
+
+nil
+
+
+pparse()$
+
+
+end
+
+= nil
+;
+
+
+nil
+;
+
+
+nil
+
+
+pparse()$
+
+
+a b b a end
+
+= (a b b a)
+;
+
+
+nil
+;
+
+
+nil
+
+
+
+% The next example shows all the above put together to parse what is
+% in effect a small programming language. Although it is not yet a large
+% grammar it illustrates painfull clearly how poor performange of the
+% parser generator can be if ut used what Aho, Sethi and Ullman describe as
+% the "Easy but space-consuming LALR table construction" method.
+
+lalr_precedence '(!:left ("*" "/")
+                         ("+" "-")
+                  !:none ("<" "<=" "==" "neq" ">=" ">")
+                  !:right ":=" "="
+                  !:left ("then" "else" "return"));
+
+
+nil
+
+
+mini_language := '(
+ (program
+          (((listplus ";" expression) "eof") !$1))
+
+ (expression
+          ((funcall))
+          ((expression "*" expression) (list 'times !$1 !$3))
+          ((expression "/" expression) (list 'quotient !$1 !$3))
+          ((expression "+" expression) (list 'plus !$1 !$3))
+          ((expression "-" expression) (list 'difference !$1 !$3))
+          ((expression "<" expression) (list 'lessp !$1 !$3))
+          ((expression "<=" expression) (list 'lesseq !$1 !$3))
+          ((expression "==" expression) (list 'equals !$1 !$3))
+          ((expression "neq" expression) (list 'neq !$1 !$3))
+          ((expression "=>" expression) (list 'geq !$1 !$3))
+          ((expression ">" expression) (list 'greaterp !$1 !$3))
+          ((expression ":=" expression) (list 'setq !$1 !$3))
+          (("fun" funcall "=" expression) (list 'fun !$2 !$4))
+          (("if" sequence "then" expression)
+             (list 'cond, list(!$2, !$4)))
+          (("if" sequence "then" sequence "else" expression)
+             (list 'cond, list(!$2, !$4), list(t, !$6)))
+          (("go" (opt "to") !:symbol) (list 'go !$3))
+          (("goto" !:symbol) (list 'go !$2))
+          (("return" expression)))
+
+(funcall
+          ((closedexpression))
+          ((funcall closedexpression)))
+
+(closedexpression
+          ((!:symbol))
+          ((!:number))
+          ((plus !:string))  % Several strings in a row just concatenate
+          (("let" sequence "in" sequence "end") (list 'letstat !$2 !$4))
+          (("(" exprlist ")") (cons 'paren !$2))
+          (("(" sequence ")") (cons 'paren !$2))
+          (("[" exprlist "]") (cons 'bracket !$2)))
+
+(exprlist (((list "," expression))))
+
+(sequence
+          (((list ";" expression)))))$
+
+
+
+% The grammar shown here can be processed, however at the moment the
+% code in genparser.red uses the "simple but inefficient" scheme from Aho
+% et al. to generate LALR parsing tables and a consequence is that even for
+% this apparently reasonable grammar it takes a remarkably long time and
+% way too much memory. When the parser-generator has been upgraded to
+% merge states as they are constructed it will only take seconds (rather than
+% many minutes) to deal with this and the example can be re-enabled.
+%                                                     ACN   January 2015
+
+% lalr_construct_parser mini_language;
+%
+% pparse()$
+%
+% fun f(a,b) = a + b;
+% f(22,33)
+% eof
+
+
+end;
+
+nil
+Tested on x86_64-pc-windows CSL
+Time (counter 1): 288 ms  plus GC time: 6 ms
+
+End of Lisp run after 0.28+0.06 seconds
+real 0.56
+user 0.01
+sys 0.09

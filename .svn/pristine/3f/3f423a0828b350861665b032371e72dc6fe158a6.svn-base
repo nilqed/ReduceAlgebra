@@ -1,0 +1,80 @@
+\chapter{Changes since Version 3.8}
+
+\paragraph*{New packages}
+
+assert
+bibasis
+breduce
+cdiff
+clprl
+gcref
+guardian
+lessons
+libreduce
+lpdo
+redfront
+reduce4
+utf8
+
+\paragraph*{Core package rlisp}
+
+Support for namespaces (::)
+
+Default value in switch statement
+
+Support for utf8 characters
+
+\paragraph*{Core package poly}
+
+Improvements for differentiation: new switches \sw{expanddf}, \sw {allowdfint} etc
+(from odesolve)
+
+\paragraph*{Core package alg}
+
+New switch \sw{precise\_complex}
+
+Improvements for switch \sw{combineexpt} (exptchk.red)
+
+New operators \f{continued\_fraction}, \f{totaldeg},
+
+Operators now defined in the \REDUCE core:\\
+\f{si}, \f{ci}, \f{gamma}, \f{igamma}, \f{psi}, \f{polygamma}, \f{beta}, \f{ibeta},
+\f{euler},
+\f{bernoulli}, \f{pochhammer}, \f{lerch\_phi}, \f{polylog}, \f{zeta}, 
+\f{besselj},
+\f{bessely},
+\f{besseli},
+\f{besselk},
+\f{hankel1},
+\f{hankel2},
+\f{kummerM},
+\f{kummerU},
+\f{struveh},
+\f{struvel},
+\f{lommel1},
+\f{lommel2},
+\f{whittakerm},
+\f{whittakerw},
+\f{Airy\_Ai},
+\f{Airy\_Bi},
+\f{Airy\_AiPrime},
+\f{Airy\_biprime},
+\f{binomial},
+\f{solidharmonic},
+\f{sphericalharmonic},
+\f{fibonacci},\f{fibonaccip},
+\f{motzkin},
+\f{hypergeometric}, \f{MeijerG}.
+
+Constants now part of the core:\\
+ now known as part of the
+core, as well as constants \var{catalan}, \var{euler\_gamma}, \var{golden\_ratio},
+\var{khinchin}.
+
+\paragraph*{Core Package solve}
+
+New boolean operator \f{polyp}(p,var), to determine whether p is a pure polynomial
+in var, ie. the coefficients of p do not contain var.
+
+
+

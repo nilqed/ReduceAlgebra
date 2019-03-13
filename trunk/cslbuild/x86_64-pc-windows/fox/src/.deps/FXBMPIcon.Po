@@ -1,0 +1,691 @@
+FXBMPIcon.o: F:/REDUCE-SVN/trunk/csl/fox/src/FXBMPIcon.cpp \
+ F:/REDUCE-SVN/trunk/csl/fox/include/xincs.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdio.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/crtdefs.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_mac.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_secapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/vadefs.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_directx.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_ddk.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_off_t.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/swprintf.inl \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/stdio_s.h \
+ C:/git-sdk-64/mingw64/include/c++/7.3.0/stdlib.h \
+ C:/git-sdk-64/mingw64/include/c++/7.3.0/cstdlib \
+ C:/git-sdk-64/mingw64/include/c++/7.3.0/x86_64-w64-mingw32/bits/c++config.h \
+ C:/git-sdk-64/mingw64/include/c++/7.3.0/x86_64-w64-mingw32/bits/os_defines.h \
+ C:/git-sdk-64/mingw64/include/c++/7.3.0/x86_64-w64-mingw32/bits/cpu_defines.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdlib.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include-fixed/limits.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include-fixed/syslimits.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/limits.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/stdlib_s.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/malloc.h \
+ C:/git-sdk-64/mingw64/include/c++/7.3.0/bits/std_abs.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdarg.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdarg.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_stdarg.h \
+ C:/git-sdk-64/mingw64/include/c++/7.3.0/math.h \
+ C:/git-sdk-64/mingw64/include/c++/7.3.0/cmath \
+ C:/git-sdk-64/mingw64/include/c++/7.3.0/bits/cpp_type_traits.h \
+ C:/git-sdk-64/mingw64/include/c++/7.3.0/ext/type_traits.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/math.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/float.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/float.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/string.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/string_s.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/errno.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/signal.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pthread_signal.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/time.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_timeval.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sys/timeb.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/sys/timeb_s.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pthread_time.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/locale.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/fcntl.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/io.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sys/types.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sys/stat.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_stat64.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/direct.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/unistd.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/process.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/corecrt_startup.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/getopt.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pthread_unistd.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sys/time.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sys/param.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/dirent.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/windows.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdkddkver.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/excpt.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/windef.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/minwindef.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winapifamily.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/specstrings.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sal.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/driverspecs.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winnt.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_unicode.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/ctype.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/apiset.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/intrin-impl.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/basetsd.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/guiddef.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/x86intrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/ia32intrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/mmintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xmmintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/mm_malloc.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/emmintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/pmmintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/tmmintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/ammintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/smmintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/popcntintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/wmmintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/immintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avxintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx2intrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512fintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512erintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512pfintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512cdintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512vlintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512bwintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512dqintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512vlbwintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512vldqintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512ifmaintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512ifmavlintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512vbmiintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512vbmivlintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx5124fmapsintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx5124vnniwintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512vpopcntdqintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/shaintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/lzcntintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/bmiintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/bmi2intrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/fmaintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/f16cintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/rtmintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xtestintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/mm3dnow.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/prfchwintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/fma4intrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xopintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/lwpintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/tbmintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/rdseedintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/fxsrintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xsaveintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xsaveoptintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/sgxintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/adxintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/clwbintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/clflushoptintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xsavesintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xsavecintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/mwaitxintrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/clzerointrin.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/pkuintrin.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack4.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/poppack.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack4.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack2.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/poppack.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack2.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack8.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack8.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/ktmtypes.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winbase.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/apisetcconv.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/minwinbase.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/bemapiset.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/debugapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/errhandlingapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/fibersapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/fileapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/handleapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/heapapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/ioapiset.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/interlockedapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/jobapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/libloaderapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/memoryapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/namedpipeapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/namespaceapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/processenv.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/processthreadsapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/processtopologyapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/profileapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/realtimeapiset.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/securityappcontainer.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/securitybaseapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/synchapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sysinfoapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/systemtopologyapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/threadpoolapiset.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/threadpoollegacyapiset.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/utilapiset.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/wow64apiset.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winerror.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/fltwinerror.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/timezoneapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/wingdi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack1.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winuser.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/tvout.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winnls.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/datetimeapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stringapiset.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/wincon.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winver.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winreg.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/reason.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winnetwk.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/wnnc.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/virtdisk.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stralign.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/stralign_s.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winsvc.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/mcx.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/imm.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winsock2.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/_ws1_undef.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_bsd_types.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/inaddr.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/_socket_types.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/_fd_types.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/_ip_types.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/_wsadata.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/ws2def.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/_wsa_errnos.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/qos.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/commctrl.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/prsht.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/shellapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winspool.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/fxver.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/fxdefs.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXHash.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXThread.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXStream.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXMemoryStream.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXString.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSize.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXPoint.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRectangle.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXObject.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXSettings.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDict.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXRegistry.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXApp.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXId.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXDrawable.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXImage.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXIcon.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXBMPIcon.h
+
+F:/REDUCE-SVN/trunk/csl/fox/include/xincs.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdio.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/crtdefs.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_mac.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_secapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/vadefs.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_directx.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_ddk.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_off_t.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/swprintf.inl:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/stdio_s.h:
+
+C:/git-sdk-64/mingw64/include/c++/7.3.0/stdlib.h:
+
+C:/git-sdk-64/mingw64/include/c++/7.3.0/cstdlib:
+
+C:/git-sdk-64/mingw64/include/c++/7.3.0/x86_64-w64-mingw32/bits/c++config.h:
+
+C:/git-sdk-64/mingw64/include/c++/7.3.0/x86_64-w64-mingw32/bits/os_defines.h:
+
+C:/git-sdk-64/mingw64/include/c++/7.3.0/x86_64-w64-mingw32/bits/cpu_defines.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdlib.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include-fixed/limits.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include-fixed/syslimits.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/limits.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/stdlib_s.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/malloc.h:
+
+C:/git-sdk-64/mingw64/include/c++/7.3.0/bits/std_abs.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdarg.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdarg.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_stdarg.h:
+
+C:/git-sdk-64/mingw64/include/c++/7.3.0/math.h:
+
+C:/git-sdk-64/mingw64/include/c++/7.3.0/cmath:
+
+C:/git-sdk-64/mingw64/include/c++/7.3.0/bits/cpp_type_traits.h:
+
+C:/git-sdk-64/mingw64/include/c++/7.3.0/ext/type_traits.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/math.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/float.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/float.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/string.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/string_s.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/errno.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/signal.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pthread_signal.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/time.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_timeval.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sys/timeb.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/sys/timeb_s.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pthread_time.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/locale.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/fcntl.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/io.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sys/types.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sys/stat.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_stat64.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/direct.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/unistd.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/process.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/corecrt_startup.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/getopt.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pthread_unistd.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sys/time.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sys/param.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/dirent.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/windows.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdkddkver.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/excpt.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/windef.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/minwindef.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winapifamily.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/specstrings.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sal.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/driverspecs.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winnt.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_unicode.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/ctype.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/apiset.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/intrin-impl.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/basetsd.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/guiddef.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/x86intrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/ia32intrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/mmintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xmmintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/mm_malloc.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/emmintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/pmmintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/tmmintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/ammintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/smmintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/popcntintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/wmmintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/immintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avxintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx2intrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512fintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512erintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512pfintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512cdintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512vlintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512bwintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512dqintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512vlbwintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512vldqintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512ifmaintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512ifmavlintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512vbmiintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512vbmivlintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx5124fmapsintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx5124vnniwintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/avx512vpopcntdqintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/shaintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/lzcntintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/bmiintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/bmi2intrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/fmaintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/f16cintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/rtmintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xtestintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/mm3dnow.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/prfchwintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/fma4intrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xopintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/lwpintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/tbmintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/rdseedintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/fxsrintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xsaveintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xsaveoptintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/sgxintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/adxintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/clwbintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/clflushoptintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xsavesintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/xsavecintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/mwaitxintrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/clzerointrin.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/pkuintrin.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack4.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/poppack.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack4.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack2.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/poppack.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack2.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack8.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack8.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/ktmtypes.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winbase.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/apisetcconv.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/minwinbase.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/bemapiset.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/debugapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/errhandlingapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/fibersapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/fileapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/handleapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/heapapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/ioapiset.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/interlockedapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/jobapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/libloaderapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/memoryapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/namedpipeapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/namespaceapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/processenv.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/processthreadsapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/processtopologyapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/profileapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/realtimeapiset.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/securityappcontainer.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/securitybaseapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/synchapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sysinfoapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/systemtopologyapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/threadpoolapiset.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/threadpoollegacyapiset.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/utilapiset.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/wow64apiset.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winerror.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/fltwinerror.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/timezoneapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/wingdi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/pshpack1.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winuser.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/tvout.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winnls.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/datetimeapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stringapiset.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/wincon.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winver.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winreg.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/reason.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winnetwk.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/wnnc.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/virtdisk.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stralign.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sec_api/stralign_s.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winsvc.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/mcx.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/imm.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winsock2.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/_ws1_undef.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_bsd_types.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/inaddr.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/_socket_types.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/_fd_types.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/_ip_types.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/_wsadata.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/ws2def.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/psdk_inc/_wsa_errnos.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/qos.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/commctrl.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/prsht.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/shellapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/winspool.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/fxver.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/fxdefs.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXHash.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXThread.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXStream.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXMemoryStream.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXString.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSize.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXPoint.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRectangle.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXObject.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXSettings.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDict.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXRegistry.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXApp.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXId.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXDrawable.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXImage.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXIcon.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXBMPIcon.h:

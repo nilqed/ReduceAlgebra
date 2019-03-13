@@ -1,0 +1,1432 @@
+load liepde;
+
+
+
+%*******************************************************************%
+%                                                                   %
+%                      L I E P D E . T S T                          %
+%                      -------------------                          %
+%  liepde.tst contains test examples for the program liepde.red.    %
+%                                                                   %
+%  Author of this file: Thomas Wolf                                 %
+%  Date:  21. April 1998, 6. May 2003, 14. Feb 2006                 %
+%                                                                   %
+%  Details about the syntax of liepde.red are given in liepde.tex.  %
+%                                                                   %
+%  To run this demo you need to load liepde and crack through       %
+%     load crack,liepde$                                            %
+%  and to read in this file as                                      %
+%     in "liepde.tst"$                                              %
+%  If you got the source code of a newer version of liepde then     %
+%  either read it in through                                        %
+%     in "crack.red","liepde.red"$                                  %
+%  (with the appropriate directory name in front of liepde.red)     %
+%  or, to speed up the calculation, you compile before with         %
+%     faslout "crack"$                                              %
+%     in "crack.red"$                                               %
+%     faslend$                                                      %
+%     faslout "liepde"$                                             %
+%     in "liepde.red"$                                              %
+%     faslend$                                                      %
+%  and then load both it with                                       %
+%     load crack,liepde$                                            %
+%                                                                   %
+%*******************************************************************%
+
+lisp(depl!*:=nil)$
+
+     % clearing of all dependences
+setcrackflags()$
+
+
+lisp(print_:=nil)$
+
+       
+on dfprint$
+
+
+
+comment
+-------------------------------------------------------
+The following runs demonstrate the program LIEPDE for 
+the computation of infinitesimal symmetries. Times given
+below refer to a 8 MB session under LINUX on a 133 MHz
+Pentium PC with the CRACK version of April 1998 running
+PSL Reduce.
+-------------------------------------------------------$
+
+
+lisp(prelim_:=nil)$
+
+      % not necessary as this is the default value
+lisp(individual_:=nil)$
+
+  % not necessary as this is the default value
+
+comment
+-------------------------------------------------------
+The first example is a single ODE with a parametric
+function f=f(x) for which point symmetries are to be
+determined.
+(Time ~ 6 sec.)$
+
+write"-------------------------------------------------------"$
+
+
+-------------------------------------------------------
+
+
+lisp(freeint_:=nil)$
+
+ % This enables the solution of differential equ.s in
+                     % which unevaluated integrals remain. This becomes
+                     % necessary in this example through the parametric
+                     % function f=f(x)
+depend y,x$
+
+
+depend f,x$
+
+
+liepde({df(y,x,2)=-(y+3*f)*df(y,x)+y**3-f*y**2-(2*f**2+df(f,x))*y, 
+        {y}, {x}},
+       {"point"},{},{})$
+
+
+
+The ODE under investigation is :
+
+                                 2        2    3
+y  = - f *y - 3*y *f - y *y - 2*f *y - f*y  + y
+ 2x     x        x      x
+
+for the function(s) : 
+
+y(x)
+
+
+-------- 1. Symmetry:
+
+         int(f,x)          1
+xi_x= - e        *int(-----------,x)
+                        int(f,x)
+                       e
+
+       int(f,x)          1
+eta_y=e        *int(-----------,x)*f*y + y
+                      int(f,x)
+                     e
+
+-------- 2. Symmetry:
+
+         int(f,x)
+xi_x= - e
+
+       int(f,x)
+eta_y=e        *f*y
+
+
+-------- 
+
+nodepnd {y,f}$
+
+
+lisp(freeint_:=t)$
+
+   % Because the simplification of differential
+                     % expressions which involve unevaluated integrals
+                     % may provide difficulties such solutions involving
+                     % unevaluated integrals are disabled.
+
+comment
+-------------------------------------------------------
+The following example demonstrates a number of things.
+The Burgers equation is investigated concerning third
+order symmetries. The equation is used to substitute
+df(u,t) and all derivatives of df(u,t). This computation
+also shows that any equations that remain unsolved are
+returned, like in this case the heat quation.
+(Time ~ 15 sec.)$
+
+write"-------------------------------------------------------"$
+
+
+-------------------------------------------------------
+
+
+nodepnd {u}$
+
+
+depend u,t,x$
+
+
+liepde({df(u,t)=df(u,x,2)+df(u,x)**2,{u},{t,x}},{"general",3},{},{})$
+
+
+
+The PDE under investigation is :
+
+           2
+u =u   + u
+ t  2x    x
+
+for the function(s) : 
+
+u(t,x)
+
+
+-------- 1. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+eta_u=1
+
+-------- 2. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+eta_u=u
+       x
+
+-------- 3. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+eta_u=2*u *t + x
+         x
+
+-------- 4. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                         3
+eta_u=u   + 3*u  *u  + u
+       3x      2x  x    x
+
+-------- 5. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+             2              2                   3  2       2           2
+eta_u=4*u  *t  + 12*u  *u *t  + 4*u  *t*x + 4*u  *t  + 4*u  *t*x + u *x  - x
+         3x          2x  x         2x          x          x         x
+
+-------- 6. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+             3              3           2         3  3        2  2            2
+eta_u=8*u  *t  + 24*u  *u *t  + 12*u  *t *x + 8*u  *t  + 12*u  *t *x + 12*u *t
+         3x          2x  x          2x           x           x             x
+
+           2            3
+ + 6*u *t*x  + 6*t*x + x
+      x
+
+-------- 7. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                                         3       2
+eta_u=2*u  *t + 6*u  *u *t + u  *x + 2*u  *t + u  *x
+         3x        2x  x      2x        x       x
+
+-------- 8. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+              2
+eta_u=u   + u
+       2x    x
+
+-------- 9. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+             2       2  2                     2
+eta_u=4*u  *t  + 4*u  *t  + 4*u *t*x + 2*t + x
+         2x         x          x
+
+-------- 10. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                    2
+eta_u=2*u  *t + 2*u  *t + u *x
+         2x        x       x
+
+-------- Further symmetry:
+
+xi_t=0
+
+xi_x=0
+
+       c_23
+eta_u=------
+         u
+        e
+
+with c_23(t,x)
+which still has to satisfy: 
+
+0=c_23  - c_23
+      t       2x
+
+
+-------- 
+
+
+comment
+-------------------------------------------------------
+Now the same equation is investigated, this time only
+df(u,x,2) and its derivatives are substituted. As a
+consequence fewer jet-variables (u-derivatives of lower
+order) are generated in the process of formulating the
+symmetry conditions. Fewer jet-variables in which the
+conditions have to be fulfilled identically mean less
+overdetermined conditions and more solutions which to
+compute takes longer than before.
+(Time ~ 85 sec.)$
+
+write"-------------------------------------------------------"$
+
+
+-------------------------------------------------------
+
+
+liepde({df(u,x,2)=df(u,t)-df(u,x)**2,{u},{t,x}},{"general",3},{},{})$
+
+
+
+The PDE under investigation is :
+
+           2
+u  =u  - u
+ 2x  t    x
+
+for the function(s) : 
+
+u(t,x)
+
+
+-------- 1. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+eta_u=1
+
+-------- 2. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+eta_u=u
+       t
+
+-------- 3. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+            2                     2
+eta_u=4*u *t  + 4*u *t*x + 2*t + x
+         t         x
+
+-------- 4. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+eta_u=4*u *t + 2*u *x - 1
+         t        x
+
+-------- 5. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+eta_u=u
+       x
+
+-------- 6. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+eta_u=2*u *t + x
+         x
+
+-------- 7. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+eta_u=u    + u *u
+       t,x    t  x
+
+-------- 8. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+              2            2                  2
+eta_u=4*u   *t  + 4*u *u *t  + 4*u *t*x + u *x  - x
+         t,x         t  x         t        x
+
+-------- 9. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+              3            3          2            2           2            3
+eta_u=8*u   *t  + 8*u *u *t  + 12*u *t *x + 12*u *t  + 6*u *t*x  + 6*t*x + x
+         t,x         t  x          t            x         x
+
+-------- 10. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+eta_u=2*u   *t + 2*u *u *t + u *x
+         t,x        t  x      t
+
+-------- 11. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+              2
+eta_u=u   + u
+       2t    t
+
+-------- 12. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                          2       2  2                       2
+eta_u=8*u   *t*x + 8*u  *t  + 8*u  *t  + 8*u *u *t*x + 2*u *x  - 2*u *x + 1
+         t,x          2t         t          t  x          t         x
+
+-------- 13. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+               3             4        2  4             3            3
+eta_u=32*u   *t *x + 16*u  *t  + 16*u  *t  + 32*u *u *t *x + 48*u *t
+          t,x            2t          t           t  x            t
+
+          2  2          2             3       2         2    4
+ + 24*u *t *x  + 48*u *t *x + 8*u *t*x  + 12*t  + 12*t*x  + x
+       t             x           x
+
+-------- 14. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+               2            3       2  3             2             2
+eta_u=12*u   *t *x + 8*u  *t  + 8*u  *t  + 12*u *u *t *x + 6*u *t*x  - 6*u *t*x
+          t,x           2t         t           t  x           t           x
+
+       3            2
+ + u *x  - 6*t - 3*x
+    x
+
+-------- 15. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                             2
+eta_u=u   *x + 2*u  *t + 2*u  *t + u *u *x
+       t,x        2t        t       t  x
+
+-------- 16. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                         3
+eta_u=u   + 3*u  *u  + u
+       3t      2t  t    t
+
+-------- 17. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                                      2                            2
+eta_u=8*u   *u *t*x - u   *x + 4*u  *t  + 4*u    *t*x + 12*u  *u *t
+         t,x  t        t,x        3t         2t,x           2t  t
+
+                       2       3  2       2            2  2
+ + 4*u  *u *t*x + u  *x  + 4*u  *t  + 4*u  *u *t*x + u  *x  - u *u *x
+      2t  x        2t         t          t   x        t        t  x
+
+-------- 18. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                  3              2               3           4             3
+eta_u=64*u   *u *t *x - 24*u   *t *x + 8*u   *t*x  + 16*u  *t  + 32*u    *t *x
+          t,x  t            t,x           t,x            3t          2t,x
+
+              4              3             2  2        3  4        2     3
+ + 48*u  *u *t  + 32*u  *u *t *x + 24*u  *t *x  + 16*u  *t  + 32*u  *u *t *x
+       2t  t          2t  x            2t             t           t   x
+
+        2  2  2             2                3            2       4
+ + 24*u  *t *x  - 24*u *u *t *x + 8*u *u *t*x  - 24*u *t*x  + u *x  + 24*u *t*x
+       t              t  x           t  x            t         t          x
+
+         3              2
+ - 6*u *x  + 30*t + 15*x
+      x
+
+-------- 19. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                   5               4               3  3           6
+eta_u=384*u   *u *t *x + 960*u   *t *x + 160*u   *t *x  + 64*u  *t
+           t,x  t             t,x             t,x             3t
+
+              5                 6               5              5            4  2
+ + 192*u    *t *x + 192*u  *u *t  + 192*u  *u *t *x + 480*u  *t  + 240*u  *t *x
+        2t,x             2t  t           2t  x             2t           2t
+
+        3  6         2     5           2  5         2  4  2              4
+ + 64*u  *t  + 192*u  *u *t *x + 480*u  *t  + 240*u  *t *x  + 960*u *u *t *x
+       t            t   x             t            t               t  x
+
+              3  3           4           3  2          2  4           3
+ + 160*u *u *t *x  + 720*u *t  + 720*u *t *x  + 60*u *t *x  + 720*u *t *x
+        t  x              t           t             t              x
+
+           2  3            5        3        2  2         4    6
+ + 240*u *t *x  + 12*u *t*x  + 120*t  + 180*t *x  + 30*t*x  + x
+        x             x
+
+-------- 20. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                   4              3              2  3           5
+eta_u=160*u   *u *t *x - 80*u   *t *x + 40*u   *t *x  + 32*u  *t
+           t,x  t            t,x            t,x             3t
+
+             4                5              4             3  2        3  5
+ + 80*u    *t *x + 96*u  *u *t  + 80*u  *u *t *x + 80*u  *t *x  + 32*u  *t
+       2t,x            2t  t          2t  x            2t             t
+
+        2     4          2  3  2             3               2  3           3
+ + 80*u  *u *t *x + 80*u  *t *x  - 80*u *u *t *x + 40*u *u *t *x  - 360*u *t
+       t   x            t              t  x            t  x              t
+
+           2  2            4           2              3       5        2
+ - 120*u *t *x  + 10*u *t*x  - 420*u *t *x - 60*u *t*x  + u *x  - 120*t
+        t             t             x            x         x
+
+          2       4
+ - 120*t*x  - 10*x
+
+-------- 21. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                  2                           3           3             2
+eta_u=48*u   *u *t *x - 12*u   *t*x + 2*u   *x  + 16*u  *t  + 24*u    *t *x
+          t,x  t            t,x          t,x          3t          2t,x
+
+              3              2               2        3  3        2     2
+ + 48*u  *u *t  + 24*u  *u *t *x + 12*u  *t*x  + 16*u  *t  + 24*u  *u *t *x
+       2t  t          2t  x            2t            t           t   x
+
+        2    2                           3         2
+ + 12*u  *t*x  - 12*u *u *t*x + 2*u *u *x  - 6*u *x  + 6*u *x - 3
+       t             t  x          t  x         t         x
+
+-------- 22. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+eta_u
+
+                                                               3       2
+=2*u   *u *x + 2*u  *t + u    *x + 6*u  *u *t + u  *u *x + 2*u  *t + u  *u *x
+    t,x  t        3t      2t,x        2t  t      2t  x        t       t   x
+
+-------- 23. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                                     2
+eta_u=2*u   *u  + u     + u  *u  + u  *u
+         t,x  t    2t,x    2t  x    t   x
+
+-------- 24. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                 2                    2            2             2
+eta_u=8*u   *u *t  - 2*u   *t + u   *x  + 4*u    *t  + 4*u  *u *t  + 4*u  *t*x
+         t,x  t         t,x      t,x         2t,x         2t  x         2t
+
+       2     2       2                          2
+ + 4*u  *u *t  + 4*u  *t*x - 2*u *u *t + u *u *x  - 2*u *x
+      t   x         t           t  x      t  x         t
+
+-------- 25. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                  4            3            2  2             4              4
+eta_u=32*u   *u *t  - 16*u   *t  + 24*u   *t *x  + 16*u    *t  + 16*u  *u *t
+          t,x  t          t,x          t,x             2t,x          2t  x
+
+           3          2     4        2  3               3             2  2
+ + 32*u  *t *x + 16*u  *u *t  + 32*u  *t *x - 16*u *u *t  + 24*u *u *t *x
+       2t            t   x          t             t  x          t  x
+
+          2             3          2            2       4               3
+ - 48*u *t *x + 8*u *t*x  - 84*u *t  - 36*u *t*x  + u *x  - 48*t*x - 8*x
+       t           t            x          x         x
+
+-------- 26. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                  5             4            3  2             5              5
+eta_u=64*u   *u *t  + 160*u   *t  + 80*u   *t *x  + 32*u    *t  + 32*u  *u *t
+          t,x  t           t,x          t,x             2t,x          2t  x
+
+           4          2     5        2  4                4             3  2
+ + 80*u  *t *x + 32*u  *u *t  + 80*u  *t *x + 160*u *u *t  + 80*u *u *t *x
+       2t            t   x          t              t  x          t  x
+
+           3            2  3           3           2  2            4       2
+ + 240*u *t *x + 40*u *t *x  + 120*u *t  + 120*u *t *x  + 10*u *t*x  + 60*t *x
+        t            t              x           x             x
+
+         3    5
+ + 20*t*x  + x
+
+-------- 27. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                  3            2              2             3              3
+eta_u=32*u   *u *t  - 12*u   *t  + 12*u   *t*x  + 16*u    *t  + 16*u  *u *t
+          t,x  t          t,x          t,x            2t,x          2t  x
+
+           2          2     3        2  2               2               2
+ + 24*u  *t *x + 16*u  *u *t  + 24*u  *t *x - 12*u *u *t  + 12*u *u *t*x
+       2t            t   x          t             t  x          t  x
+
+                     3         2
+ - 24*u *t*x + 2*u *x  - 9*u *x  + 9*x
+       t          t         x
+
+-------- 28. Symmetry:
+
+xi_t=0
+
+xi_x=0
+
+                                                                  2
+eta_u=8*u   *u *t - u    + 4*u    *t + 4*u  *u *t + 2*u  *x + 4*u  *u *t
+         t,x  t      t,x      2t,x        2t  x        2t        t   x
+
+       2
+ + 2*u  *x - u *u
+      t       t  x
+
+-------- Further symmetry:
+
+xi_t=0
+
+xi_x=0
+
+       c_81
+eta_u=------
+         u
+        e
+
+with c_81(t,x)
+which still has to satisfy: 
+
+0=c_81  - c_81
+      t       2x
+
+
+-------- 
+
+nodepnd {u}$
+
+
+
+comment
+-------------------------------------------------------
+The following example includes the Karpman equations
+for three unknown functions in 4 variables. 
+
+If point symmetries are to be computed for a single
+equation or a system of equations of higher than first
+order then there is the option to formulate at first
+preliminary conditions for each equation, have CRACK
+solving these conditions before the full set of conditions
+is formulated and solved. This strategy is adopted if a
+lisp flag prelim_ has the value t. The default value
+is nil. 
+
+Similarly, if a system of equations is to be investigated
+and a flag individual_ has the value t then symmetry
+conditions are formulated and investigated for each
+individual equation successively. The default value is nil.
+
+It is advantageous to split a large set of conditions
+into smaller sets to be investigated successively if
+each set is sufficiently overdetermined to be solvable
+quickly. Then any substitutions are done in the smaller
+set and the next set of conditions is shorter. For
+example, for the Karpman equations below the speedup for
+prelim_:=t and individual_:=t is a factor of 10.
+(Time ~ 1 min.)$
+
+write"-------------------------------------------------------"$
+
+
+-------------------------------------------------------
+
+
+lisp(prelim_:=t)$
+
+
+lisp(individual_:=t)$
+
+
+
+depend r,x,y,z,t$
+
+
+depend f,x,y,z,t$
+
+
+depend v,x,y,z,t$
+
+
+
+liepde({
+
+first 
+solve(
+        {df(r,t) + w1*df(r,z)
+         + s1*(df(r,x)*df(f,x)+df(r,y)*df(f,y)+r*df(f,x,2)/2+r*df(f,y,2)/2) 
+         + s2*(df(r,z)*df(f,z)+r*df(f,z,2)/2),
+ 
+         df(f,t) + w1*df(f,z) 
+         - (s1*(df(r,x,2)/r+df(r,y,2)/r-df(f,x)**2-df(f,y)**2) +
+            s2*(df(r,z,2)/r-df(f,z)**2))/2 + a1*v,
+       
+         df(v,t,2) - w2**2*(df(v,x,2)+df(v,y,2)+df(v,z,2))
+         - 2*a2*r*(df(r,x,2)+df(r,y,2)+df(r,z,2))
+         - 2*a2*(df(r,x)**2+df(r,y)**2+df(r,z)**2)},
+         
+        {df(v,x,2), df(r,x,2), df(f,x,2)}         
+ 
+     )         
+         , {r,f,v}, {x,y,z,t}},
+
+       {"point"}, 
+       
+       {},{})$
+
+
+
+The PDE-system under investigation is :
+
+                 2       2     2          2     2          2     2
+v  =( - 4*f *a2*r  - 2*f  *a2*r *s1 - 2*f  *a2*r *s1 - 2*f  *a2*r *s2
+ 2x        t            x                y                z
+
+                 2          2             2
+      - 4*f *a2*r *w1 - 2*r  *a2*s1 - 2*r  *a2*s1 - 2*r  *a2*r*s1
+           z               x             y             2z
+
+                            2                           2            2
+      + 2*r  *a2*r*s2 - 2*r  *a2*s1 + v  *s1 - v  *s1*w2  - v  *s1*w2
+           2z              z           2t       2y           2z
+
+                 2          2
+      - 4*a1*a2*r *v)/(s1*w2 )
+
+                2          2          2
+r  =(2*f *r + f  *r*s1 + f  *r*s1 + f  *r*s2 + 2*f *r*w1 - r  *s1 - r  *s2
+ 2x     t      x          y          z            z         2y       2z
+
+      + 2*a1*r*v)/s1
+
+f  =
+ 2x
+
+  - 2*f *r *s1 - f  *r*s1 - 2*f *r *s1 - f  *r*s2 - 2*f *r *s2 - 2*r  - 2*r *w1
+       x  x       2y           y  y       2z           z  z         t      z
+--------------------------------------------------------------------------------
+                                      r*s1
+
+for the function(s) : 
+
+r(z,y,t,x), f(z,y,t,x), v(z,y,t,x)
+
+
+-------- 1. Symmetry:
+
+xi_x=0
+
+xi_y=0
+
+xi_z=0
+
+xi_t=0
+
+eta_r=0
+
+eta_f=1
+
+eta_v=0
+
+-------- 2. Symmetry:
+
+xi_x=0
+
+xi_y=0
+
+xi_z=0
+
+xi_t=0
+
+eta_r=0
+
+          2
+eta_f= - t
+
+       2*t
+eta_v=-----
+       a1
+
+-------- 3. Symmetry:
+
+xi_x=0
+
+xi_y=0
+
+xi_z=0
+
+xi_t=0
+
+eta_r=0
+
+eta_f= - t
+
+       1
+eta_v=----
+       a1
+
+-------- 4. Symmetry:
+
+xi_x=0
+
+xi_y=1
+
+xi_z=0
+
+xi_t=0
+
+eta_r=0
+
+eta_f=0
+
+eta_v=0
+
+-------- 5. Symmetry:
+
+xi_x= - y
+
+xi_y=x
+
+xi_z=0
+
+xi_t=0
+
+eta_r=0
+
+eta_f=0
+
+eta_v=0
+
+-------- 6. Symmetry:
+
+xi_x=0
+
+xi_y=0
+
+xi_z=1
+
+xi_t=0
+
+eta_r=0
+
+eta_f=0
+
+eta_v=0
+
+-------- 7. Symmetry:
+
+xi_x=1
+
+xi_y=0
+
+xi_z=0
+
+xi_t=0
+
+eta_r=0
+
+eta_f=0
+
+eta_v=0
+
+-------- 8. Symmetry:
+
+xi_x=0
+
+xi_y=0
+
+xi_z=0
+
+xi_t=1
+
+eta_r=0
+
+eta_f=0
+
+eta_v=0
+
+
+-------- 
+
+
+nodepnd {r,f,v}$
+
+
+
+comment
+-------------------------------------------------------
+In the following example a system of two equations (by
+V.Sokolov) is investigated concerning a special ansatz for
+4th order symmetries. The ansatz for the symmetries includes
+two unknown functions f,g. Because x is the second variable
+in the list of variables {t,x}, the name u!`2 stands for
+df(u,x).
+Because higher order symmetries are investigated we have
+to set prelim_:=nil. The symmetries to be calculated are
+lengthy and therefore conditions are not very overdetermined.
+In that case CRACK can take long to solve a single 
+subset of conditions. The complete set of conditions would
+have been more overdetermined and easier to solve. Therefore
+the advantage of first formulating all conditions and then
+solving them together with one CRACK call is that having
+more equations, the chance of finding short integrable
+equations among then is higher, i.e. CRACK has more freedom
+in optimizing the computation. Therefore individual_:=nil
+is more appropriate in this example.
+
+Because 4th order conditions are to be computed the
+`binding stack size' is increased.
+(Time ~ 5 min.)$
+
+write"-------------------------------------------------------"$
+
+
+-------------------------------------------------------
+
+
+lisp(prelim_:=nil)$
+
+
+lisp(individual_:=nil)$
+
+
+lisp(if getd 'set_bndstk_size then set_bndstk_size(7000))$
+
+
+
+nodepnd {u,v}$
+
+
+depend  u,x,t$
+
+
+depend  v,x,t$
+
+
+
+des:={df(u,t)=+df(u,x,2) + (u + v)*df(u,x) + u*df(v,x),
+      df(v,t)=-df(v,x,2) + (u + v)*df(v,x) + v*df(u,x)
+     }$
+
+
+
+nodepnd {f,g}$
+
+
+depend f,t,x,u,v,u!`2,v!`2,u!`2!`2,v!`2!`2,u!`2!`2!`2,v!`2!`2!`2$
+
+
+depend g,t,x,u,v,u!`2,v!`2,u!`2!`2,v!`2!`2,u!`2!`2!`2,v!`2!`2!`2$
+
+
+liepde({des,{u,v},{t,x}},
+       {xi_t=0,
+        xi_x=0,
+        eta_u=+df(u,x,4)+f,
+        eta_v=-df(v,x,4)+g
+       },
+       {f,g},{}
+      )$
+
+Your ansatz for the symmetry needs to be homogeneous, i.e. 
+substituting all unknown functions and constants to be computed 
+(which do not occur in the equation) to zero needs to make the 
+symmetry to zero. In your ansatz this is not 
+the case because the list of substitutions:
+{g=0,f=0}
+leaves this right hand side non-zero:
+eta_u=u
+       4x
+To fix your ansatz you could, for example, simply multiply all 
+non-vanishing parts on all right hand sides in your ansatz with one 
+and the same unknown constant, say cc, and add cc to the list of unknowns 
+to be computed and to the list of non-vanishing expressions.
+Your ansatz for the symmetry needs to be homogeneous, i.e. 
+substituting all unknown functions and constants to be computed 
+(which do not occur in the equation) to zero needs to make the 
+symmetry to zero. In your ansatz this is not 
+the case because the list of substitutions:
+{g=0,f=0}
+leaves this right hand side non-zero:
+eta_v= - v
+          4x
+To fix your ansatz you could, for example, simply multiply all 
+non-vanishing parts on all right hand sides in your ansatz with one 
+and the same unknown constant, say cc, and add cc to the list of unknowns 
+to be computed and to the list of non-vanishing expressions.
+nodepnd {f,g}$
+
+
+
+comment
+-------------------------------------------------------
+A relative new feature of the package CRACK is to be able to solve
+non-linear problems where unknowns to be determined may appear in
+exponents. This is the case when parameters in a differential equation
+is to be determined such that symmetries exist. The following ODE is
+such an example where the exponent `n' is to be determined so that
+the ODE has one or more symmetries. 
+  Something else is demonstrated in the following example. The
+parameter prolong_order allows to compute and print the prolongation
+of each of the found symmetry generators. In the following example
+all found symmetry generators are prolonged to order 2.$
+
+write"-------------------------------------------------------"$
+
+
+-------------------------------------------------------
+
+
+lisp(prolong_order:=2)$
+
+
+depend y,x$
+
+
+liepde({df(y,x,2) = x**n*y**2,y,x},{"point"},{n},{})$
+
+
+
+The ODE under investigation is :
+
+     n  2
+y  =x *y
+ 2x
+
+for the function(s) : 
+
+y(x)
+
+
+-------- 1. Symmetry:
+
+         x
+xi_x=---------
+      2*n + 5
+
+        - n*y - 2*y
+eta_y=--------------
+         2*n + 5
+
+         - y *n - 3*y
+            x        x
+eta_yx=----------------
+           2*n + 5
+
+             n    2      n  2
+          - x *n*y  - 4*x *y
+eta_yxx=----------------------
+               2*n + 5
+
+
+-------- 2. Symmetry:
+
+n=-2
+
+xi_x=x
+
+eta_y=0
+
+            1          3
+         - ---*y *n - ---*y
+            2   x      2   x
+eta_yx=----------------------
+                   5
+              n + ---
+                   2
+
+             1   n    2      n  2
+          - ---*x *n*y  - 2*x *y
+             2
+eta_yxx=--------------------------
+                      5
+                 n + ---
+                      2
+
+
+-------- 3. Symmetry:
+
+n=-1
+
+xi_x=x
+
+eta_y= - y
+
+            1          3
+         - ---*y *n - ---*y
+            2   x      2   x
+eta_yx=----------------------
+                   5
+              n + ---
+                   2
+
+             1   n    2      n  2
+          - ---*x *n*y  - 2*x *y
+             2
+eta_yxx=--------------------------
+                      5
+                 n + ---
+                      2
+
+
+-------- 4. Symmetry:
+
+      15
+n= - ----
+      7
+
+             6/7
+xi_x= - 343*x
+
+              1/7
+        - 12*x    - 147*y
+eta_y=--------------------
+               1/7
+              x
+
+eta_yx=0
+
+eta_yxx=0
+
+-------- 5. Symmetry:
+
+      15
+n= - ----
+      7
+
+xi_x=7*x
+
+eta_y=y
+
+            1          3
+         - ---*y *n - ---*y
+            2   x      2   x
+eta_yx=----------------------
+                   5
+              n + ---
+                   2
+
+             1   n    2      n  2
+          - ---*x *n*y  - 2*x *y
+             2
+eta_yxx=--------------------------
+                      5
+                 n + ---
+                      2
+
+
+-------- 6. Symmetry:
+
+n=-5
+
+      2
+xi_x=x
+
+eta_y=x*y
+
+eta_yx=0
+
+eta_yxx=0
+
+-------- 7. Symmetry:
+
+n=-5
+
+xi_x=x
+
+eta_y=3*y
+
+            1          3
+         - ---*y *n - ---*y
+            2   x      2   x
+eta_yx=----------------------
+                   5
+              n + ---
+                   2
+
+             1   n    2      n  2
+          - ---*x *n*y  - 2*x *y
+             2
+eta_yxx=--------------------------
+                      5
+                 n + ---
+                      2
+
+
+-------- 8. Symmetry:
+
+n=0
+
+xi_x=1
+
+eta_y=0
+
+eta_yx=0
+
+eta_yxx=0
+
+-------- 9. Symmetry:
+
+n=0
+
+xi_x=x
+
+eta_y= - 2*y
+
+            1          3
+         - ---*y *n - ---*y
+            2   x      2   x
+eta_yx=----------------------
+                   5
+              n + ---
+                   2
+
+             1   n    2      n  2
+          - ---*x *n*y  - 2*x *y
+             2
+eta_yxx=--------------------------
+                      5
+                 n + ---
+                      2
+
+
+-------- 10. Symmetry:
+
+      20
+n= - ----
+      7
+
+             8/7
+xi_x= - 343*x
+
+              1/7
+eta_y= - 196*x   *y + 12*x
+
+eta_yx=0
+
+eta_yxx=0
+
+-------- 11. Symmetry:
+
+      20
+n= - ----
+      7
+
+xi_x=7*x
+
+eta_y=6*y
+
+            1          3
+         - ---*y *n - ---*y
+            2   x      2   x
+eta_yx=----------------------
+                   5
+              n + ---
+                   2
+
+             1   n    2      n  2
+          - ---*x *n*y  - 2*x *y
+             2
+eta_yxx=--------------------------
+                      5
+                 n + ---
+                      2
+
+
+-------- 12. Symmetry:
+
+n=-3
+
+xi_x=x
+
+eta_y=y
+
+            1          3
+         - ---*y *n - ---*y
+            2   x      2   x
+eta_yx=----------------------
+                   5
+              n + ---
+                   2
+
+             1   n    2      n  2
+          - ---*x *n*y  - 2*x *y
+             2
+eta_yxx=--------------------------
+                      5
+                 n + ---
+                      2
+
+
+-------- 13. Symmetry:
+
+      5
+n= - ---
+      2
+
+xi_x=2*x
+
+eta_y=y
+
+            1                3
+         - ---*y *c_194*n - ---*y *c_194
+            2   x            2   x
+eta_yx=----------------------------------
+                         5
+                    n + ---
+                         2
+
+             1   n          2      n        2
+          - ---*x *c_194*n*y  - 2*x *c_194*y
+             2
+eta_yxx=--------------------------------------
+                            5
+                       n + ---
+                            2
+
+
+-------- 
+
+nodepnd {y}$
+
+
+lisp(prolong_order:=0)$
+
+
+
+end$
+
+Tested on x86_64-pc-windows CSL
+Time (counter 1): 16 ms
+
+End of Lisp run after 1.51+0.12 seconds
+real 1.88
+user 0.00
+sys 0.06

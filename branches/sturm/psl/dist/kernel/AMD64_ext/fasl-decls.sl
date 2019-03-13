@@ -1,0 +1,1 @@
+link ../brock/fasl-decls.sl

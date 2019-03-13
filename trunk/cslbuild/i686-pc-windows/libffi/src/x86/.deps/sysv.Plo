@@ -1,0 +1,11 @@
+src/x86/sysv.lo: F:/REDUCE-SVN/trunk/libraries/libffi/src/x86/sysv.S \
+ fficonfig.h include/ffi.h include/ffitarget.h \
+ F:/REDUCE-SVN/trunk/libraries/libffi/src/x86/internal.h
+
+fficonfig.h:
+
+include/ffi.h:
+
+include/ffitarget.h:
+
+F:/REDUCE-SVN/trunk/libraries/libffi/src/x86/internal.h:

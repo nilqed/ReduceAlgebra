@@ -1,0 +1,36 @@
+This directory contains everything necessary to build Debian/Ubuntu
+packages for REDUCE. To use it, you should have already installed the 
+package
+
+  devscripts
+
+To build the packages, run the following command from the debianbuild/reduce
+directory:
+
+  debuild -b -uc -us
+
+After successful completion, you should have three .deb package files for
+CSL, PSL and common files, respectively.
+
+You may check the package content with, e.g.,
+
+  dpkg --contents reduce-common_20120514_i386.deb
+
+Install the package with
+
+  dpkg --install reduce-common_20120514_i386.deb
+
+Rpm packagies can be built from this by running (You need Ubuntu packages 
+fakeroot and alien)
+
+ fakeroot alien -r -k reduce-*.deb
+
+The CSL and PSL versions of REDUCE are run with
+
+  /usr/bin/redpsl 
+
+and 
+  
+  /usr/bin/redcsl
+
+respectively.

@@ -1,0 +1,118 @@
+
+The (generalised) hypergeometric functions  
+\begin{displaymath}
+_pF_q \left( \genfrac{}{}{0pt}{}{a_1, \ldots , a_p}{b_1, \ldots ,b_q} \Bigg\vert z \right)
+\end{displaymath}
+are defined in textbooks on special functions as
+\begin{displaymath}
+_pF_q \left( \genfrac{}{}{0pt}{}{a_1, \ldots , a_p}{b_1, \ldots ,b_q} \Bigg\vert z \right)
+  = \sum_{n=0}^{\infty}\frac{(a_{1})_{n}\dots(a_{p})_{n}}{(b_{1})_{n}\dots(b_{q})_{n}}\frac{z^{n}}{n!}
+\end{displaymath}w
+where $(a)_{n}$ is the Pochhammer symbol
+\begin{displaymath}
+ (a)_{n} = \prod_{k=0}^{n-1} (a+k)
+\end{displaymath}
+
+The function 
+\begin{displaymath}
+G_{p q}^{m n} \left( z \  \Bigg\vert \  \genfrac{}{}{0pt}{}{(a_p)}{(b_q)} \right)
+\end{displaymath}
+has been studied by C.~S.~Meijer beginning in 1936 and has been
+called Meijer's G function later on. The complete definition of Meijer's
+G function can be found in \cite{Prudnikov:90}.
+Many well-known functions can be written as G functions,
+e.g. exponentials, logarithms, trigonometric functions, Bessel functions
+and hypergeometric functions.
+
+Several hundreds of particular values can be found in \cite{Prudnikov:90}.
+
+
+\subsection{\REDUCE{} operator HYPERGEOMETRIC}
+\hypertarget{operator:HYPERGEOMETRIC}{}
+
+The operator {\tt hypergeometric} expects 3 arguments, namely the 
+list of upper parameters (which may be empty), the list of lower
+parameters (which may be empty too), and the argument, e.g the input:
+\begin{verbatim}
+hypergeometric ({},{},z);
+\end{verbatim}
+yields the output
+\begin{verbatim}
+ z
+e
+\end{verbatim}
+and the input
+\begin{verbatim}
+hypergeometric ({1/2,1},{3/2},-x^2);
+\end{verbatim}
+gives
+\begin{verbatim}
+ atan(abs(x))
+--------------
+    abs(x)
+\end{verbatim}
+
+
+\subsection{Extending the HYPERGEOMETRIC operator}
+
+Since hundreds of particular cases for the generalised hypergeometric
+functions can be found in the literature, one cannot expect that all
+cases are known to the \texttt{hypergeometric} operator.
+Nevertheless the set of special cases can be augmented by adding
+rules to the \REDUCE{} system, {\em e.g.}
+\begin{verbatim}
+let {hypergeometric({1/2,1/2},{3/2},-(~x)^2) => asinh(x)/x};
+\end{verbatim}
+
+
+\subsection{\REDUCE{} operator {\tt meijerg}}
+\hypertarget{operator:MEIJERG}{}
+
+The operator \texttt{meijerg} expects 3 arguments, namely the 
+list of upper parameters (which may be empty), the list of lower
+parameters (which may be empty too), and the argument.
+
+The first element of the lists has to be the list of the
+first n or m respective parameters, e.g. to describe 
+\begin{displaymath}
+G_{1 1}^{1 0} \left( x \  \Bigg\vert \  \genfrac{}{}{0pt}{}{1}{0} \right)
+\end{displaymath}
+one has to write 
+\begin{verbatim}
+
+MeijerG({{},1},{{0}},x); % and the result is:
+
+ sign( - x + 1) + sign(x + 1)
+------------------------------
+              2
+
+\end{verbatim}
+and for
+\begin{displaymath}
+G_{0 2}^{1 0} \left( \frac{x^2}{4} \  \Bigg\vert \ \genfrac{}{}{0pt}{}{}{{1+ \frac{1}{4} },
+{1-\frac{1}{4}}} \right)
+\end{displaymath}
+\begin{verbatim}
+
+MeijerG({{}},{{1+1/4},1-1/4},(x^2)/4) * sqrt pi;
+
+
+                    2                    2
+ sqrt(pi)*sqrt(-----------)*sin(abs(x))*x
+                abs(x)*pi
+-------------------------------------------
+                     4
+
+
+\end{verbatim}
+
+\begin{thebibliography}{9}
+
+\bibitem{Prudnikov:90} A.~P.~Prudnikov, Yu.~A.~Brychkov, O.~I.~Marichev,
+{\em Integrals and Series, Volume 3: More special functions},
+Gordon and Breach Science Publishers (1990).
+
+\bibitem{Graham:89} R.~L.~Graham, D.~E.~Knuth, O.~Patashnik,
+{\em Concrete Mathematics}, Addison-Wesley Publishing Company (1989).
+
+\end{thebibliography}

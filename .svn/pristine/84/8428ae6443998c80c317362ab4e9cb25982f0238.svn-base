@@ -1,0 +1,114 @@
+\chapter{Changes since Version 3.8}
+
+\paragraph*{New packages}
+
+assert
+bibasis
+breduce
+cde
+cdiff
+clprl
+gcref
+guardian
+lalr
+lessons
+libreduce
+listvecops
+lpdo
+redfront
+reduce4
+sstools
+utf8
+
+\paragraph*{Core package rlisp}
+
+Support for namespaces (::)
+
+Default value in switch statement
+
+Support for utf8 characters
+
+\paragraph*{Core package poly}
+
+Improvements for differentiation: new switches \sw{expanddf}, \sw {allowdfint} etc
+(from odesolve)
+
+\paragraph*{Core package alg}
+
+New switch \sw{precise\_complex}
+
+Improvements for switch \sw{combineexpt} (exptchk.red)
+
+New command \f{unset}
+
+New operators \f{continued\_fraction}, \f{totaldeg}
+
+Operators now defined in the \REDUCE core:\\
+\f{changevar},
+\f{divide}, \f{pseudo\_divide}, \f{pseudo\_div}, \f{pseudo\_quotient}, \f{pseudo\_remainder},
+\f{si}, \f{ci}, \f{gamma}, \f{igamma}, \f{psi}, \f{polygamma}, \f{beta}, \f{ibeta},
+\f{euler},
+\f{bernoulli}, \f{pochhammer}, \f{lerch\_phi}, \f{polylog}, \f{zeta}, 
+\f{besselj},
+\f{bessely},
+\f{besseli},
+\f{besselk},
+\f{hankel1},
+\f{hankel2},
+\f{kummerM},
+\f{kummerU},
+\f{struveh},
+\f{struvel},
+\f{lommel1},
+\f{lommel2},
+\f{whittakerm},
+\f{whittakerw},
+\f{Airy\_Ai},
+\f{Airy\_Bi},
+\f{Airy\_AiPrime},
+\f{Airy\_biprime},
+\f{binomial},
+\f{solidharmonic},
+\f{sphericalharmonic},
+\f{fibonacci},\f{fibonaccip},
+\f{motzkin},
+\f{hypergeometric}, \f{MeijerG}.
+
+Constants now part of the core:\\
+ now known as part of the
+core, as well as constants \var{catalan}, \var{euler\_gamma}, \var{golden\_ratio},
+\var{khinchin}.
+
+Consistent branch cuts for complex numerical functions.
+
+Improvements to the \f{conj} operator, added \f{selfconjugate} declaration.
+
+\paragraph*{Core Package mathpr}
+
+New switch \sw{unicode\_in\_off\_nat} to have unicode characters
+displayed as such when nat is off.
+
+\paragraph*{Core Package solve}
+
+New boolean operator \f{polyp}(p,var), to determine whether p is a pure polynomial
+in var, ie. the coefficients of p do not contain var.
+
+\paragraph*{Core Package matrix}
+
+New keyword \k{matrixproc} for declaration of matrix-valued procedures.
+
+\paragraph{Package specfn}
+
+psi (digamma) function can now be calculated numerically for complex arguments.
+
+\paragraph{Package defint}
+
+Added tracing output printing of which is controlled by the switch \sw{trdefint}.
+
+\paragraph{TeXmacs interface}
+
+Print prompt numbers by setting the switch \sw{promptnumbers} to on by default.
+
+\paragraph{Package excalc}
+
+New command \f{killing\_vector}.

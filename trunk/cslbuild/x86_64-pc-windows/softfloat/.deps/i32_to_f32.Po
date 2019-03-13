@@ -1,0 +1,55 @@
+i32_to_f32.o: \
+ F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/i32_to_f32.c \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdbool.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdint.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdint.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/crtdefs.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_mac.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_secapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/vadefs.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_directx.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_ddk.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stddef.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stddef.h platform.h \
+ F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/internals.h \
+ F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/primitives.h \
+ F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/primitiveTypes.h \
+ F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/softfloat_types.h \
+ F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/softfloat.h
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdbool.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdint.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdint.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/crtdefs.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_mac.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_secapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/vadefs.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_directx.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_ddk.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stddef.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stddef.h:
+
+platform.h:
+
+F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/internals.h:
+
+F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/primitives.h:
+
+F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/primitiveTypes.h:
+
+F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/softfloat_types.h:
+
+F:/REDUCE-SVN/trunk/libraries/SoftFloat-3a/source/include/softfloat.h:

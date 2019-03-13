@@ -1,0 +1,10 @@
+FXException.o: F:/REDUCE-SVN/trunk/csl/fox/src/FXException.cpp \
+ F:/REDUCE-SVN/trunk/csl/fox/include/fxver.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/fxdefs.h \
+ F:/REDUCE-SVN/trunk/csl/fox/include/FXException.h
+
+F:/REDUCE-SVN/trunk/csl/fox/include/fxver.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/fxdefs.h:
+
+F:/REDUCE-SVN/trunk/csl/fox/include/FXException.h:

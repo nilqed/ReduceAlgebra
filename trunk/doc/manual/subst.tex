@@ -1,0 +1,790 @@
+\chapter{Substitution Commands}\index{Substitution}
+An important class of commands in {\REDUCE} define
+substitutions for variables and expressions to be made during the
+evaluation of expressions.  Such substitutions use the prefix operator
+\texttt{SUB}, various forms of the command \texttt{LET}, and rule sets.
+
+\section{SUB Operator}\ttindex{SUB}
+\hypertarget{operator:SUB}{}
+
+Syntax:
+\begin{syntax}
+        \texttt{SUB(}\meta{substitution\_list},\meta{EXPRN1:algebraic}\texttt{)}:algebraic
+\end{syntax}
+where \meta{substitution\_list} is a list of one or more equations of the
+form
+\begin{syntax}
+        \meta{VAR:kernel}\texttt{ = }\meta{EXPRN:algebraic}
+\end{syntax}
+or a kernel that evaluates to such a list.
+
+The \texttt{SUB} operator gives the algebraic result of replacing every
+occurrence of the variable \texttt{VAR} in the expression \texttt{EXPRN1} by the
+expression \texttt{EXPRN}.  Specifically, \texttt{EXPRN1} is first evaluated
+using all available rules.  Next the substitutions are made, and finally
+the substituted expression is reevaluated.  When more than one variable
+occurs in the substitution list, the substitution is performed by
+recursively walking down the tree representing \texttt{EXPRN1}, and replacing
+every \texttt{VAR} found by the appropriate \texttt{EXPRN}.  The \texttt{EXPRN} are
+not themselves searched for any occurrences of the various \texttt{VAR}s.
+The trivial case \texttt{SUB(EXPRN1)} returns the algebraic value of
+\texttt{EXPRN1}.
+
+\textit{Examples:}
+\begin{verbatim}
+                                    2              2
+     sub({x=a+y,y=y+1},x^2+y^2) -> A  + 2*A*Y + 2*Y  + 2*Y + 1
+\end{verbatim}
+and with \texttt{s := \{x=a+y,y=y+1\}},
+\begin{verbatim}
+                                    2              2
+     sub(s,x^2+y^2)             -> A  + 2*A*Y + 2*Y  + 2*Y + 1
+\end{verbatim}
+Note that the global assignments \texttt{x:=a+y}, etc., do not take place.
+
+\texttt{EXPRN1} can be any valid algebraic expression whose type is such that
+a substitution process is defined for it (e.g., scalar expressions, lists
+and matrices).  An error will occur if an expression of an invalid type
+for substitution occurs either in \texttt{EXPRN} or \texttt{EXPRN1}.
+
+The braces around the substitution list may also be omitted, as in:
+\begin{verbatim}
+                                    2              2
+     sub(x=a+y,y=y+1,x^2+y^2)   -> A  + 2*A*Y + 2*Y  + 2*Y + 1
+\end{verbatim}
+
+\section{LET Rules}\ttindex{LET}
+\hypertarget{command:LET}{}
+\hypertarget{reserved:impliesop}{}
+Unlike substitutions introduced via \texttt{SUB}, \texttt{LET}
+rules are global in scope and stay in effect until replaced or \texttt{CLEAR}ed.
+
+The simplest use of the \texttt{LET} statement is in the form
+\begin{syntax}
+        \texttt{LET }\meta{substitution list}
+\end{syntax}
+where \meta{substitution list} is a list of rules separated by commas, each
+of the form:
+\begin{syntax}
+        \meta{variable}\texttt{ = } \meta{expression}
+\end{syntax}
+or
+\begin{syntax}
+   \meta{prefix operator}\texttt{(}\meta{argument},\dots,\meta{argument}\texttt{) = }
+         \meta{expression}
+\end{syntax}
+or
+\begin{syntax}
+    \meta{argument}\meta{infix operator},\dots,\meta{argument}\texttt{ = }
+         \meta{expression}
+\end{syntax}
+For example,
+\begin{verbatim}
+        let {x => y^2,
+             h(u,v) => u - v,
+             cos(pi/3) => 1/2,
+             a*b => c,
+             l+m => n,
+             w^3 => 2*z - 3,
+             z^10 => 0}
+\end{verbatim}
+The list brackets can be left out if preferred.  The above rules could
+also have been entered as seven separate \texttt{LET} statements.
+
+After such \texttt{LET} rules have been input, \texttt{X} will always be
+evaluated as the square of \texttt{Y}, and so on.  This is so even if at the
+time the \texttt{LET} rule was input, the variable \texttt{Y} had a value other
+than \texttt{Y}. (In contrast, the assignment \texttt{x:=y\textasciicircum2} 
+will set \texttt{X}
+equal to the square of the current value of \texttt{Y}, which could be quite
+different.)
+
+The rule \texttt{let a*b=c} means that whenever \texttt{A} and \texttt{B} are both
+factors in an expression their product will be replaced by \texttt{C}.  For
+example, \texttt{a\textasciicircum5*b\textasciicircum7*w} would be replaced by
+\texttt{c\textasciicircum5*b\textasciicircum2*w}.
+
+The rule for \texttt{l+m} will not only replace all occurrences of \texttt{l+m}
+by \texttt{N}, but will also normally replace \texttt{L} by \texttt{n-m}, but not
+\texttt{M} by \texttt{n-l}.  A more complete description of this case is given
+in Section~\ref{sec-gensubs}.
+
+The rule pertaining to \texttt{w\textasciicircum3} will apply to any power of \texttt{W}
+greater than or equal to the third.
+
+Note especially the last example, \texttt{let z\textasciicircum10=0}.  This declaration
+means, in effect: ignore the tenth or any higher power of \texttt{Z}.  Such
+declarations, when appropriate, often speed up a computation to a
+considerable degree. (See\index{Asymptotic command}
+Section~\ref{sec-asymp} for more details.)
+
+Any new operators occurring in such \texttt{LET} rules will be automatically
+declared \texttt{OPERATOR} by the system, if the rules are being read from a
+file.  If they are being entered interactively, the system will ask
+\texttt{DECLARE} \ldots{} \texttt{OPERATOR?} .  Answer \texttt{Y} or \texttt{N} and hit
+\key{Return}.
+
+In each of these examples, substitutions are only made for the explicit
+expressions given; i.e., none of the variables may be considered arbitrary
+in any sense. For example, the command
+\begin{verbatim}
+        let h(u,v) = u - v;
+\end{verbatim}
+will cause \texttt{h(u,v)} to evaluate to \texttt{U - V}, but will not affect
+\texttt{h(u,z)} or \texttt{H} with any arguments other than precisely the
+symbols \texttt{U,V}.
+
+These simple \texttt{LET} rules are on the same logical level as assignments
+made with the := operator.  An assignment \texttt{x := p+q} cancels a rule
+\texttt{let x = y\textasciicircum2} made earlier, and vice versa.
+
+\textit{CAUTION:} A recursive rule such as
+\begin{verbatim}
+        let x = x + 1;
+\end{verbatim}
+is erroneous, since any subsequent evaluation of \texttt{X} would lead to a
+non-terminating chain of substitutions:
+\begin{verbatim}
+      x -> x + 1 -> (x + 1) + 1 -> ((x + 1) + 1) + 1 -> ...
+\end{verbatim}
+Similarly, coupled substitutions such as
+\begin{verbatim}
+        let l = m + n, n = l + r;
+\end{verbatim}
+would lead to the same error. As a result, if you try to evaluate an \texttt{X},
+\texttt{L} or \texttt{N} defined as above, you will get an error such as
+\begin{verbatim}
+        X improperly defined in terms of itself
+\end{verbatim}
+
+Array and matrix elements can appear on the left-hand side of a \texttt{LET}
+statement. However, because of their 
+\emph{instant evaluation}\index{Instant evaluation} property, it is the value of the element that
+is substituted for, rather than the element itself.  E.g.,
+\begin{verbatim}
+        array a(5);
+        a(2) := b;
+        let a(2) = c;
+\end{verbatim}
+results in \texttt{B} being substituted by \texttt{C}; the assignment for
+\texttt{a(2)} does not change.
+
+Finally, if an error occurs in any equation in a \texttt{LET} statement
+(including generalized statements involving \texttt{FOR ALL} and {\tt SUCH
+THAT)}, the remaining rules are not evaluated.
+
+\subsection{FOR ALL \ldots{} LET}\ttindex{FOR ALL}
+\hypertarget{command:FORALL}{}
+If a substitution for all possible values of a given argument of an
+operator is required, the declaration \texttt{FOR ALL} may be used. The
+syntax of such a command is
+\begin{syntaxtable}
+   \texttt{FOR ALL }\meta{variable},\dots,\meta{variable} \\
+   \qquad  \meta{LET statement} \meta{terminator}
+\end{syntaxtable}
+e.g.,
+\begin{verbatim}
+        for all x,y let h(x,y) = x-y;
+        for all x let k(x,y) = x^y;
+\end{verbatim}
+The first of these declarations would cause \texttt{h(a,b)} to be evaluated
+as \texttt{A-B}, \texttt{h(u+v,u+w)} to be \texttt{V-W}, etc.  If the operator
+symbol \texttt{H} is used with more or fewer argument places, not two, the
+\texttt{LET} would have no effect, and no error would result.
+
+The second declaration would cause \texttt{k(a,y)} to be evaluated as
+\texttt{a\textasciicircum y}, but would have no effect on \texttt{k(a,z)} since the rule
+didn't say \texttt{FOR ALL Y} \ldots .
+
+Where we used \texttt{X} and \texttt{Y} in the examples, any variables could
+have been used.  This use of a variable doesn't affect the value it may
+have outside the \texttt{LET} statement.  However, you should remember what
+variables you actually used.  If you want to delete the rule subsequently,
+you must use the same variables in the \texttt{CLEAR} command.
+
+It is possible to use more complicated expressions as a template for a
+\texttt{LET} statement, as explained in the section on substitutions for
+general expressions.  In nearly all cases, the rule will be accepted, and
+a consistent application made by the system.  However, if there is a sole
+constant or a sole free variable on the left-hand side of a rule (e.g.,
+\texttt{let 2=3} or \texttt{for all x let x=2)}, then the system is unable to
+handle the rule, and the error message
+\begin{verbatim}
+        Substitution for ... not allowed
+\end{verbatim}
+will be issued.  Any variable listed in the \texttt{FOR ALL} part will have
+its symbol preceded by an equal sign: \texttt{X} in the above example will
+appear as \texttt{=X}.  An error will also occur if a variable in the
+\texttt{FOR ALL} part is not properly matched on both sides of the \texttt{LET}
+equation.
+
+\subsection{FOR ALL \ldots{} SUCH THAT \ldots{} LET}
+\hypertarget{command:SUCHTHAT}{}
+\ttindex{FOR ALL}\ttindex{SUCH THAT}
+
+If a substitution is desired for more than a single value of a variable in
+an operator or other expression, but not all values, a conditional form of
+the \texttt{FOR ALL \ldots{} LET} declaration can be used.
+
+\textit{Example:}
+\begin{verbatim}
+        for all x such that numberp x and x<0 let h(x)=0;
+\end{verbatim}
+will cause \texttt{h(-5)} to be evaluated as 0, but \texttt{H} of a positive
+integer, or of an argument that is not an integer at all, would not be
+affected.  Any boolean expression can follow the \texttt{SUCH THAT} keywords.
+
+\hypertarget{reserved:CLEAR}{\subsection{Removing Assignments and Substitution Rules}}\ttindex{CLEAR}
+
+The user may remove all assignments and substitution rules from any
+expression by the command \texttt{CLEAR}, in the form
+\begin{syntax}
+  \texttt{CLEAR } \meta{expression},\dots,\meta{expression} \texttt{ = } \meta{terminator}
+\end{syntax}
+e.g.
+\begin{verbatim}
+        clear x, h(x,y);
+\end{verbatim}
+Because of their \emph{instant evaluation} property, array and matrix elements
+cannot be cleared with \texttt{CLEAR}.  For example, if \texttt{A} is an array,
+you must say
+\begin{verbatim}
+        a(3) := 0;
+\end{verbatim}
+rather than
+\begin{verbatim}
+        clear a(3);
+\end{verbatim}
+to ``clear'' element \texttt{a(3)}.
+
+On the other hand, a whole array (or matrix) \texttt{A} can be cleared by the
+command \texttt{clear a};  This means much more than resetting to 0 all the
+elements of \texttt{A}.  The fact that \texttt{A} is an array, and what its
+dimensions are, are forgotten, so \texttt{A} can be redefined as another type
+of object, for example an operator.
+
+If you need to clear a variable whose name must be computed, see the
+\hyperlink{command:UNSET}{\texttt{UNSET} statement}.
+
+The more general types of \texttt{LET} declarations can also be deleted by
+using \texttt{CLEAR}.  Simply repeat the \texttt{LET} rule to be deleted, using
+\texttt{CLEAR} in place of \texttt{LET}, and omitting the equal sign and
+right-hand part.  The same dummy variables must be used in the {\tt FOR
+ALL} part, and the boolean expression in the \texttt{SUCH THAT} part must be
+written the same way. (The placing of blanks doesn't have to be
+identical.)
+
+\textit{Example:} The \texttt{LET} rule
+\begin{verbatim}
+        for all x such that numberp x and x<0 let h(x)=0;
+\end{verbatim}
+can be erased by the command
+\begin{verbatim}
+        for all x such that numberp x and x<0 clear h(x);
+\end{verbatim}
+
+\subsection{Overlapping LET Rules}
+\texttt{CLEAR} is not the only way to delete a \texttt{LET} rule.  A new 
+\texttt{LET} rule identical to the first, but with a different expression after
+the equal sign, replaces the first.  Replacements are also made in other
+cases where the existing rule would be in conflict with the new rule.  For
+example, a rule for \texttt{x\textasciicircum 4} would replace a rule for 
+\texttt{x\textasciicircum 5}.
+The user should however be cautioned against having several \texttt{LET}
+rules in effect that relate to the same expression.  No guarantee can be
+given as to which rules will be applied by {\REDUCE} or in what order.  It
+is best to \texttt{CLEAR} an old rule before entering a new related 
+\texttt{LET} rule.
+
+\subsection{Substitutions for General Expressions}
+\label{sec-gensubs}
+The examples of substitutions discussed in other sections have involved
+very simple rules. However, the substitution mechanism used in {\REDUCE} is
+very general, and can handle arbitrarily complicated rules without
+difficulty.
+
+The general substitution mechanism used in {\REDUCE} is discussed in Hearn, A.
+C., ``{\REDUCE}, A User-Oriented Interactive System for Algebraic
+Simplification,'' Interactive Systems for Experimental Applied Mathematics,
+(edited by M. Klerer and J. Reinfelds), Academic Press, New York (1968),
+79-90, and Hearn. A. C., ``The Problem of Substitution,'' Proc. 1968 Summer
+Institute on Symbolic Mathematical Computation, IBM Programming Laboratory
+Report FSC 69-0312 (1969). For the reasons given in these
+references, {\REDUCE} does not attempt to implement a general pattern
+matching algorithm.  However, the present system uses far more sophisticated
+techniques than those discussed in the above papers.  It is now possible for
+the rules appearing in arguments of \texttt{LET} to have the form
+\begin{syntax}
+       \meta{substitution expression} \texttt{ = } \meta{expression}
+\end{syntax}
+where any rule to which a sensible meaning can be assigned is permitted.
+However, this meaning can vary according to the form of \meta{substitution
+expression}. The semantic rules associated with the application of the
+substitution are completely consistent, but somewhat complicated by the
+pragmatic need to perform such substitutions as efficiently as possible.
+The following rules explain how the majority of the cases are handled.
+
+To begin with, the \meta{substitution expression} is first partly
+simplified by collecting like terms and putting identifiers (and kernels)
+in the system order.  However, no substitutions are performed on any part
+of the expression with the exception of expressions with the \emph{instant
+evaluation} property, such as array and matrix elements, whose actual
+values are used.  It should also be noted that the system order used is
+not changeable by the user, even with the \texttt{KORDER} command.  Specific
+cases are then handled as follows:
+\begin{enumerate}
+\item If the resulting simplified rule has a left-hand side that is an
+identifier, an expression with a top-level algebraic operator or a power,
+then the rule is added without further change to the appropriate table.
+
+\item If the operator \texttt{*} appears at the top level of the simplified left-hand
+side, then any constant arguments in that expression are moved to the
+right-hand side of the rule.  The remaining left-hand side is then added
+to the appropriate table.  For example,
+\begin{verbatim}
+        let 2*x*y=3
+\end{verbatim}
+becomes
+\begin{verbatim}
+        let x*y=3/2
+\end{verbatim}
+so that \texttt{x*y} is added to the product substitution table, and when
+this rule is applied, the expression \texttt{x*y} becomes 3/2, but \texttt{X} or
+\texttt{Y} by themselves are not replaced.
+
+\item If the operators \texttt{+}, \texttt{-} or \texttt{/} appear at the top level
+of the simplified left-hand side, all but the first term is moved to the
+right-hand side of the rule.  Thus the rules
+\begin{verbatim}
+        let l+m=n, x/2=y, a-b=c
+\end{verbatim}
+become
+\begin{verbatim}
+        let l=n-m, x=2*y, a=c+b.
+\end{verbatim}
+\end{enumerate}
+One problem that can occur in this case is that if a quantified expression
+is moved to the right-hand side, a given free variable might no longer
+appear on the left-hand side, resulting in an error because of the
+unmatched free variable. E.g.,
+\begin{verbatim}
+        for all x,y let f(x)+f(y)=x*y
+\end{verbatim}
+would become
+\begin{verbatim}
+        for all x,y let f(x)=x*y-f(y)
+\end{verbatim}
+which no longer has \texttt{Y} on both sides.
+
+The fact that array and matrix elements are evaluated in the left-hand side
+of rules can lead to confusion at times. Consider for example the
+statements
+\begin{verbatim}
+        array a(5); let x+a(2)=3; let a(3)=4;
+\end{verbatim}
+The left-hand side of the first rule will become \texttt{X}, and the second
+0.  Thus the first rule will be instantiated as a substitution for
+\texttt{X}, and the second will result in an error.
+
+The order in which a list of rules is applied is not easily understandable
+without a detailed knowledge of the system simplification protocol. It is
+also possible for this order to change from release to release, as improved
+substitution techniques are implemented. Users should therefore assume
+that the order of application of rules is arbitrary, and program
+accordingly.
+
+After a substitution has been made, the expression being evaluated is
+reexamined in case a new allowed substitution has been generated. This
+process is continued until no more substitutions can be made.
+
+\hypertarget{command:MATCH}{}
+As mentioned elsewhere, when a substitution expression appears in a
+product, the substitution is made if that expression divides the product.
+For example, the rule
+\begin{verbatim}
+        let a^2*c = 3*z;
+\end{verbatim}
+would cause \texttt{a\textasciicircum 2*c*x} to be replaced by \texttt{3*Z*X} and
+\texttt{a\textasciicircum 2*c\textasciicircum 2} by \texttt{3*Z*C}.  If the substitution is desired only
+when the substitution expression appears in a product with the explicit
+powers supplied in the rule, the command \texttt{MATCH} should be used
+instead.\ttindex{MATCH}
+
+For example,
+\begin{verbatim}
+        match a^2*c = 3*z;
+\end{verbatim}
+would cause \texttt{a\textasciicircum 2*c*x} to be replaced by \texttt{3*Z*X}, but
+\texttt{a\textasciicircum 2*c\textasciicircum 2} would not be replaced. \texttt{MATCH} can also be used
+with the \texttt{FOR ALL} constructions described above.
+
+To remove substitution rules of the type discussed in this section, the
+\texttt{CLEAR}\ttindex{CLEAR} command can be used, combined, if necessary,
+with the same \texttt{FOR ALL} clause with which the rule was defined, for
+example:
+\begin{verbatim}
+        for all x clear log(e^x),e^log(x),cos(w*t+theta(x));
+\end{verbatim}
+Note, however, that the arbitrary variable names in this case \emph{must}
+be the same as those used in defining the substitution.
+
+\section{Rule Lists} \index{Rule lists}
+
+Rule lists offer an alternative approach to defining substitutions that is
+different from either \texttt{SUB} or \texttt{LET}.  In fact, they provide the
+best features of both, since they have all the capabilities of \texttt{LET},
+but the rules can also be applied locally as is possible with \texttt{SUB}.
+In time, they will be used more and more in {\REDUCE}.  However, since they
+are relatively new, much of the {\REDUCE} code you see uses the older
+constructs.
+
+\hypertarget{reserved:WHEN}{}
+A rule list is a list of \emph{rules} that have the syntax
+\begin{verbatim}
+     <expression> => <expression> (WHEN <boolean expression>)
+\end{verbatim}
+For example,
+\begin{verbatim}
+        {cos(~x)*cos(~y) => (cos(x+y)+cos(x-y))/2,
+         cos(~n*pi)      => (-1)^n when remainder(n,2)=0}
+\end{verbatim}
+
+The tilde preceding a variable marks that variable as \emph{free} for that
+rule, much as a variable in a \texttt{FOR ALL} clause in a \texttt{LET}
+statement.  The first occurrence of that variable in each relevant rule
+must be so marked on input, otherwise inconsistent results can occur.
+For example, the rule list
+\begin{verbatim}
+        {cos(~x)*cos(~y) => (cos(x+y)+cos(x-y))/2,
+         cos(x)^2        => (1+cos(2x))/2}
+\end{verbatim}
+designed to replace products of cosines, would not be correct, since the
+second rule would only apply to the explicit argument \texttt{X}.  Later
+occurrences in the same rule may also be marked, but this is optional
+(internally, all such rules are stored with each relevant variable
+explicitly marked).  The optional \texttt{WHEN}\ttindex{WHEN} clause allows
+constraints to be placed on the application of the rule, much as the 
+\texttt{SUCH THAT} clause in a \texttt{LET} statement.
+
+A rule list may be named, for example
+\begin{verbatim}
+        trig1 := {cos(~x)*cos(~y) => (cos(x+y)+cos(x-y))/2,
+                  cos(~x)*sin(~y) => (sin(x+y)-sin(x-y))/2,
+                  sin(~x)*sin(~y) => (cos(x-y)-cos(x+y))/2,
+                  cos(~x)^2       => (1+cos(2*x))/2,
+                  sin(~x)^2       => (1-cos(2*x))/2};
+\end{verbatim}
+
+Such named rule lists may be inspected as needed. E.g., the command
+\texttt{trig1;} would cause the above list to be printed.
+
+\hypertarget{CLEARRULES}{}
+Rule lists may be used in two ways.  They can be globally instantiated by
+means of the command \texttt{LET}\ttindex{LET}. For example,
+\begin{verbatim}
+        let trig1;
+\end{verbatim}
+would cause the above list of rules to be globally active from then on until
+cancelled by the command \texttt{CLEARRULES},\ttindex{CLEARRULES} as in
+\begin{verbatim}
+        clearrules trig1;
+\end{verbatim}
+\texttt{CLEARRULES} has the syntax
+\begin{verbatim}
+        CLEARRULES <rule list>|<name of rule list>(,...) .
+\end{verbatim}
+
+\hypertarget{operator:WHERE}{}
+The second way to use rule lists is to invoke them locally by means of a
+\texttt{WHERE}\ttindex{WHERE} clause.  For example
+\begin{verbatim}
+        cos(a)*cos(b+c)
+           where {cos(~x)*cos(~y) => (cos(x+y)+cos(x-y))/2};
+\end{verbatim}
+or
+\begin{verbatim}
+        cos(a)*sin(b) where trigrules;
+\end{verbatim}
+
+The syntax of an expression with a \texttt{WHERE} clause is:
+\begin{verbatim}
+        <expression>
+            WHERE <rule>|<rule list>(,<rule>|<rule list> ...)
+\end{verbatim}
+so the first example above could also be written
+\begin{verbatim}
+        cos(a)*cos(b+c)
+           where cos(~x)*cos(~y) => (cos(x+y)+cos(x-y))/2;
+\end{verbatim}
+
+The effect of this construct is that the rule list(s) in the \texttt{WHERE}
+clause only apply to the expression on the left of \texttt{WHERE}.  They have
+no effect outside the expression.  In particular, they do not affect
+previously defined \texttt{WHERE} clauses or \texttt{LET} statements.  For
+example, the sequence
+\begin{verbatim}
+     let a=2;
+     a where a=>4;
+     a;
+\end{verbatim}
+would result in the output
+\begin{verbatim}
+     4
+
+     2
+\end{verbatim}
+
+Although \texttt{WHERE} has a precedence less than any other infix operator,
+it still binds higher than keywords such as \texttt{ELSE}, \texttt{THEN},
+\texttt{DO}, \texttt{REPEAT} and so on.  Thus the expression
+\begin{verbatim}
+        if a=2 then 3 else a+2 where a=3
+\end{verbatim}
+will parse as
+\begin{verbatim}
+        if a=2 then 3 else (a+2 where a=3)
+\end{verbatim}
+
+\texttt{WHERE} may be used to introduce auxiliary variables in symbolic mode
+expressions, as described in Section~\ref{sec-lambda}.  However, the
+symbolic mode use has different semantics, so expressions do not carry
+from one mode to the other.
+
+\COMPATNOTE In order to provide compatibility with older versions of rule
+lists released through the Network Library, it is currently possible to use
+an equal sign interchangeably with the replacement sign \texttt{=>} in rules
+and \texttt{LET} statements.  However, since this will change in future
+versions, the replacement sign is preferable in rules and the equal sign
+in non-rule-based \texttt{LET} statements.
+
+\subsection*{Advanced Use of Rule Lists}
+
+Some advanced features of the rule list mechanism make it possible to
+write more complicated rules than those discussed so far, and in many
+cases to write more compact rule lists.  These features are:
+
+\begin{itemize}
+\item Free operators
+\item Double slash operator
+\item Double tilde variables.
+\end{itemize}
+\index{Free operators!in rules}
+\index{Rules!Free operators}
+\index{Operators!free, in rules}
+A \emph{free operator} in the left hand side of a pattern will match any
+operator with the same number of arguments.  The free operator is written
+in the same style as a variable.  For example, the implementation of the
+product rule of differentiation can be written as:
+\begin{verbatim}
+operator diff, !~f, !~g;
+
+prule := {diff(~f(~x) * ~g(~x),x) =>
+             diff(f(x),x) * g(x) + diff(g(x),x) * f(x)};
+
+let prule;
+
+diff(sin(z)*cos(z),z);
+
+         cos(z)*diff(sin(z),z) + diff(cos(z),z)*sin(z)
+\end{verbatim}
+
+\hypertarget{reserved:doubleslashop}{}
+\ttindextype{//}{operator}
+\index{Double slash operator!in rules}
+\index{Rules!Double slash operators}
+\index{Operator!double slash}
+The \emph{double slash operator} may be used as an alternative to a single
+slash (quotient) in order to match quotients properly.  E.g., in the
+example of the Gamma function above, one can use:
+\begin{verbatim}
+gammarule :=
+   {gamma(~z)//(~c*gamma(~zz))  => gamma(z)/(c*gamma(zz-1)*zz)
+                  when fixp(zz -z) and (zz -z) >0,
+    gamma(~z)//gamma(~zz) => gamma(z)/(gamma(zz-1)*zz)
+                  when fixp(zz -z) and (zz -z) >0};
+
+let gammarule;
+
+gamma(z)/gamma(z+3);
+
+          1
+----------------------
+  3      2
+ z  + 6*z  + 11*z + 6
+\end{verbatim}
+\index{Double tilde variables!in rules}
+\index{Rules!Double tilde variables}
+\index{Variable!double tilde}
+The above example suffers from the fact that two rules had to be
+written in order to perform the required operation. This can be simplified
+by the use of \emph{double tilde variables}. E.g. the rule list
+\begin{verbatim}
+ GGrule :=  {
+    gamma(~z)//(~~c*gamma(~zz))  => gamma(z)/(c*gamma(zz-1)*zz)
+     when fixp(zz -z) and (zz -z) >0};
+\end{verbatim}
+will implement the same operation in a much more compact way.
+In general, double tilde variables are bound to the neutral element
+with respect to the operation in which they are used.
+
+\begin{tabular}{lll}
+
+Pattern given & Argument used & Binding  \\
+\\
+\textasciitilde z + \textasciitilde \textasciitilde y  &   x   &  z=x; y=0  \\   
+\textasciitilde z + \textasciitilde \textasciitilde y  &   x+3 &  z=x; y=3  or  z=3; y=x \\ 
+\\
+\textasciitilde z * \textasciitilde \textasciitilde y  &   x   &  z=x; y=1\\
+\textasciitilde z * \textasciitilde \textasciitilde y  &   x*3 &  z=x; y=3  or  z=3; y=x\\
+\\
+\textasciitilde z / \textasciitilde \textasciitilde y  &    x   &  z=x; y=1\\
+\textasciitilde z / \textasciitilde \textasciitilde y  &    x/3 &  z=x; y=3  \\
+\\
+\end{tabular}
+
+Remarks: A double tilde variable as the numerator of a pattern is not allowed.
+Also, using double tilde variables may lead to recursion errors when the
+zero case is not handled properly.
+\begin{verbatim}
+let f(~~a * ~x,x)  => a * f(x,x) when freeof (a,x);
+
+f(z,z);
+
+***** f(z,z) improperly defined in terms of itself
+
+% BUT:
+
+let ff(~~a * ~x,x)
+       => a * ff(x,x) when freeof (a,x) and a neq 1;
+
+ff(z,z);
+                 ff(z,z)
+
+ff(3*z,z);
+                 3*ff(z,z)
+\end{verbatim}
+
+\subsection*{Displaying Rules Associated with an Operator}
+\hypertarget{operator:SHOWRULES}{}
+
+The operator \texttt{SHOWRULES}\ttindex{SHOWRULES} takes a single identifier
+as argument, and returns in rule-list form the operator rules associated
+with that argument.  For example:
+\begin{verbatim}
+showrules log;
+
+{LOG(E) => 1,
+
+ LOG(1) => 0,
+
+      ~X
+ LOG(E  ) => ~X,
+
+                    1
+ DF(LOG(~X),~X) => ----}
+                    ~X
+\end{verbatim}
+
+Such rules can then be manipulated further as with any list.  For example
+\texttt{rhs first ws;} has the value \texttt{1}.  Note that an operator may
+have other properties that cannot be displayed in such a form, such as the
+fact it is an odd function, or has a definition defined as a procedure.
+
+\subsection*{Order of Application of Rules}
+
+If rules have overlapping domains, their order of application is
+important.  In general, it is very difficult to specify this order
+precisely, so that it is best to assume that the order is arbitrary.
+However, if only one operator is involved, the order of application of the
+rules for this operator can be determined from the following:
+
+\begin{enumerate}
+\item Rules containing at least one free variable apply before all rules
+without free variables.
+\item Rules activated in the most recent \texttt{LET}
+command are applied first.
+\item \texttt{LET} with several entries generate
+the same order of application as a corresponding sequence of commands with
+one rule or rule set each.
+\item Within a rule set, the rules containing at least
+one free variable are applied in their given order.
+In other words, the first member of the list is applied first.
+\item Consistent with the first item, any rule in a rule list that
+contains no free variables is applied after all rules containing free
+variables.
+\end{enumerate}
+\textit{Example:} The following rule set enables the computation of exact
+values of the Gamma function:
+\begin{verbatim}
+        operator gamma,gamma_error;
+        gamma_rules :=
+        {gamma(~x)=>sqrt(pi)/2 when x=1/2,
+         gamma(~n)=>factorial(n-1) when fixp n and n>0,
+         gamma(~n)=>gamma_error(n) when fixp n,
+         gamma(~x)=>(x-1)*gamma(x-1) when fixp(2*x) and x>1,
+         gamma(~x)=>gamma(x+1)/x when fixp(2*x)};
+\end{verbatim}
+Here, rule by rule, cases of known or definitely uncomputable values
+are sorted out; e.g. the rule leading to the error expression
+will be applied for negative integers only, since the positive
+integers are caught by the preceding rule, and the
+last rule will apply for negative odd multiples of $1/2$ only.
+Alternatively the first rule could have been written as
+\begin{verbatim}
+        gamma(1/2) => sqrt(pi)/2,
+\end{verbatim}
+but then the case $x=1/2$ should be excluded in the \texttt{WHEN} part of the
+last rule explicitly because a rule without free variables cannot take
+precedence over the other rules.
+
+\section{Asymptotic Commands} \index{Asymptotic command}
+\label{sec-asymp}
+In expansions of polynomials involving variables that are known to be
+small, it is often desirable to throw away all powers of these variables
+beyond a certain point to avoid unnecessary computation.  The command 
+\texttt{LET} may be used to do this.  For example, if only powers of \texttt{X} up to
+\texttt{x\textasciicircum 7} are needed, the command
+\begin{verbatim}
+        let x^8 = 0;
+\end{verbatim}
+will cause the system to delete all powers of \texttt{X} higher than 7.
+
+\textit{CAUTION:}  This particular simplification works differently from most
+substitution mechanisms in {\REDUCE} in that it is applied during
+polynomial manipulation rather than to the whole evaluated expression.
+Thus, with the above rule in effect, 
+\texttt{x\textasciicircum 10/x\textasciicircum 5} would give the
+result zero, since the numerator would simplify to zero.  Similarly
+\texttt{x\textasciicircum 20/x\textasciicircum 10} would give a 
+\texttt{Zero divisor} error message,
+since both numerator and denominator would first simplify to zero.
+
+\hypertarget{command:WEIGHT}{}
+The method just described is not adequate when expressions involve several
+variables having different degrees of smallness. In this case, it is
+necessary to supply an asymptotic weight to each variable and count up the
+total weight of each product in an expanded expression before deciding
+whether to keep the term or not. There are two associated commands in the
+system to permit this type of asymptotic constraint. The command 
+\texttt{WEIGHT}\ttindex{WEIGHT}
+takes a list of equations of the form
+\begin{syntax}
+      \meta{kernel form} \texttt{ = } \meta{number}
+\end{syntax}
+where \meta{number} must be a positive integer (not just evaluate to a
+positive integer).  This command assigns the weight \meta{number} to the
+relevant kernel form.  A check is then made in all algebraic evaluations
+to see if the total weight of the term is greater than the weight level
+assigned to the calculation.  If it is, the term is deleted.  To compute
+the total weight of a product, the individual weights of each kernel form
+are multiplied by their corresponding powers and then added.
+
+\hypertarget{command:WTLEVEL}{}
+The weight level of the system is initially set to 1. The user may change
+this setting by the command\ttindex{WTLEVEL}
+\begin{verbatim}
+        wtlevel <number>;
+\end{verbatim}
+which sets \meta{number} as the new weight level of the system.
+\texttt{meta} must evaluate to a positive integer.  WTLEVEL will also
+allow NIL as an argument, in which case the current weight level is returned.

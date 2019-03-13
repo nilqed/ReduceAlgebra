@@ -1,0 +1,1 @@
+link ../linux/387-fast-math.sl

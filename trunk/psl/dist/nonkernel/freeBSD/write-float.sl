@@ -1,0 +1,1 @@
+link ../linux/write-float.sl

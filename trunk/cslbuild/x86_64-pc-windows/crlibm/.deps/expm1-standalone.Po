@@ -1,0 +1,61 @@
+expm1-standalone.o: \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/expm1-standalone.c \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/crlibm.h \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/crlibm_private.h \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/scs_lib/scs.h crlibm_config.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/inttypes.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/crtdefs.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_mac.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_secapi.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/vadefs.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_directx.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_ddk.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdint.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdint.h \
+ C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stddef.h \
+ C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stddef.h \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/scs_lib/scs_private.h \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/scs_lib/scs.h \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/triple-double.h \
+ F:/REDUCE-SVN/trunk/libraries/crlibm/expm1.h
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/crlibm.h:
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/crlibm_private.h:
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/scs_lib/scs.h:
+
+crlibm_config.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/inttypes.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/crtdefs.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_mac.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/_mingw_secapi.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/vadefs.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_directx.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/sdks/_mingw_ddk.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stdint.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stdint.h:
+
+C:/git-sdk-64/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/stddef.h:
+
+C:/git-sdk-64/mingw64/x86_64-w64-mingw32/include/stddef.h:
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/scs_lib/scs_private.h:
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/scs_lib/scs.h:
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/triple-double.h:
+
+F:/REDUCE-SVN/trunk/libraries/crlibm/expm1.h:

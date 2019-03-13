@@ -1,0 +1,2 @@
+set CC_FOR_TARGET "i686-w64-mingw32-gcc"
+set CXX_FOR_TARGET "i686-w64-mingw32-g++"

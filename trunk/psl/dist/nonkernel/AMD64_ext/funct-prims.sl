@@ -1,0 +1,1 @@
+link ../AMD64/funct-prims.sl
