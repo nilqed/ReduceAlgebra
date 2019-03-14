@@ -1,5 +1,5 @@
 //
-// "FXTerminal.cpp"                         Copyright A C Norman 2003-2014
+// "FXTerminal.cpp"                         Copyright A C Norman 2003-2019
 //
 //
 // Window interface for old-fashioned C applications. Intended to
@@ -8,7 +8,7 @@
 //
 
 /******************************************************************************
-* Copyright (C) 2003-14 by Arthur Norman, Codemist.  All Rights Reserved.     *
+* Copyright (C) 2003-19 by Arthur Norman, Codemist.  All Rights Reserved.     *
 *******************************************************************************
 * This library is free software; you can redistribute it and/or               *
 * modify it under the terms of the GNU Lesser General Public                  *
@@ -47,7 +47,7 @@
 // potential detriment of those whose choice differs).
 
 
-/* $Id: FXTerminal.cpp 4937 2019-03-10 19:59:30Z arthurcnorman $ */
+/* $Id: FXTerminal.cpp 4941 2019-03-14 17:42:21Z arthurcnorman $ */
 
 // Apple no longer support the FinderLaunch sample code that they
 // published and that explained to me how to open an HTML document
@@ -218,6 +218,8 @@ static int ahead_buffer[TYPEAHEAD_SIZE];
 static char *paste_buffer;
 static int paste_flags, paste_n, paste_p, paste_is_html;
 
+static int longest_history_line;
+
 FXIMPLEMENT(FXTerminal, FXText, FXTerminalMap, ARRAYNUMBER(FXTerminalMap))
 
 FXTerminal::FXTerminal(const char *argv0,
@@ -247,11 +249,13 @@ FXTerminal::FXTerminal(const char *argv0,
     paste_buffer = NULL;
     paste_flags = paste_n = paste_p = paste_is_html = 0;
 
-    input_history_init(argv0);
     historyFirst = 0;
     historyLast = -1; // flag to say history is empty.
-    pauseFlags = keyFlags = historyNumber = searchFlags = 0;
+    historyNumber = 0;
+    pauseFlags = keyFlags = searchFlags = 0;
     promptEnd = length;
+    input_history_init(argv0, historyFirst, historyLast, historyNumber,
+                       input_history_next, longest_history_line);
     InitMutex(pauseMutex);
 
     InitMutex(mutex1);
@@ -3817,8 +3821,6 @@ void FXTerminal::insertMathsLines()
     flush_append(this);
     int scale = 4;
     int p1 = start;
-fprintf(stderr, "FXTerminal.cpp line %d, process %d bytes\n",
-        __LINE__, (int)(length-start));
     while (p1<length)
     {   charPointer = p1+7;
 // First parse the line of stuff to get a box-structure. The parsed box gets

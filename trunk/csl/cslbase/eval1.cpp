@@ -33,7 +33,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: eval1.cpp 4896 2019-02-09 11:10:03Z arthurcnorman $
+// $Id: eval1.cpp 4941 2019-03-14 17:42:21Z arthurcnorman $
 
 #include "headers.h"
 
@@ -759,7 +759,7 @@ LispObject apply_lambda(LispObject def, LispObject args,
             }
         }
     }
-    catch (LispException e)
+    catch (LispException &e)
     {   stack = stacksave;
 // On any exception raised above I will need to restore any fluid bindings
 // that have been made.

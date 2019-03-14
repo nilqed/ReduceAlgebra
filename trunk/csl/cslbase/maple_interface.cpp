@@ -37,7 +37,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: maple_interface.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
+// $Id: maple_interface.cpp 4941 2019-03-14 17:42:21Z arthurcnorman $
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -111,7 +111,7 @@ int execute_lisp_function(char *fname,
         procedural_output = w;
         Lapply0(nil, ff);
     }
-    catch (LispException e)
+    catch (LispException &e)
     {   procedural_input = NULL;
         procedural_output = NULL;
         return 1;

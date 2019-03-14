@@ -35,7 +35,7 @@
  *************************************************************************/
 
 
-// $Id: bytes2.cpp 4657 2018-06-18 20:51:31Z arthurcnorman $
+// $Id: bytes2.cpp 4941 2019-03-14 17:42:21Z arthurcnorman $
 
     LispObject A_reg;
     LispObject r1, r2, r3;
@@ -2477,7 +2477,7 @@ next_opcode:   // This label is so that I can restart what I am doing
 //*****************************************************************************
     } // end of switch block
     } // end of try block
-    catch (LispException e)
+    catch (LispException &e)
     {
 // What follows is my current guess for a good diagnostic...
         if (SHOW_FNAME)
