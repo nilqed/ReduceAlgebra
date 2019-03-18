@@ -31,7 +31,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: lispthrow.h 4941 2019-03-14 17:42:21Z arthurcnorman $
+// $Id: lispthrow.h 4949 2019-03-17 19:48:50Z arthurcnorman $
 
 #ifndef __lispthrow_h
 #define __lispthrow_h 1
@@ -76,133 +76,90 @@ extern  jmp_buf *global_jb;
 
 static inline void push(LispObject a)
 {   *++stack = a;
-    my_assert(a != 0, [&]{ trace_printf("pushed a zero\n"); });
 }
 
 static inline void push2(LispObject a, LispObject b)
 {   *++stack = a;
-    my_assert(a != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = b;
-    my_assert(b != 0, [&]{ trace_printf("pushed a zero\n"); });
 }
 
 static inline void push3(LispObject a, LispObject b, LispObject c)
 {   *++stack = a;
-    my_assert(a != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = b;
-    my_assert(b != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = c;
-    my_assert(c != 0, [&]{ trace_printf("pushed a zero\n"); });
 }
 
 static inline void push4(LispObject a, LispObject b, LispObject c,
                          LispObject d)
 {   *++stack = a;
-    my_assert(a != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = b;
-    my_assert(b != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = c;
-    my_assert(c != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = d;
-    my_assert(d != 0, [&]{ trace_printf("pushed a zero\n"); });
 }
 
 static inline void push5(LispObject a, LispObject b, LispObject c,
                          LispObject d, LispObject e)
 {   *++stack = a;
-    my_assert(a != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = b;
-    my_assert(b != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = c;
-    my_assert(c != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = d;
-    my_assert(d != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = e;
-    my_assert(e != 0, [&]{ trace_printf("pushed a zero\n"); });
 }
 
 static inline void push6(LispObject a, LispObject b, LispObject c,
                          LispObject d, LispObject e, LispObject f)
 {   *++stack = a;
-    my_assert(a != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = b;
-    my_assert(b != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = c;
-    my_assert(c != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = d;
-    my_assert(d != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = e;
-    my_assert(e != 0, [&]{ trace_printf("pushed a zero\n"); });
     *++stack = f;
-    my_assert(f != 0, [&]{ trace_printf("pushed a zero\n"); });
 }
 
 static inline void pop(LispObject& a)
 {   a = *stack--;
-    my_assert(a != 0, [&]{ trace_printf("popped a zero\n"); });
 }
 
 static inline void pop(volatile LispObject& a)
 {   a = *stack--;
-    my_assert(a != 0, [&]{ trace_printf("popped a zero\n"); });
 }
 
 static inline void pop2(LispObject& a, LispObject& b)
 {   a = *stack--;
-    my_assert(a != 0, [&]{ trace_printf("popped a zero\n"); });
     b = *stack--;
-    my_assert(b != 0, [&]{ trace_printf("popped a zero\n"); });
 }
 
 static inline void pop3(LispObject& a, LispObject& b, LispObject& c)
 {   a = *stack--;
-    my_assert(a != 0, [&]{ trace_printf("popped a zero\n"); });
     b = *stack--;
-    my_assert(b != 0, [&]{ trace_printf("popped a zero\n"); });
     c = *stack--;
-    my_assert(c != 0, [&]{ trace_printf("popped a zero\n"); });
 }
 
 static inline void pop4(LispObject& a, LispObject& b, LispObject& c,
                         LispObject& d)
 {   a = *stack--;
-    my_assert(a != 0, [&]{ trace_printf("popped a zero\n"); });
     b = *stack--;
-    my_assert(b != 0, [&]{ trace_printf("popped a zero\n"); });
     c = *stack--;
-    my_assert(c != 0, [&]{ trace_printf("popped a zero\n"); });
     d = *stack--;
-    my_assert(d != 0, [&]{ trace_printf("popped a zero\n"); });
 }
 
 static inline void pop5(LispObject& a, LispObject& b, LispObject& c,
                         LispObject& d, LispObject& e)
 {   a = *stack--;
-    my_assert(a != 0, [&]{ trace_printf("popped a zero\n"); });
     b = *stack--;
-    my_assert(b != 0, [&]{ trace_printf("popped a zero\n"); });
     c = *stack--;
-    my_assert(c != 0, [&]{ trace_printf("popped a zero\n"); });
     d = *stack--;
-    my_assert(d != 0, [&]{ trace_printf("popped a zero\n"); });
     e = *stack--;
-    my_assert(e != 0, [&]{ trace_printf("popped a zero\n"); });
 }
 
 static inline void pop6(LispObject& a, LispObject& b, LispObject& c,
                         LispObject& d, LispObject& e, LispObject& f)
 {   a = *stack--;
-    my_assert(a != 0, [&]{ trace_printf("popped a zero\n"); });
     b = *stack--;
-    my_assert(b != 0, [&]{ trace_printf("popped a zero\n"); });
     c = *stack--;
-    my_assert(c != 0, [&]{ trace_printf("popped a zero\n"); });
     d = *stack--;
-    my_assert(d != 0, [&]{ trace_printf("popped a zero\n"); });
     e = *stack--;
-    my_assert(e != 0, [&]{ trace_printf("popped a zero\n"); });
     f = *stack--;
-    my_assert(f != 0, [&]{ trace_printf("popped a zero\n"); });
 }
 
 static inline void popv(int n)
@@ -425,73 +382,14 @@ struct LispException : public std::exception
         }
     };
 
-
-// If I build for debugging I will verify that the stack pointer is
-// properly unchanged across some scopes. This will help...
-
-class RAIIstack_sanity
-{   LispObject *saveStack;
-    const char *fname;
-    const char *file;
-    int line;
-    LispObject w;
-public:
-    RAIIstack_sanity(const char *fn, const char *fi, int li)
-    {   saveStack = stack;
-        fname = fn;
-        file = fi;
-        line = li;
-        w = nil;
-    }
-    RAIIstack_sanity(const char *fn, const char *fi, int li, LispObject ww)
-    {   saveStack = stack;
-        fname = fn;
-        file = fi;
-        line = li;
-        w = ww;
-    }
-// While I am unwinding the stack because of exception handling the stack
-// can remain un-restored. It is only once I have caught the exception
-// that it must end up correct. Hence the use of std::uncaught_exception()
-// here to avoid complaints when they are not justified.
-    ~RAIIstack_sanity()
-    {   if (saveStack != stack && !std::uncaught_exception())
-        {   err_printf("[Stack Sanity Oddity] %p => %p in %s : %s:%d\n",
-                   saveStack, stack, fname, file, line);
-            err_printf("Data: ");
-            prin_to_error(w);
-            err_printf("\n");
-            err_printf("exit_count = %d, exit_reason = %d\n",
-                       exit_count, exit_reason);
-        }
-    }
-};
-
-static inline const char *tidy_filename(const char *a)
-{   const char *b = strrchr(a, '/');
-    return (b == NULL ? a : b+1);
-}
-
-// If the (Lisp) stack were to get out of step with expectations the
-// consequences could be dire. To help me check against that I can use one
-// of these two macros. The second takes a LispObject that would then
-// appear in any diagnostics about stack confusion. If you are compiling
-// production code all that is generated is a null statement. But in debug
-// mode an object is created that recorsd the current stack pointer, and
-// when it goes out of scope at the end of the block it checks if things
-// have been put back as expected.
-
-#ifdef DEBUG
-#define STACK_SANITY                                  \
-    RAIIstack_sanity stack_sanity_object(__func__,    \
-        tidy_filename(__FILE__), __LINE__);
-#define STACK_SANITY1(w)                              \
-    RAIIstack_sanity stack_sanity_object(__func__,    \
-        tidy_filename(__FILE__), __LINE__, w);
-#else
-#define STACK_SANITY            ;
-#define STACK_SANITY1(w)        ;
-#endif
+// I used to have code here that could verify (Lisp) stack consistency,
+// however C__17 deprecates std::uncaught_exception() and demands a change
+// to use a new function std::uncaught_exceptions() not present in earlier
+// versions of the standard, while it is expected that C++20 will withdraw
+// the original function. I used it and rather than modify my code with ugly
+// checks for whether I have C++17 or not anbd rather that put up with the
+// torrent of warnings that GCC generates in response to deprecated features
+// I just drop the checks that I use dto be  ready to do.
 
 // In parts of the interpreter I want to save litvec and codevec and be
 // certain that I will restore them at function exit. This macro will help

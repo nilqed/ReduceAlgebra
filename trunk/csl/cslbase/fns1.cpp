@@ -33,7 +33,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: fns1.cpp 4858 2019-01-12 22:06:49Z arthurcnorman $
+// $Id: fns1.cpp 4945 2019-03-16 17:32:52Z arthurcnorman $
 
 
 #include "headers.h"
@@ -1560,7 +1560,7 @@ LispObject free_vectors[LOG2_VECTOR_CHUNK_BYTES+1] = {0};
 // of 2 go I look at the size of the data part only.
 
 static LispObject gvector(int tag, int type, size_t size)
-{   STACK_SANITY;
+{
 // I will never let odd sized vectors participate in this recycling
 // process.
     if (size%CELL != 0) return get_basic_vector(tag, type, size);

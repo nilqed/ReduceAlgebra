@@ -35,7 +35,7 @@
  *************************************************************************/
 
 
-// $Id: bytes2.cpp 4941 2019-03-14 17:42:21Z arthurcnorman $
+// $Id: bytes2.cpp 4945 2019-03-16 17:32:52Z arthurcnorman $
 
     LispObject A_reg;
     LispObject r1, r2, r3;
@@ -294,8 +294,7 @@ next_opcode:   // This label is so that I can restart what I am doing
 
             case OP_STOREFREE:
                 if ((qheader(basic_elt(litvec, 0)) & SYM_TRACESET) != 0)
-                {   STACK_SANITY;
-                    push(A_reg);
+                {   push(A_reg);
                     print_traceset(current_byte, A_reg);
                     pop(A_reg);
                 }
@@ -304,8 +303,7 @@ next_opcode:   // This label is so that I can restart what I am doing
 
             case OP_STOREFREE1:
                 if ((qheader(basic_elt(litvec, 0)) & SYM_TRACESET) != 0)
-                {   STACK_SANITY;
-                    push(A_reg);
+                {   push(A_reg);
                     print_traceset(1, A_reg);
                     pop(A_reg);
                 }
@@ -314,8 +312,7 @@ next_opcode:   // This label is so that I can restart what I am doing
 
             case OP_STOREFREE2:
                 if ((qheader(basic_elt(litvec, 0)) & SYM_TRACESET) != 0)
-                {   STACK_SANITY;
-                    push(A_reg);
+                {   push(A_reg);
                     print_traceset(2, A_reg);
                     pop(A_reg);
                 }
@@ -324,8 +321,7 @@ next_opcode:   // This label is so that I can restart what I am doing
 
             case OP_STOREFREE3:
                 if ((qheader(basic_elt(litvec, 0)) & SYM_TRACESET) != 0)
-                {   STACK_SANITY;
-                    push(A_reg);
+                {   push(A_reg);
                     print_traceset(3, A_reg);
                     pop(A_reg);
                 }

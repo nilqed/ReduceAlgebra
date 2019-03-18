@@ -44,7 +44,7 @@
 // unilaterally select just one version of the library to use, to the
 // potential detriment of those whose choice differs).
 
-/* $Id: FXWorker.cpp 4937 2019-03-10 19:59:30Z arthurcnorman $ */
+/* $Id: FXWorker.cpp 4949 2019-03-17 19:48:50Z arthurcnorman $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -784,8 +784,7 @@ void fwin_minimize()
 static void fwin_ensure_buffer_space();
 
 void fwin_puts(const char *s)
-{
-    if (!windowed)
+{   if (!windowed)
     {
 #ifdef __CYGWIN__
         while (*s != 0) fwin_putchar(*s++);
@@ -1009,8 +1008,7 @@ void fwin_restore()
 }
 
 void fwin_putchar(int c)
-{
-    if (!windowed)
+{   if (!windowed)
     {
 #ifdef __CYGWIN__
         if (c == '\n') putchar('\r');

@@ -33,7 +33,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: print.cpp 4650 2018-06-14 10:35:14Z arthurcnorman $
+// $Id: print.cpp 4945 2019-03-16 17:32:52Z arthurcnorman $
 
 #include "headers.h"
 
@@ -3404,8 +3404,7 @@ void loop_print_error(LispObject o)
 }
 
 void loop_print_trace(LispObject o)
-{   STACK_SANITY;
-    LispObject w = qvalue(standard_output);
+{   LispObject w = qvalue(standard_output);
     push(w);
     if (is_stream(qvalue(trace_output)))
         qvalue(standard_output) = qvalue(trace_output);
