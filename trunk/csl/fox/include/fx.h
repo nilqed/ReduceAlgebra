@@ -19,7 +19,7 @@
 * License along with this library; if not, write to the Free Software           *
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.    *
 *********************************************************************************
-* $Id: fx.h 4949 2019-03-17 19:48:50Z arthurcnorman $                               *
+* $Id: fx.h 4951 2019-03-30 11:15:16Z arthurcnorman $                               *
 ********************************************************************************/
 #ifndef FX_H
 #define FX_H
@@ -27,6 +27,7 @@
 // Basic includes
 #include <stdio.h>
 #include <stdlib.h>
+#include <cstdlib>  // so that std::abort() is available.
 #include <stdarg.h>
 #include <math.h>
 #include <string.h>

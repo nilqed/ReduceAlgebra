@@ -26,7 +26,7 @@ module cslrend; % CSL REDUCE "back-end".
 % POSSIBILITY OF SUCH DAMAGE.
 %
 
-% $Id: cslrend.red 4823 2018-11-11 15:06:23Z arthurcnorman $
+% $Id: cslrend.red 4954 2019-03-30 22:18:32Z schoepf $
 
 create!-package('(cslrend csl),nil);
 
@@ -503,7 +503,7 @@ set!-small!-modulus 3;
 % and (hence?) maybe low level tricks or special floating point
 % tricks can help with speed.
 
-!#if (memq  'vsl lispsystem!*)
+!#if (or (memq  'vsl lispsystem!*) (memq 'jlisp lispsystem!*))
 
 flag('(cos exp expt log sin sqrt fix
        ceiling floor round clrhash puthash gethash remhash), 'lose);

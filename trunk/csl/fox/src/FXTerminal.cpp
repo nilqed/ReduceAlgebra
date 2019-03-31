@@ -47,7 +47,7 @@
 // potential detriment of those whose choice differs).
 
 
-/* $Id: FXTerminal.cpp 4941 2019-03-14 17:42:21Z arthurcnorman $ */
+/* $Id: FXTerminal.cpp 4955 2019-03-31 09:25:24Z schoepf $ */
 
 // Apple no longer support the FinderLaunch sample code that they
 // published and that explained to me how to open an HTML document
@@ -796,6 +796,7 @@ int FXTerminal::printTextRow(FXDCNativePrinter &dc,
         indent += ((getByte(charPointer+1) - '0') & 0x38) << 3;
 // Get pointer to box structure for the formula, or NULL if it has been
 // discarded because of space limitations.
+        charPointer++;
         Box *b = getBoxAddress(charPointer+1);
         if (b == NULL)
         {   int p1 = charPointer;
@@ -867,7 +868,8 @@ int FXTerminal::printTextRow(FXDCNativePrinter &dc,
             p++;
         }
         if (bp!=0)
-        {   x = printBufferText(dc, x, y, buff, bp, style1);
+        {   buff[bp] = 0;     // Make sure the string is NUL-terminated
+            x = printBufferText(dc, x, y, buff, bp, style1);
         }
         if (p == length) return p;        // end of buffer
         if (ch == '\n') return p+1;       // end of (ordinary) line
