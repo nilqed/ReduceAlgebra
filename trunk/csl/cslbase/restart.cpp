@@ -36,7 +36,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: restart.cpp 4935 2019-03-10 17:01:42Z arthurcnorman $
+// $Id: restart.cpp 4975 2019-05-01 20:54:45Z arthurcnorman $
 
 #include "headers.h"
 
@@ -89,8 +89,13 @@ extern int load_count, load_limit;
 #include "machineid.cpp"
 
 LispObject nil;
+#ifdef CONSERVATIVE
+uintptr_t stackbase;
+uintptr_t stacklimit;
+#else
 LispObject *stackbase;
-LispObject * volatile stacklimit;
+LispObject *stacklimit;
+#endif
 
 LispObject *nilsegment;
 LispObject *stacksegment;
@@ -2509,7 +2514,13 @@ void setup(int restart_flag, double store_size)
     }
     else for (LispObject **p = list_bases; *p!=NULL; p++) **p = nil;
 
-    savestacklimit = stacklimit = &stack[stack_segsize*CSL_PAGE_SIZE/4-200];
+#ifdef CONSERVATIVE
+    stacklimit = ~(uintptr_t)0xff &
+        (uintptr_t)&stack[stack_segsize*CSL_PAGE_SIZE/4-200];
+#else
+    stacklimit = (LispObject *) (~(uintptr_t)0xff &
+        (uintptr_t)&stack[stack_segsize*CSL_PAGE_SIZE/4-200]);
+#endif
     // allow some slop at end
     if ((restart_flag & 1) != 0) warm_setup();
     else cold_setup();

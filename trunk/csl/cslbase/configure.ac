@@ -5,7 +5,7 @@
 # I guess that this file scan be subject to the same BSD license that
 # applies to almost all other parts of the code here.
 
-# $Id: configure.ac 4943 2019-03-15 17:12:02Z arthurcnorman $
+# $Id: configure.ac 4992 2019-05-11 21:20:04Z arthurcnorman $
 
 #
 # Special flags that can be used here:
@@ -197,6 +197,16 @@ then
   AC_DEFINE(HAVE_CRLIBM, [1], [Correct Rounding maths library should be used])
 fi
 
+AC_ARG_WITH(softfloat,
+   AC_HELP_STRING([--with-softfloat], [Can be used to disable use of softfloat]),
+   [],
+   [with_softfloat="yes"])
+
+if test "x$with_softfloat" != "xno"
+then
+  AC_DEFINE(HAVE_SOFTFLOAT, [1], [support for 128-bit long double/float128_t])
+fi
+
 if test "x$BUILTFOR" = "xunknown"
 then
   BUILTFOR=`eval "$SHELL $srcdir/../scripts/findhost.sh $host $ac_configure_args"`
@@ -212,13 +222,6 @@ AC_SUBST(BUILTFOR)
 AC_SUBST(PSLBUILD)
 
 AC_SUBST(DLL_CFLAGS)
-
-# The following are always to be defined when I go through this route
-
-if test "x$with_gui" != "xno"
-then
-  AC_DEFINE(WINDOW_SYSTEM,[1],[True for a (potentially) Windowed system])
-fi
 
 AC_DEFINE_UNQUOTED(HOST_CPU,"$host_cpu",[Name of CPU])
 AC_DEFINE_UNQUOTED(HOST_VENDOR,"$host_vendor",[Name of vendor])
@@ -264,10 +267,34 @@ AC_ARG_WITH(force,
 
 if test "x$with_fox" != "xno" || test "x$with_wx" != "xno"
 then
+  if test "x$with_gui" = "xno"
+  then
+    AC_MSG_ERROR([Have asked for Fox or wXWidgets but no GUI at all])
+  fi
   with_gui="yes"
 else
   with_gui="no"
 fi
+
+if test "x$with_gui" = "xno"
+then
+  with_fox="no"
+  with_wx="no"
+fi
+
+if test "x$with_gui" != "xno"
+then
+# This symbol is now deprecated in favour of testing the state of
+# WITHOUT_GUI which has the opposite sense but whihc I hope captures
+# the intent more clearly.
+  AC_DEFINE(WINDOW_SYSTEM,[1],[True for a (potentially) Windowed system])
+fi
+
+if test "x$with_gui" == "xno"
+then
+  AC_DEFINE(WITHOUT_GUI,[1],[Not even an attempt at support for GUI])
+fi
+
 
 AC_SUBST(MAKE)
 AC_SUBST(AR)
@@ -629,6 +656,13 @@ then
   enable_test="yes"
 fi
 
+AC_ARG_WITH(arithlib,
+  AC_HELP_STRING([--with-arithlib],
+                 [arithlib.hpp version]),
+  [],
+  [with_arithlib="no"])
+AC_MSG_RESULT([$with_arithlib])
+
 if test "x$enable_test" = "xyes"
 then
 # I force EXPERIMENT into CPPFLAGS because when u01.cpp to u60.cpp get
@@ -636,6 +670,12 @@ then
 # on the option!
   CPPFLAGS="$CPPFLAGS -DEXPERIMENT=1"
   AC_DEFINE(EXPERIMENT, [1], [True if this is an experimental testing mode variant])
+fi
+
+if test "x$with_arithlib" = "xyes"
+then
+  CPPFLAGS="$CPPFLAGS -DARITHLIB=1"
+  AC_DEFINE(ARITHLIB, [1], [Work on a transition to use of arithlib.hpp for bignums])
 fi
 
 # Want to build "embedded" variant?
@@ -792,27 +832,6 @@ else
     AX_CXX_COMPILE_STDCXX([11], [ext], [mandatory])
 fi
 
-# See if C++-11 attributes (specifically [[noreturn]]) will be accepted.
-# It jolly well ought to be now I am insisting on C++-11 compatibility!
-
-AC_COMPILE_IFELSE([AC_LANG_SOURCE(
-  [[#include <exception>
-    [[noreturn]] static void foo(void);
-    static void foo(void)
-    { throw std::exception();
-    }]])],
-  has_noreturn="yes",
-  has_noreturn="no")
-
-AC_MSG_NOTICE([noreturn = $has_noreturn])
-
-if test "x$has_noreturn" = "xyes"
-then
-  AC_DEFINE([NORETURN], [[[[noreturn]]]], [C++-11 attributes available?])
-else
-  AC_DEFINE([NORETURN], [[/* noreturn */]], [C++-11 attributes available?])
-fi
-
 # The sad news is that some 32-bit systems only set maxalign to 4, so for
 # instance even double precision floats can be aligned only that well. A
 # consequence is that they are entitles to let malloc() return an address
@@ -827,7 +846,7 @@ then
   AC_COMPUTE_INT(maxalign, alignof(double), [#include <cstddef>],
     AC_MSG_ERROR([Unable to get alignment of std::max_align_t]))
 fi
-
+#--
 # I will expect that malloc and new will return blocks of memory
 # aligned at least as per maxalign... and I require that it be at least
 # 8 so that I have 3 low bits for use as tags. In reality I fully expect
@@ -1719,10 +1738,12 @@ AM_CONDITIONAL(fox,test "x$with_fox" != "xno")
 AM_CONDITIONAL(wx,test "x$with_wx" != "xno")
 AM_CONDITIONAL(gui,test "x$with_fox" != "xno" || test "x$with_wx" != "xno")
 AM_CONDITIONAL(experiment,test "x$enable_test" = "xyes")
+AM_CONDITIONAL(arithlib,test "x$with_arithlib" = "xyes")
 AM_CONDITIONAL(canrun,test "x$can_run_executables" = "xyes")
 AM_CONDITIONAL(cygpath, test "x$CYGPATH" != "xno")
 AM_CONDITIONAL(valgrind, test "x$VALGRIND" = "xvalgrind")
 AM_CONDITIONAL(crlibm, test "x$with_crlibm" != "xno")
+AM_CONDITIONAL(softfloat, test "x$with_softfloat" != "xno")
 AM_CONDITIONAL(redfront, test "x$with_redfront" != "xno")
 
 AC_OUTPUT

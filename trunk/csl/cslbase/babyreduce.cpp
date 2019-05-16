@@ -31,7 +31,7 @@
  *************************************************************************/
 
 
-// $Id: babyreduce.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
+// $Id: babyreduce.cpp 4975 2019-05-01 20:54:45Z arthurcnorman $
 
 //
 // This is for use via the "new-embedded" structure and it provides a
@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
     {   fprintf(stderr, "Unable to identify program name and directory\n");
         return 1;
     }
-    term_setup(1, NULL);
+    term_setup(argv[0], NULL);
     atexit(term_close);
     try
     {   res = submain(argc, argv);

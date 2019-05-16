@@ -36,7 +36,7 @@
  *************************************************************************/
 
 
-// $Id: arith12.cpp 4188 2017-09-08 07:44:29Z arthurcnorman $
+// $Id: arith12.cpp 4983 2019-05-07 14:57:04Z arthurcnorman $
 
 
 #include "headers.h"
@@ -125,24 +125,24 @@ LispObject large_modular_reciprocal(LispObject n, bool safe)
             else aerror2("non-prime modulus in modular-reciprocal",
                                     large_modulus, n);
         }
-        push2(x, y);
+        push(x, y);
         w = quot2(a, b);
-        pop2(y, x);
+        pop(y, x);
         t = b;
-        push5(a, x, y, w, t);
+        push(a, x, y, w, t);
         b = times2(b, w);
-        pop5(t, w, y, x, a);
-        push4(x, y, w, t);
+        pop(t, w, y, x, a);
+        push(x, y, w, t);
         b = difference2(a, b);
-        pop4(t, w, y, x);
+        pop(t, w, y, x);
         a = t;
         t = y;
-        push4(a, b, x, t);
+        push(a, b, x, t);
         y = times2(y, w);
-        pop4(t, x, b, a);
-        push3(a, b, t);
+        pop(t, x, b, a);
+        push(a, b, t);
         y = difference2(x, y);
-        pop3(t, b, a);
+        pop(t, b, a);
         x = t;
     }
     y = modulus(y, large_modulus);
@@ -278,10 +278,10 @@ LispObject large_modular_expt(LispObject a, int x)
     return onevalue(r);
 }
 
-static inline intptr_t muldivptr(uintptr_t a, uintptr_t b, uintptr_t c)
+inline intptr_t muldivptr(uintptr_t a, uintptr_t b, uintptr_t c)
 {   if (!SIXTY_FOUR_BIT || c <= 0xffffffffU)
         return ((uint64_t)a*(uint64_t)b)%(uintptr_t)c;
-    else return (intptr_t)NARROW128(((uint128_t)a*(uint128_t)a)%(uintptr_t)c);
+    else return (intptr_t)NARROW128((uint128(a)*uint128(a))%(uintptr_t)c);
 }
 
 LispObject Lmodular_expt(LispObject env, LispObject a, LispObject b)

@@ -36,7 +36,7 @@
  *************************************************************************/
 
 
-// $Id: arith07.cpp 4142 2017-08-05 15:59:42Z arthurcnorman $
+// $Id: arith07.cpp 4980 2019-05-06 12:08:42Z arthurcnorman $
 
 #include "headers.h"
 
@@ -211,11 +211,13 @@ LispObject negate(LispObject a)
                 case TYPE_DOUBLE_FLOAT:
                     return make_boxfloat(-double_float_val(a),
                                          TYPE_DOUBLE_FLOAT);
+#ifdef HAVE_SOFTFLOAT
                 case TYPE_LONG_FLOAT:
                     {   float128_t aa = long_float_val(a);
                         f128M_negate(&aa);
                         return make_boxfloat128(aa);
                     }
+#endif // HAVE_SOFTFLOAT
             }
         default:
             aerror1("bad arg for minus",  a);

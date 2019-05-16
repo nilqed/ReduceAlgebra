@@ -33,7 +33,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: fns1.cpp 4945 2019-03-16 17:32:52Z arthurcnorman $
+// $Id: fns1.cpp 4980 2019-05-06 12:08:42Z arthurcnorman $
 
 
 #include "headers.h"
@@ -904,9 +904,9 @@ LispObject Lliststar_4up(LispObject env, LispObject a, LispObject b,
 LispObject Lpair(LispObject env, LispObject a, LispObject b)
 {   LispObject r = nil;
     while (consp(a) && consp(b))
-    {   push2(a, b);
+    {   push(a, b);
         r = acons(qcar(a), qcar(b), r);
-        pop2(b, a);
+        pop(b, a);
         a = qcdr(a);
         b = qcdr(b);
     }
@@ -952,7 +952,7 @@ LispObject Lintersect(LispObject env, LispObject a, LispObject b)
 {   LispObject r = nil, w;
     push(b);
     while (consp(a))
-    {   push2(a, r);
+    {   push(a, r);
         w = Lmember(nil, qcar(a), stack[-2]);
 // Here I ignore any item in a that is not also in b
         if (w != nil)
@@ -971,9 +971,9 @@ LispObject Lintersect(LispObject env, LispObject a, LispObject b)
                 r = cons(qcar(a), r);
                 pop(a);
             }
-            else pop2(r, a);
+            else pop(r, a);
         }
-        else pop2(r, a);
+        else pop(r, a);
         a = qcdr(a);
     }
     popv(1);
@@ -1050,7 +1050,7 @@ LispObject Lintersect_symlist(LispObject env, LispObject a, LispObject b)
 LispObject Lunion(LispObject env, LispObject a, LispObject b)
 {   while (consp(a))
     {   LispObject c;
-        push2(a, b);
+        push(a, b);
         c = Lmember(nil, qcar(a), b);
         pop(b);
         if (c == nil)
@@ -1197,7 +1197,7 @@ LispObject Lunwind(LispObject env)
 // the system will unwind in the usual manner.
 //
 
-NORETURN void error_N(LispObject args)
+[[noreturn]] void error_N(LispObject args)
 {   LispObject w;
     errors_now++;
     if (errors_limit >= 0 && errors_now > errors_limit)
@@ -1218,7 +1218,7 @@ NORETURN void error_N(LispObject args)
     exit_value = fixnum_of_int(0);       // "Error number"  in CL world
 #else
     if (miscflags & HEADLINE_FLAG)
-    {   push2(args, qcdr(args));
+    {   push(args, qcdr(args));
         err_printf("\n+++ error: ");
         loop_print_error(qcar(stack[-1]));
         while (is_cons(stack[0]))
@@ -1251,24 +1251,24 @@ NORETURN void error_N(LispObject args)
     throw LispError();
 }
 
-NORETURN void Lerror_1(LispObject env, LispObject a1)
+[[noreturn]] void Lerror_1(LispObject env, LispObject a1)
 {   error_N(ncons(a1));
 }
 
-NORETURN void Lerror_2(LispObject env, LispObject a1, LispObject a2)
+[[noreturn]] void Lerror_2(LispObject env, LispObject a1, LispObject a2)
 {   error_N(list2(a1, a2));
 }
 
-NORETURN void Lerror_3(LispObject env, LispObject a1, LispObject a2, LispObject a3)
+[[noreturn]] void Lerror_3(LispObject env, LispObject a1, LispObject a2, LispObject a3)
 {   error_N(list3(a1, a2, a3));
 }
 
-NORETURN void Lerror_4up(LispObject env, LispObject a1, LispObject a2,
+[[noreturn]] void Lerror_4up(LispObject env, LispObject a1, LispObject a2,
         LispObject a3, LispObject a4up)
 {   error_N(list3star(a1, a2, a3, a4up));
 }
 
-NORETURN void Lerror_0(LispObject env)
+[[noreturn]] void Lerror_0(LispObject env)
 {
 //
 // Silently provoked error - unwind to surrounding errorset level. Note that
@@ -1486,7 +1486,7 @@ LispObject Lsymbol_function(LispObject env, LispObject a)
         {   LispObject c, w;
             c = get(a, unset_var, nil);
             if (c == nil) c = a;
-            push3(a, b, c);
+            push(a, b, c);
             qheader(b) |= SYM_C_DEF;
             putprop(b, unset_var, c);
             c = stack[0]; b = stack[-1];
@@ -1494,7 +1494,7 @@ LispObject Lsymbol_function(LispObject env, LispObject a)
             w = cons(b, w);
             pop(c);
             putprop(c, work_symbol, w);
-            pop2(b, a);
+            pop(b, a);
         }
         return onevalue(b);
     }
@@ -1560,7 +1560,7 @@ LispObject free_vectors[LOG2_VECTOR_CHUNK_BYTES+1] = {0};
 // of 2 go I look at the size of the data part only.
 
 static LispObject gvector(int tag, int type, size_t size)
-{
+{   STACK_SANITY;
 // I will never let odd sized vectors participate in this recycling
 // process.
     if (size%CELL != 0) return get_basic_vector(tag, type, size);
@@ -1670,7 +1670,7 @@ LispObject get_vector_init(size_t n, LispObject val)
     return p;
 }
 
-NORETURN void Lstop1(LispObject env, LispObject code)
+[[noreturn]] void Lstop1(LispObject env, LispObject code)
 {   if (!is_fixnum(code)) aerror("stop");
     if (Lposn(nil) != fixnum_of_int(0)) Lterpri(nil);
     exit_value = code;
@@ -1680,46 +1680,21 @@ NORETURN void Lstop1(LispObject env, LispObject code)
     throw LispRestart();
 }
 
-NORETURN void Lstop0(LispObject env)
+[[noreturn]] void Lstop0(LispObject env)
 {   Lstop1(env, fixnum_of_int(0));
 }
 
-clock_t base_time;
-double *clock_stack, consolidated_time[10], gc_time;
-
-void push_clock(void)
-{   clock_t t0 = read_clock();
-//
-// Provided that I do this often enough I will not suffer clock
-// wrap-around or overflow.
-//
-    double delta = (double)(t0 - base_time)/(double)CLOCKS_PER_SEC;
-    base_time = t0;
-    *clock_stack += delta;
-    *++clock_stack = 0.0;
-}
-
-double pop_clock(void)
-{   clock_t t0 = read_clock();
-    double delta = (double)(t0 - base_time)/(double)CLOCKS_PER_SEC;
-    base_time = t0;
-    return delta + *clock_stack--;
-}
+uint64_t base_time;
+uint64_t gc_time;
 
 LispObject Ltime(LispObject env)
-{   LispObject r;
-    if (clock_stack == &consolidated_time[0])
-    {   clock_t t0 = read_clock();
-        double delta = (double)(t0 - base_time)/(double)CLOCKS_PER_SEC;
-        base_time = t0;
-        consolidated_time[0] += delta;
-    }
-    r = make_lisp_unsigned64((uint64_t)(1000.0 * consolidated_time[0]));
+{   uint64_t t0 = read_clock() - base_time;
+    LispObject r = make_lisp_unsigned64(t0/1000);
     return onevalue(r);
 }
 
 LispObject Lgctime(LispObject env)
-{   LispObject r = make_lisp_unsigned64((uint64_t)(1000.0 * gc_time));
+{   LispObject r = make_lisp_unsigned64(gc_time/1000);
     return onevalue(r);
 }
 
@@ -2523,7 +2498,7 @@ setup_type const funcs1_setup[] =
     {"enable-errorset",         G0W2, G1W2, Lenable_errorset, G3W2, G4W2},
     {"enable-backtrace",        G0W1, Lenable_backtrace, G2W1, G3W1, G4W1},
 // The casts here are because error, stop and a few related functions
-// have the NORETURN attribute which would otherwise upset the type checker
+// have the [[noreturn]] attribute which would otherwise upset the type checker
 // in C++.
     {"error",                   (no_args *)Lerror_0, (one_arg *)Lerror_1, (two_args *)Lerror_2, (three_args *)Lerror_3, (fourup_args *)Lerror_4up},
     {"error1",                  (no_args *)Lerror_0, G1W0, G2W0, G3W0, G4W0},

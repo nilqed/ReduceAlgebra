@@ -36,7 +36,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-/* $Id: wxterminal.cpp 4286 2017-11-30 19:54:26Z arthurcnorman $ */
+/* $Id: wxterminal.cpp 4975 2019-05-01 20:54:45Z arthurcnorman $ */
 
 #include "wx/wxprec.h"
 
@@ -4483,9 +4483,6 @@ void fwin_putchar(int c)
 {
     if (!windowed)
     {
-#ifdef __CYGWIN__
-        if (c == '\n') fwin_putchar('\r');
-#endif
 #ifdef WIN32
         if ((c & 0xc0) != 0x80 && line_buffer_p > LINE_BUFFER_SIZE-5)
             flush_line_buffer();

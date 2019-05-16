@@ -36,7 +36,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: arith01.cpp 4824 2018-11-14 15:18:50Z arthurcnorman $
+// $Id: arith01.cpp 4983 2019-05-07 14:57:04Z arthurcnorman $
 
 #include "headers.h"
 
@@ -114,7 +114,7 @@ LispObject validate_number(const char *s, LispObject a,
         }
     }
     if (SIXTY_FOUR_BIT && la == 1)
-    {   int64_t v = ASL64(bignum_digits64(a, 1), 31) | bignum_digits(a)[0];
+    {   int64_t v = ASL(bignum_digits64(a, 1), 31) | bignum_digits(a)[0];
         if (valid_as_fixnum(v))
         {   trace_printf("%s: %#" PRIx64 " should be fixnum\n", s, v);
             prin_to_trace(b), trace_printf("\n");
@@ -215,7 +215,7 @@ LispObject make_lisp_integerptr_fn(intptr_t n)
     if (!SIXTY_FOUR_BIT ||
         (n < (intptr_t)INT64_C(0x2000000000000000) &&
          n >= -(intptr_t)INT64_C(0x2000000000000000)))
-        return make_two_word_bignum((int32_t)ASR(n, 31),
+        return make_two_word_bignum((int32_t)ASR((int64_t)n, 31),
                                     (uint32_t)(n & 0x7fffffff));
 // Noter that intptr_t may be a 32-bit type where trying to shift right be 62
 // bits would be a mistake. So I cast to 64-bits to be safe.
@@ -248,8 +248,8 @@ LispObject make_lisp_unsignedptr_fn(uintptr_t n)
 LispObject make_lisp_integer128_fn(int128_t r)
 {
 // The result will be a bignum using 2, 3, 4 or 5 digits.
-    if (lessp128(r, (int128_t)INT64_C(0x2000000000000000)) &&
-        geq128(r, -(int128_t)INT64_C(0x2000000000000000)))
+    if (lessp128(r, int128(INT64_C(0x2000000000000000))) &&
+        geq128(r, -int128(INT64_C(0x2000000000000000))))
         return make_two_word_bignum((int32_t)ASR(NARROW128(r), 31),
                                     (uint32_t)(r & 0x7fffffff));
 // I will split off the high and low 62-bit chunks...
@@ -279,7 +279,7 @@ LispObject make_lisp_integer128_fn(int128_t r)
 LispObject make_lisp_unsigned128_fn(uint128_t r)
 {
 // The result will be a bignum using 2, 3 or 4 digits.
-    if (lessp128(r, (int128_t)INT64_C(0x2000000000000000)))
+    if (lessp128(r, int128(INT64_C(0x2000000000000000))))
         return make_two_word_bignum((int32_t)ASR(NARROW128(r), 31),
             (uint32_t)(NARROW128(r) & 0x7fffffff));
 // I will split off the high and low 62-bit chunks...
@@ -318,7 +318,7 @@ LispObject make_fake_bignum(intptr_t n)
 // Otherwise it must be a 2-digit bignum. That could cope with 31+31=62 bit
 // numbers and a fixnum can only be 60 bits, so I never need a 3-digit
 // bignum.
-    bignum_digits(big_fake2)[1] = (int32_t)ASR(n, 31);
+    bignum_digits(big_fake2)[1] = (int32_t)ASR((int64_t)n, 31);
     bignum_digits(big_fake2)[0] = (uint32_t)(n & 0x7fffffff);
     if (!SIXTY_FOUR_BIT) bignum_digits(big_fake2)[2] = 0;     // padding
     return big_fake2;
@@ -430,6 +430,7 @@ LispObject make_boxfloat(double a, int type)
     }
 }
 
+#ifdef HAVE_SOFTFLOAT
 LispObject make_boxfloat128(float128_t a)
 {   LispObject r;
     r = get_basic_vector(TAG_BOXFLOAT, TYPE_LONG_FLOAT, SIZEOF_LONG_FLOAT);
@@ -440,6 +441,7 @@ LispObject make_boxfloat128(float128_t a)
         aerror("exception with long float");
     return r;
 }
+#endif // HAVE_SOFTFLOAT
 
 static double bignum_to_float(LispObject v, int32_t h, int *xp)
 //
@@ -524,6 +526,7 @@ static double bignum_to_float(LispObject v, int32_t h, int *xp)
     return r;
 }
 
+#ifdef HAVE_SOFTFLOAT
 #ifdef LITTLEENDIAN
 static float128_t f128_TWO_31 = {{0, INT64_C(0x401e000000000000)}};
 #else
@@ -580,6 +583,8 @@ static float128_t bignum_to_float128(LispObject v, int32_t h, int *xp)
     return r;
 }
 
+#endif // HAVE_SOFTFLOAT
+
 // Now two functions that will help me to turn floats into (potentially big)
 // integers or rationals, or to compare floats with bignums.
 
@@ -601,6 +606,7 @@ int double_to_binary(double d, int64_t &m)
     return x - 0x3ff - 52;
 }
 
+#ifdef HAVE_SOFTFLOAT
 // This does much the same for 128-bit floats.
 
 int float128_to_binary(const float128_t *d, int64_t &mhi, uint64_t &mlo)
@@ -623,6 +629,7 @@ int float128_to_binary(const float128_t *d, int64_t &mhi, uint64_t &mlo)
     if (x == 0x7fff) return fhi==0 && lo == 0 ? INT_MAX : INT_MIN;
     return x - 0x3fff - 112;
 }
+#endif // HAVE_SOFTFLOAT
 
 // The following can be used in lisp_fix and in comparisons between
 // floats and bignums. It return three 31-bit digits that would be the top
@@ -679,6 +686,7 @@ intptr_t double_to_3_digits(double d, int32_t &a2, uint32_t &a1, uint32_t &a0)
     return q;
 }
 
+#ifdef HAVE_SOFTFLOAT
 intptr_t float128_to_5_digits(float128_t *d,
     int32_t &a4, uint32_t &a3, uint32_t &a2, uint32_t &a1, uint32_t &a0)
 {   int64_t mhi;
@@ -714,6 +722,7 @@ intptr_t float128_to_5_digits(float128_t *d,
     }
     return q;
 }
+#endif // HAVE_SOFTFLOAT
 
 double float_of_number(LispObject a)
 //
@@ -739,12 +748,14 @@ double float_of_number(LispObject a)
                 return (double)single_float_val(a);
             case TYPE_DOUBLE_FLOAT:
                 return double_float_val(a);
+#ifdef HAVE_SOFTFLOAT
             case TYPE_LONG_FLOAT:
                 {   float128_t w = long_float_val(a);
                     union { float64_t sf; double f; } f;
                     f.sf = f128M_to_f64(&w);
                     return f.f;
                 }
+#endif // HAVE_SOFTFLOAT
             default:
                 return 0.0;
         }
@@ -781,6 +792,7 @@ double float_of_number(LispObject a)
     }
 }
 
+#ifdef HAVE_SOFTFLOAT
 float128_t float128_of_number(LispObject a)
 //
 // Return a 128-bit floating point value for the given Lisp
@@ -854,6 +866,7 @@ float128_t float128_of_number(LispObject a)
         }
     }
 }
+#endif // HAVE_SOFTFLOAT
 
 int32_t thirty_two_bits(LispObject a)
 // return a 32 bit integer value for the Lisp integer (fixnum or bignum)
@@ -944,13 +957,13 @@ int64_t sixty_four_bits(LispObject a)
                     case CELL+8:
 // Here the bignum provides 62 bits as a 2s complement value
                         return bignum_digits(a)[0] |
-                               ASL64(bignum_digits64(a, 1), 31);
+                               ASL(bignum_digits64(a, 1), 31);
                     default:
                         int64_t d2 = bignum_digits64(a, 2);
                         if (d2==0 || d2==1 || d2==-1 || d2==-2)
                             return bignum_digits(a)[0] |
                                 ((uint64_t)bignum_digits(a)[1] << 31) |
-                                ASL64(d2, 62);
+                                ASL(d2, 62);
                 }
             }
         // else drop through
@@ -976,13 +989,13 @@ uint64_t sixty_four_bits_unsigned(LispObject a)
                     case CELL+8:
                         if ((int32_t)bignum_digits(a)[1] < 0) return 0;
                         return bignum_digits(a)[0] |
-                               ASL64(bignum_digits64(a, 1), 31);
+                               ASL(bignum_digits64(a, 1), 31);
                     default:
                         int64_t d2 = bignum_digits64(a, 2);
                         if (d2==0 || d2==1 || d2==2 || d2==3)
                             return bignum_digits(a)[0] |
                                 ((uint64_t)bignum_digits(a)[1] << 31) |
-                                ASL64(d2, 62);
+                                ASL(d2, 62);
                 }
             }
         // else drop through
@@ -1001,8 +1014,8 @@ LispObject make_complex(LispObject r, LispObject i)
 // arranged by here.
 //
     if (i == fixnum_of_int(0)) return r;
-    stackcheck2(r, i);
-    push2(r, i);
+    stackcheck(r, i);
+    push(r, i);
     v = get_basic_vector(TAG_NUMBERS, TYPE_COMPLEX_NUM, sizeof(Complex_Number));
 //
 // The vector r has uninitialized contents here - dodgy.  If the call
@@ -1010,7 +1023,7 @@ LispObject make_complex(LispObject r, LispObject i)
 // refer to it again, and I think that unreferenced vectors containing junk
 // are OK.
 //
-    pop2(i, r);
+    pop(i, r);
     real_part(v) = r;
     imag_part(v) = i;
     return v;
@@ -1022,10 +1035,10 @@ LispObject make_ratio(LispObject p, LispObject q)
 //
 {   LispObject v;
     if (q == fixnum_of_int(1)) return p;
-    stackcheck2(p, q);
-    push2(p, q);
+    stackcheck(p, q);
+    push(p, q);
     v = get_basic_vector(TAG_NUMBERS, TYPE_RATNUM, sizeof(Rational_Number));
-    pop2(q, p);
+    pop(q, p);
     numerator(v) = p;
     denominator(v) = q;
     return v;
@@ -1065,153 +1078,181 @@ LispObject make_ratio(LispObject p, LispObject q)
 // perhaps C++ templates will take the strain in a neat manner?
 //
 
-static LispObject plus_i_i(LispObject a1, LispObject a2);
-static LispObject plus_i_b(LispObject a1, LispObject a2);
-static LispObject plus_i_r(LispObject a1, LispObject a2);
-static LispObject plus_i_c(LispObject a1, LispObject a2);
-static LispObject plus_i_s(LispObject a1, LispObject a2);
-static LispObject plus_i_f(LispObject a1, LispObject a2);
-static LispObject plus_i_d(LispObject a1, LispObject a2);
-static LispObject plus_i_l(LispObject a1, LispObject a2);
+inline LispObject plus_i_i(LispObject a1, LispObject a2);
+inline LispObject plus_i_b(LispObject a1, LispObject a2);
+inline LispObject plus_i_r(LispObject a1, LispObject a2);
+inline LispObject plus_i_c(LispObject a1, LispObject a2);
+inline LispObject plus_i_s(LispObject a1, LispObject a2);
+inline LispObject plus_i_f(LispObject a1, LispObject a2);
+inline LispObject plus_i_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_i_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
-static LispObject plus_b_i(LispObject a1, LispObject a2);
-static LispObject plus_b_b(LispObject a1, LispObject a2);
-static LispObject plus_b_r(LispObject a1, LispObject a2);
-static LispObject plus_b_c(LispObject a1, LispObject a2);
-static LispObject plus_b_s(LispObject a1, LispObject a2);
-static LispObject plus_b_f(LispObject a1, LispObject a2);
-static LispObject plus_b_d(LispObject a1, LispObject a2);
-static LispObject plus_b_l(LispObject a1, LispObject a2);
+inline LispObject plus_b_i(LispObject a1, LispObject a2);
+inline LispObject plus_b_b(LispObject a1, LispObject a2);
+inline LispObject plus_b_r(LispObject a1, LispObject a2);
+inline LispObject plus_b_c(LispObject a1, LispObject a2);
+inline LispObject plus_b_s(LispObject a1, LispObject a2);
+inline LispObject plus_b_f(LispObject a1, LispObject a2);
+inline LispObject plus_b_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_b_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
-static LispObject plus_r_i(LispObject a1, LispObject a2);
-static LispObject plus_r_b(LispObject a1, LispObject a2);
-static LispObject plus_r_r(LispObject a1, LispObject a2);
-static LispObject plus_r_c(LispObject a1, LispObject a2);
-static LispObject plus_r_s(LispObject a1, LispObject a2);
-static LispObject plus_r_f(LispObject a1, LispObject a2);
-static LispObject plus_r_d(LispObject a1, LispObject a2);
-static LispObject plus_r_l(LispObject a1, LispObject a2);
+inline LispObject plus_r_i(LispObject a1, LispObject a2);
+inline LispObject plus_r_b(LispObject a1, LispObject a2);
+inline LispObject plus_r_r(LispObject a1, LispObject a2);
+inline LispObject plus_r_c(LispObject a1, LispObject a2);
+inline LispObject plus_r_s(LispObject a1, LispObject a2);
+inline LispObject plus_r_f(LispObject a1, LispObject a2);
+inline LispObject plus_r_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_r_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
-static LispObject plus_c_i(LispObject a1, LispObject a2);
-static LispObject plus_c_b(LispObject a1, LispObject a2);
-static LispObject plus_c_r(LispObject a1, LispObject a2);
-static LispObject plus_c_c(LispObject a1, LispObject a2);
-static LispObject plus_c_s(LispObject a1, LispObject a2);
-static LispObject plus_c_f(LispObject a1, LispObject a2);
-static LispObject plus_c_d(LispObject a1, LispObject a2);
-static LispObject plus_c_l(LispObject a1, LispObject a2);
+inline LispObject plus_c_i(LispObject a1, LispObject a2);
+inline LispObject plus_c_b(LispObject a1, LispObject a2);
+inline LispObject plus_c_r(LispObject a1, LispObject a2);
+inline LispObject plus_c_c(LispObject a1, LispObject a2);
+inline LispObject plus_c_s(LispObject a1, LispObject a2);
+inline LispObject plus_c_f(LispObject a1, LispObject a2);
+inline LispObject plus_c_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_c_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
-static LispObject plus_s_i(LispObject a1, LispObject a2);
-static LispObject plus_s_b(LispObject a1, LispObject a2);
-static LispObject plus_s_r(LispObject a1, LispObject a2);
-static LispObject plus_s_c(LispObject a1, LispObject a2);
-static LispObject plus_s_s(LispObject a1, LispObject a2);
-static LispObject plus_s_f(LispObject a1, LispObject a2);
-static LispObject plus_s_d(LispObject a1, LispObject a2);
-static LispObject plus_s_l(LispObject a1, LispObject a2);
+inline LispObject plus_s_i(LispObject a1, LispObject a2);
+inline LispObject plus_s_b(LispObject a1, LispObject a2);
+inline LispObject plus_s_r(LispObject a1, LispObject a2);
+inline LispObject plus_s_c(LispObject a1, LispObject a2);
+inline LispObject plus_s_s(LispObject a1, LispObject a2);
+inline LispObject plus_s_f(LispObject a1, LispObject a2);
+inline LispObject plus_s_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_s_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
-static LispObject plus_f_i(LispObject a1, LispObject a2);
-static LispObject plus_f_b(LispObject a1, LispObject a2);
-static LispObject plus_f_r(LispObject a1, LispObject a2);
-static LispObject plus_f_c(LispObject a1, LispObject a2);
-static LispObject plus_f_s(LispObject a1, LispObject a2);
-static LispObject plus_f_f(LispObject a1, LispObject a2);
-static LispObject plus_f_d(LispObject a1, LispObject a2);
-static LispObject plus_f_l(LispObject a1, LispObject a2);
+inline LispObject plus_f_i(LispObject a1, LispObject a2);
+inline LispObject plus_f_b(LispObject a1, LispObject a2);
+inline LispObject plus_f_r(LispObject a1, LispObject a2);
+inline LispObject plus_f_c(LispObject a1, LispObject a2);
+inline LispObject plus_f_s(LispObject a1, LispObject a2);
+inline LispObject plus_f_f(LispObject a1, LispObject a2);
+inline LispObject plus_f_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_f_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
-static LispObject plus_d_i(LispObject a1, LispObject a2);
-static LispObject plus_d_b(LispObject a1, LispObject a2);
-static LispObject plus_d_r(LispObject a1, LispObject a2);
-static LispObject plus_d_c(LispObject a1, LispObject a2);
-static LispObject plus_d_s(LispObject a1, LispObject a2);
-static LispObject plus_d_f(LispObject a1, LispObject a2);
-static LispObject plus_d_d(LispObject a1, LispObject a2);
-static LispObject plus_d_l(LispObject a1, LispObject a2);
+inline LispObject plus_d_i(LispObject a1, LispObject a2);
+inline LispObject plus_d_b(LispObject a1, LispObject a2);
+inline LispObject plus_d_r(LispObject a1, LispObject a2);
+inline LispObject plus_d_c(LispObject a1, LispObject a2);
+inline LispObject plus_d_s(LispObject a1, LispObject a2);
+inline LispObject plus_d_f(LispObject a1, LispObject a2);
+inline LispObject plus_d_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_d_l(LispObject a1, LispObject a2);
 
-static LispObject plus_l_i(LispObject a1, LispObject a2);
-static LispObject plus_l_b(LispObject a1, LispObject a2);
-static LispObject plus_l_r(LispObject a1, LispObject a2);
-static LispObject plus_l_c(LispObject a1, LispObject a2);
-static LispObject plus_l_s(LispObject a1, LispObject a2);
-static LispObject plus_l_f(LispObject a1, LispObject a2);
-static LispObject plus_l_d(LispObject a1, LispObject a2);
-static LispObject plus_l_l(LispObject a1, LispObject a2);
+inline LispObject plus_l_i(LispObject a1, LispObject a2);
+inline LispObject plus_l_b(LispObject a1, LispObject a2);
+inline LispObject plus_l_r(LispObject a1, LispObject a2);
+inline LispObject plus_l_c(LispObject a1, LispObject a2);
+inline LispObject plus_l_s(LispObject a1, LispObject a2);
+inline LispObject plus_l_f(LispObject a1, LispObject a2);
+inline LispObject plus_l_d(LispObject a1, LispObject a2);
+inline LispObject plus_l_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
-static LispObject difference_i_i(LispObject a1, LispObject a2);
-static LispObject difference_i_b(LispObject a1, LispObject a2);
-static LispObject difference_i_r(LispObject a1, LispObject a2);
-static LispObject difference_i_c(LispObject a1, LispObject a2);
-static LispObject difference_i_s(LispObject a1, LispObject a2);
-static LispObject difference_i_f(LispObject a1, LispObject a2);
-static LispObject difference_i_d(LispObject a1, LispObject a2);
-static LispObject difference_i_l(LispObject a1, LispObject a2);
+inline LispObject difference_i_i(LispObject a1, LispObject a2);
+inline LispObject difference_i_b(LispObject a1, LispObject a2);
+inline LispObject difference_i_r(LispObject a1, LispObject a2);
+inline LispObject difference_i_c(LispObject a1, LispObject a2);
+inline LispObject difference_i_s(LispObject a1, LispObject a2);
+inline LispObject difference_i_f(LispObject a1, LispObject a2);
+inline LispObject difference_i_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_i_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
-static LispObject difference_b_i(LispObject a1, LispObject a2);
-static LispObject difference_b_b(LispObject a1, LispObject a2);
-static LispObject difference_b_r(LispObject a1, LispObject a2);
-static LispObject difference_b_c(LispObject a1, LispObject a2);
-static LispObject difference_b_s(LispObject a1, LispObject a2);
-static LispObject difference_b_f(LispObject a1, LispObject a2);
-static LispObject difference_b_d(LispObject a1, LispObject a2);
-static LispObject difference_b_l(LispObject a1, LispObject a2);
+inline LispObject difference_b_i(LispObject a1, LispObject a2);
+inline LispObject difference_b_b(LispObject a1, LispObject a2);
+inline LispObject difference_b_r(LispObject a1, LispObject a2);
+inline LispObject difference_b_c(LispObject a1, LispObject a2);
+inline LispObject difference_b_s(LispObject a1, LispObject a2);
+inline LispObject difference_b_f(LispObject a1, LispObject a2);
+inline LispObject difference_b_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_b_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
-static LispObject difference_r_i(LispObject a1, LispObject a2);
-static LispObject difference_r_b(LispObject a1, LispObject a2);
-static LispObject difference_r_r(LispObject a1, LispObject a2);
-static LispObject difference_r_c(LispObject a1, LispObject a2);
-static LispObject difference_r_s(LispObject a1, LispObject a2);
-static LispObject difference_r_f(LispObject a1, LispObject a2);
-static LispObject difference_r_d(LispObject a1, LispObject a2);
-static LispObject difference_r_l(LispObject a1, LispObject a2);
+inline LispObject difference_r_i(LispObject a1, LispObject a2);
+inline LispObject difference_r_b(LispObject a1, LispObject a2);
+inline LispObject difference_r_r(LispObject a1, LispObject a2);
+inline LispObject difference_r_c(LispObject a1, LispObject a2);
+inline LispObject difference_r_s(LispObject a1, LispObject a2);
+inline LispObject difference_r_f(LispObject a1, LispObject a2);
+inline LispObject difference_r_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_r_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
-static LispObject difference_c_i(LispObject a1, LispObject a2);
-static LispObject difference_c_b(LispObject a1, LispObject a2);
-static LispObject difference_c_r(LispObject a1, LispObject a2);
-static LispObject difference_c_c(LispObject a1, LispObject a2);
-static LispObject difference_c_s(LispObject a1, LispObject a2);
-static LispObject difference_c_f(LispObject a1, LispObject a2);
-static LispObject difference_c_d(LispObject a1, LispObject a2);
-static LispObject difference_c_l(LispObject a1, LispObject a2);
+inline LispObject difference_c_i(LispObject a1, LispObject a2);
+inline LispObject difference_c_b(LispObject a1, LispObject a2);
+inline LispObject difference_c_r(LispObject a1, LispObject a2);
+inline LispObject difference_c_c(LispObject a1, LispObject a2);
+inline LispObject difference_c_s(LispObject a1, LispObject a2);
+inline LispObject difference_c_f(LispObject a1, LispObject a2);
+inline LispObject difference_c_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_c_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
-static LispObject difference_s_i(LispObject a1, LispObject a2);
-static LispObject difference_s_b(LispObject a1, LispObject a2);
-static LispObject difference_s_r(LispObject a1, LispObject a2);
-static LispObject difference_s_c(LispObject a1, LispObject a2);
-static LispObject difference_s_s(LispObject a1, LispObject a2);
-static LispObject difference_s_f(LispObject a1, LispObject a2);
-static LispObject difference_s_d(LispObject a1, LispObject a2);
-static LispObject difference_s_l(LispObject a1, LispObject a2);
+inline LispObject difference_s_i(LispObject a1, LispObject a2);
+inline LispObject difference_s_b(LispObject a1, LispObject a2);
+inline LispObject difference_s_r(LispObject a1, LispObject a2);
+inline LispObject difference_s_c(LispObject a1, LispObject a2);
+inline LispObject difference_s_s(LispObject a1, LispObject a2);
+inline LispObject difference_s_f(LispObject a1, LispObject a2);
+inline LispObject difference_s_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_s_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
-static LispObject difference_f_i(LispObject a1, LispObject a2);
-static LispObject difference_f_b(LispObject a1, LispObject a2);
-static LispObject difference_f_r(LispObject a1, LispObject a2);
-static LispObject difference_f_c(LispObject a1, LispObject a2);
-static LispObject difference_f_s(LispObject a1, LispObject a2);
-static LispObject difference_f_f(LispObject a1, LispObject a2);
-static LispObject difference_f_d(LispObject a1, LispObject a2);
-static LispObject difference_f_l(LispObject a1, LispObject a2);
+inline LispObject difference_f_i(LispObject a1, LispObject a2);
+inline LispObject difference_f_b(LispObject a1, LispObject a2);
+inline LispObject difference_f_r(LispObject a1, LispObject a2);
+inline LispObject difference_f_c(LispObject a1, LispObject a2);
+inline LispObject difference_f_s(LispObject a1, LispObject a2);
+inline LispObject difference_f_f(LispObject a1, LispObject a2);
+inline LispObject difference_f_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_f_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
-static LispObject difference_d_i(LispObject a1, LispObject a2);
-static LispObject difference_d_b(LispObject a1, LispObject a2);
-static LispObject difference_d_r(LispObject a1, LispObject a2);
-static LispObject difference_d_c(LispObject a1, LispObject a2);
-static LispObject difference_d_s(LispObject a1, LispObject a2);
-static LispObject difference_d_f(LispObject a1, LispObject a2);
-static LispObject difference_d_d(LispObject a1, LispObject a2);
-static LispObject difference_d_l(LispObject a1, LispObject a2);
+inline LispObject difference_d_i(LispObject a1, LispObject a2);
+inline LispObject difference_d_b(LispObject a1, LispObject a2);
+inline LispObject difference_d_r(LispObject a1, LispObject a2);
+inline LispObject difference_d_c(LispObject a1, LispObject a2);
+inline LispObject difference_d_s(LispObject a1, LispObject a2);
+inline LispObject difference_d_f(LispObject a1, LispObject a2);
+inline LispObject difference_d_d(LispObject a1, LispObject a2);
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_d_l(LispObject a1, LispObject a2);
 
-static LispObject difference_l_i(LispObject a1, LispObject a2);
-static LispObject difference_l_b(LispObject a1, LispObject a2);
-static LispObject difference_l_r(LispObject a1, LispObject a2);
-static LispObject difference_l_c(LispObject a1, LispObject a2);
-static LispObject difference_l_s(LispObject a1, LispObject a2);
-static LispObject difference_l_f(LispObject a1, LispObject a2);
-static LispObject difference_l_d(LispObject a1, LispObject a2);
-static LispObject difference_l_l(LispObject a1, LispObject a2);
+inline LispObject difference_l_i(LispObject a1, LispObject a2);
+inline LispObject difference_l_b(LispObject a1, LispObject a2);
+inline LispObject difference_l_r(LispObject a1, LispObject a2);
+inline LispObject difference_l_c(LispObject a1, LispObject a2);
+inline LispObject difference_l_s(LispObject a1, LispObject a2);
+inline LispObject difference_l_f(LispObject a1, LispObject a2);
+inline LispObject difference_l_d(LispObject a1, LispObject a2);
+inline LispObject difference_l_l(LispObject a1, LispObject a2);
+#endif // HAVE_SOFTFLOAT
 
 // I rather expect plus_i_i to be the case that arises most frequently.
 
-static inline LispObject plus_i_i(LispObject a1, LispObject a2)
+inline LispObject plus_i_i(LispObject a1, LispObject a2)
 {   return make_lisp_integer64(int_of_fixnum(a1) + int_of_fixnum(a2));
 }
 
@@ -1240,7 +1281,7 @@ static inline LispObject plus_i_i(LispObject a1, LispObject a2)
 // and the top bit of w was always zero so the mask operation could be
 // omitted. If I use unsigned arithmetic I will be somewhat safer.
 
-static inline LispObject plus_i_b(LispObject a1, LispObject a2)
+inline LispObject plus_i_b(LispObject a1, LispObject a2)
 {   size_t len = (bignum_length(a2)-CELL)/4, i;
     intptr_t s1 = int_of_fixnum(a1);
 // If you are on a 64-bit machine it should NEVER be possible to end up
@@ -1252,7 +1293,7 @@ static inline LispObject plus_i_b(LispObject a1, LispObject a2)
 // I write out the 2-word case longhand because in the 64-bit case
 // it can yield a fixnum.
     if (len == 2)
-    {   int64_t s = (ASL64(bignum_digits64(a2,1),31) | bignum_digits(a2)[0]) +
+    {   int64_t s = (ASL(bignum_digits64(a2,1),31) | bignum_digits(a2)[0]) +
                     (int64_t)s1;
 // a 2-word bignum has at worst 62 bits and a fixnum 28 or 60, so their
 // sum can not overflow a 64-bit word.
@@ -1268,13 +1309,13 @@ static inline LispObject plus_i_b(LispObject a1, LispObject a2)
 // more than 31 bits and so intrudes beyond there.
     uint32_t d0 = bignum_digits(a2)[0] + clear_top_bit(s1);
     bignum_digits(c)[0] = clear_top_bit(d0);
-    s1 = ASR(s1, 31);
+    s1 = ASR((int64_t)s1, 31);
     if (top_bit_set(d0)) s1 = s1 + 1;
 // Now s1 is at most 29 bits... I can treat it as a carry from the
 // previous digit. Note that it may be either positive or negative
     for (i=1; i<len-1; i++)
     {   uint32_t s = bignum_digits(a2)[i] + (s1 & 0x7fffffff);
-        s1 = ASR(s1, 31); // Note that s1 was signed so this is -1, 0 or 1
+        s1 = ASR((int64_t)s1, 31); // Note that s1 was signed so this is -1, 0 or 1
         bignum_digits(c)[i] = s & 0x7fffffff;
         s1 += top_bit(s);
     }
@@ -1359,7 +1400,7 @@ static inline LispObject plus_i_b(LispObject a1, LispObject a2)
 // Note that if the inputs were in lowest terms there is no need for
 // and GCD calculations here.
 
-static inline LispObject plus_i_r(LispObject a1, LispObject a2)
+inline LispObject plus_i_r(LispObject a1, LispObject a2)
 {   push(a2);
     a1 = times2(a1, denominator(a2));
     a1 = plus2(a1, numerator(stack[0]));
@@ -1370,7 +1411,7 @@ static inline LispObject plus_i_r(LispObject a1, LispObject a2)
 
 // real value of any sort plus complex.
 
-static inline LispObject plus_i_c(LispObject a1, LispObject a2)
+inline LispObject plus_i_c(LispObject a1, LispObject a2)
 {   push(a2);
     a1 = plus2(a1, real_part(a2));
     pop(a2);
@@ -1378,29 +1419,31 @@ static inline LispObject plus_i_c(LispObject a1, LispObject a2)
     return make_complex(a1, imag_part(a2));
 }
 
-static inline LispObject plus_i_s(LispObject a1, LispObject a2)
+inline LispObject plus_i_s(LispObject a1, LispObject a2)
 {   double d = (double)int_of_fixnum(a1) + value_of_immediate_float(a2);
     return pack_immediate_float(d, a2);
 }
 
-static inline LispObject plus_i_f(LispObject a1, LispObject a2)
+inline LispObject plus_i_f(LispObject a1, LispObject a2)
 {   double d = (double)int_of_fixnum(a1) + single_float_val(a2);
     return make_boxfloat(d, TYPE_SINGLE_FLOAT);
 }
 
-static inline LispObject plus_i_d(LispObject a1, LispObject a2)
+inline LispObject plus_i_d(LispObject a1, LispObject a2)
 {   double d = (double)int_of_fixnum(a1) + double_float_val(a2);
     return make_boxfloat(d, TYPE_DOUBLE_FLOAT);
 }
 
-static inline LispObject plus_i_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_i_l(LispObject a1, LispObject a2)
 {   float128_t x, z;
     i64_to_f128M((int64_t)int_of_fixnum(a1), &x);
     f128M_add(&x, long_float_addr(a2), &z);
     return make_boxfloat128(z);
 }
+#endif // HAVE_SOFTFLOAT
 
-static inline LispObject plus_b_i(LispObject a1, LispObject a2)
+inline LispObject plus_b_i(LispObject a1, LispObject a2)
 {   return plus_i_b(a2, a1);
 }
 
@@ -1436,7 +1479,7 @@ LispObject lengthen_by_one_bit(LispObject a, int32_t msd)
     }
 }
 
-static inline LispObject plus_b_b(LispObject a, LispObject b)
+inline LispObject plus_b_b(LispObject a, LispObject b)
 {   size_t la = (bignum_length(a)-CELL)/4,
            lb = (bignum_length(b)-CELL)/4;
     if (la < lb)    // maybe swap order of args
@@ -1451,17 +1494,17 @@ static inline LispObject plus_b_b(LispObject a, LispObject b)
             (int32_t)bignum_digits(a)[0] + (int32_t)bignum_digits(b)[0]);
 // If the longer number is just 2 words I can convert both to int64_t.
     if (la == 2)
-    {   int64_t va = ASL64(bignum_digits64(a, 1), 31) | bignum_digits(a)[0];
+    {   int64_t va = ASL(bignum_digits64(a, 1), 31) | bignum_digits(a)[0];
         int64_t vb = (!SIXTY_FOUR_BIT && lb == 1) ?
                      bignum_digits64(b, 0) :
-                     ASL64(bignum_digits64(b, 1), 31) | bignum_digits(b)[0];
+                     ASL(bignum_digits64(b, 1), 31) | bignum_digits(b)[0];
         return make_lisp_integer64(va + vb);
     }
 // Now at least one operand uses 3 words... I will do a general bignum add
 // which may sometimes be overkill, but ought to be safe.
-    push2(a, b);
+    push(a, b);
     LispObject c = get_basic_vector(TAG_NUMBERS, TYPE_BIGNUM, 4*la+CELL);
-    pop2(b, a);
+    pop(b, a);
     uint32_t carry = 0;
 // Add all but the top digit of b
     la--;
@@ -1506,7 +1549,7 @@ static inline LispObject plus_b_b(LispObject a, LispObject b)
         {   size_t j = i-1;
             while ((msd = bignum_digits(c)[j]) == 0 && j > 0) j--;
             if (SIXTY_FOUR_BIT && j == 1)
-            {   int64_t s = ASL64(bignum_digits64(c,1), 31) |
+            {   int64_t s = ASL(bignum_digits64(c,1), 31) |
                             bignum_digits(c)[0];
                 if (valid_as_fixnum(s)) return fixnum_of_int(s);
             }
@@ -1548,7 +1591,7 @@ static inline LispObject plus_b_b(LispObject a, LispObject b)
             msd = carry;    // in case j = 0
             while ((msd = bignum_digits(c)[j]) == 0x7fffffff && j > 0) j--;
             if (SIXTY_FOUR_BIT && j == 1)
-            {   int64_t s = ASL64(bignum_digits64(c,1) |
+            {   int64_t s = ASL(bignum_digits64(c,1) |
                                   INT64_C(0xffffffff80000000), 31) |
                             bignum_digits(c)[0];
                 if (valid_as_fixnum(s)) return fixnum_of_int(s);
@@ -1590,48 +1633,50 @@ static inline LispObject plus_b_b(LispObject a, LispObject b)
     }
 }
 
-static inline LispObject plus_b_r(LispObject a1, LispObject a2)
+inline LispObject plus_b_r(LispObject a1, LispObject a2)
 {   return plus_i_r(a1, a2);
 }
 
-static inline LispObject plus_b_c(LispObject a1, LispObject a2)
+inline LispObject plus_b_c(LispObject a1, LispObject a2)
 {   return plus_i_c(a1, a2);
 }
 
-static inline LispObject plus_b_s(LispObject a1, LispObject a2)
+inline LispObject plus_b_s(LispObject a1, LispObject a2)
 {   double d = float_of_number(a1) + value_of_immediate_float(a2);
     return pack_immediate_float(d, a2);
 }
 
-static inline LispObject plus_b_f(LispObject a1, LispObject a2)
+inline LispObject plus_b_f(LispObject a1, LispObject a2)
 {   double d = float_of_number(a1) + single_float_val(a2);
     return make_boxfloat(d, TYPE_SINGLE_FLOAT);
 }
 
-static inline LispObject plus_b_d(LispObject a1, LispObject a2)
+inline LispObject plus_b_d(LispObject a1, LispObject a2)
 {   double d = float_of_number(a1) + double_float_val(a2);
     return make_boxfloat(d, TYPE_DOUBLE_FLOAT);
 }
 
-static inline LispObject plus_b_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_b_l(LispObject a1, LispObject a2)
 {   float128_t x, z;
     x = float128_of_number(a1);
     f128M_add(&x, long_float_addr(a2), &z);
     return make_boxfloat128(z);
 }
+#endif // HAVE_SOFTFLOAT
 
-static inline LispObject plus_r_i(LispObject a1, LispObject a2)
+inline LispObject plus_r_i(LispObject a1, LispObject a2)
 {   return plus_i_r(a2, a1);
 }
 
-static inline LispObject plus_r_b(LispObject a1, LispObject a2)
+inline LispObject plus_r_b(LispObject a1, LispObject a2)
 {   return plus_b_r(a2, a1);
 }
 
 // Adding two ratios involves some effort to keep the result in
 // lowest terms.
 
-static inline LispObject plus_r_r(LispObject a1, LispObject a2)
+inline LispObject plus_r_r(LispObject a1, LispObject a2)
 {   LispObject na = numerator(a1), nb = numerator(a2);
     LispObject da = denominator(a1), db = denominator(a2);
     LispObject w = nil;
@@ -1663,25 +1708,27 @@ static inline LispObject plus_r_r(LispObject a1, LispObject a2)
 #undef g
 }
 
-static inline LispObject plus_r_c(LispObject a1, LispObject a2)
+inline LispObject plus_r_c(LispObject a1, LispObject a2)
 {   return plus_i_c(a1, a2);
 }
 
-static inline LispObject plus_r_s(LispObject a1, LispObject a2)
+inline LispObject plus_r_s(LispObject a1, LispObject a2)
 {   return plus_b_s(a1, a2);
 }
 
-static inline LispObject plus_r_f(LispObject a1, LispObject a2)
+inline LispObject plus_r_f(LispObject a1, LispObject a2)
 {   return plus_b_f(a1, a2);
 }
 
-static inline LispObject plus_r_d(LispObject a1, LispObject a2)
+inline LispObject plus_r_d(LispObject a1, LispObject a2)
 {   return plus_b_d(a1, a2);
 }
 
-static inline LispObject plus_r_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_r_l(LispObject a1, LispObject a2)
 {   return plus_b_l(a1, a2);
 }
+#endif // HAVE_SOFTFLOAT
 
 // The code that performs arithmetic on complex values will tend to
 // work by going (x + iy) + q => (x+q) + iy. It will then use generic
@@ -1690,77 +1737,80 @@ static inline LispObject plus_r_l(LispObject a1, LispObject a2)
 // I might unfold so that the type-information I have already collected
 // was preserved, but that seems excessive at present. 
 
-static inline LispObject plus_c_i(LispObject a1, LispObject a2)
+inline LispObject plus_c_i(LispObject a1, LispObject a2)
 {   return plus_i_c(a2, a1);
 }
 
-static inline LispObject plus_c_b(LispObject a1, LispObject a2)
+inline LispObject plus_c_b(LispObject a1, LispObject a2)
 {   return plus_i_c(a2, a1);
 }
 
-static inline LispObject plus_c_r(LispObject a1, LispObject a2)
+inline LispObject plus_c_r(LispObject a1, LispObject a2)
 {   return plus_i_c(a2, a1);
 }
 
 // Add complex values.
 
-static inline LispObject plus_c_c(LispObject a1, LispObject a2)
+inline LispObject plus_c_c(LispObject a1, LispObject a2)
 {   LispObject c;
-    push2(a1, a2);
+    push(a1, a2);
     c = plus2(imag_part(a1), imag_part(a2));
-    pop2(a2, a1);
+    pop(a2, a1);
     a1 = plus2(real_part(a1), real_part(a2));
     return make_complex(a1, c);
 }
 
-static inline LispObject plus_c_s(LispObject a1, LispObject a2)
+inline LispObject plus_c_s(LispObject a1, LispObject a2)
 {   return plus_i_c(a2, a1);
 }
 
-static inline LispObject plus_c_f(LispObject a1, LispObject a2)
+inline LispObject plus_c_f(LispObject a1, LispObject a2)
 {   return plus_i_c(a2, a1);
 }
 
-static inline LispObject plus_c_d(LispObject a1, LispObject a2)
+inline LispObject plus_c_d(LispObject a1, LispObject a2)
 {   return plus_i_c(a2, a1);
 }
 
-static inline LispObject plus_c_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_c_l(LispObject a1, LispObject a2)
 {   return plus_i_c(a2, a1);
 }
+#endif // HAVE_SOFTFLOAT
 
-static inline LispObject plus_s_i(LispObject a1, LispObject a2)
+inline LispObject plus_s_i(LispObject a1, LispObject a2)
 {   return plus_i_s(a2, a1);
 }
 
-static inline LispObject plus_s_b(LispObject a1, LispObject a2)
+inline LispObject plus_s_b(LispObject a1, LispObject a2)
 {   return plus_b_s(a2, a1);
 }
 
-static inline LispObject plus_s_r(LispObject a1, LispObject a2)
+inline LispObject plus_s_r(LispObject a1, LispObject a2)
 {   return plus_r_s(a2, a1);
 }
 
-static inline LispObject plus_s_c(LispObject a1, LispObject a2)
+inline LispObject plus_s_c(LispObject a1, LispObject a2)
 {   return plus_c_s(a2, a1);
 }
 
-static inline LispObject plus_s_s(LispObject a1, LispObject a2)
+inline LispObject plus_s_s(LispObject a1, LispObject a2)
 {   double d = value_of_immediate_float(a1) + value_of_immediate_float(a2);
     return pack_immediate_float(d, a1, a2);
 }
 
-static inline LispObject plus_s_f(LispObject a1, LispObject a2)
+inline LispObject plus_s_f(LispObject a1, LispObject a2)
 {   double d = value_of_immediate_float(a1) + single_float_val(a2);
     return make_boxfloat(d, TYPE_SINGLE_FLOAT);
 }
 
-static inline LispObject plus_s_d(LispObject a1, LispObject a2)
+inline LispObject plus_s_d(LispObject a1, LispObject a2)
 {   double d = value_of_immediate_float(a1) + single_float_val(a2);
     return make_boxfloat(d, TYPE_DOUBLE_FLOAT);
 }
 
-static inline LispObject plus_s_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_s_l(LispObject a1, LispObject a2)
 {   float128_t x, z;
     Double_union xf;
     xf.f = value_of_immediate_float(a1);
@@ -1768,38 +1818,40 @@ static inline LispObject plus_s_l(LispObject a1, LispObject a2)
     f128M_add(&x, long_float_addr(a2), &z);
     return make_boxfloat128(z);
 }
+#endif // HAVE_SOFTFLOAT
 
-static inline LispObject plus_f_i(LispObject a1, LispObject a2)
+inline LispObject plus_f_i(LispObject a1, LispObject a2)
 {   return plus_i_f(a2, a1);
 }
 
-static inline LispObject plus_f_b(LispObject a1, LispObject a2)
+inline LispObject plus_f_b(LispObject a1, LispObject a2)
 {   return plus_b_f(a2, a1);
 }
 
-static inline LispObject plus_f_r(LispObject a1, LispObject a2)
+inline LispObject plus_f_r(LispObject a1, LispObject a2)
 {   return plus_r_f(a2, a1);
 }
 
-static inline LispObject plus_f_c(LispObject a1, LispObject a2)
+inline LispObject plus_f_c(LispObject a1, LispObject a2)
 {   return plus_c_f(a2, a1);
 }
 
-static inline LispObject plus_f_s(LispObject a1, LispObject a2)
+inline LispObject plus_f_s(LispObject a1, LispObject a2)
 {   return plus_s_f(a2, a1);
 }
 
-static inline LispObject plus_f_f(LispObject a1, LispObject a2)
+inline LispObject plus_f_f(LispObject a1, LispObject a2)
 {   return make_boxfloat(single_float_val(a1) + single_float_val(a2),
                          TYPE_SINGLE_FLOAT);
 }
 
-static inline LispObject plus_f_d(LispObject a1, LispObject a2)
+inline LispObject plus_f_d(LispObject a1, LispObject a2)
 {   return make_boxfloat(single_float_val(a1) + double_float_val(a2),
                          TYPE_DOUBLE_FLOAT);
 }
 
-static inline LispObject plus_f_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_f_l(LispObject a1, LispObject a2)
 {   float128_t x, z;
     Double_union xf;
     xf.f = single_float_val(a1);
@@ -1807,37 +1859,39 @@ static inline LispObject plus_f_l(LispObject a1, LispObject a2)
     f128M_add(&x, long_float_addr(a2), &z);
     return make_boxfloat128(z);
 }
+#endif // HAVE_SOFTFLOAT
 
-static inline LispObject plus_d_i(LispObject a1, LispObject a2)
+inline LispObject plus_d_i(LispObject a1, LispObject a2)
 {   return plus_i_d(a2, a1);
 }
 
-static inline LispObject plus_d_b(LispObject a1, LispObject a2)
+inline LispObject plus_d_b(LispObject a1, LispObject a2)
 {   return plus_b_d(a1, a1);
 }
 
-static inline LispObject plus_d_r(LispObject a1, LispObject a2)
+inline LispObject plus_d_r(LispObject a1, LispObject a2)
 {   return plus_r_d(a2, a1);
 }
 
-static inline LispObject plus_d_c(LispObject a1, LispObject a2)
+inline LispObject plus_d_c(LispObject a1, LispObject a2)
 {   return plus_c_d(a2, a1);
 }
 
-static inline LispObject plus_d_s(LispObject a1, LispObject a2)
+inline LispObject plus_d_s(LispObject a1, LispObject a2)
 {   return plus_s_d(a2, a1);
 }
 
-static inline LispObject plus_d_f(LispObject a1, LispObject a2)
+inline LispObject plus_d_f(LispObject a1, LispObject a2)
 {   return plus_f_d(a2, a1);
 }
 
-static inline LispObject plus_d_d(LispObject a1, LispObject a2)
+inline LispObject plus_d_d(LispObject a1, LispObject a2)
 {   return make_boxfloat(double_float_val(a1) + double_float_val(a2),
                          TYPE_DOUBLE_FLOAT);
 }
 
-static inline LispObject plus_d_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject plus_d_l(LispObject a1, LispObject a2)
 {   float128_t x, z;
     Double_union xf;
     xf.f = double_float_val(a1);
@@ -1846,41 +1900,42 @@ static inline LispObject plus_d_l(LispObject a1, LispObject a2)
     return make_boxfloat128(z);
 }
 
-static inline LispObject plus_l_i(LispObject a1, LispObject a2)
+inline LispObject plus_l_i(LispObject a1, LispObject a2)
 {   return plus_i_l(a2, a1);
 }
 
-static inline LispObject plus_l_b(LispObject a1, LispObject a2)
+inline LispObject plus_l_b(LispObject a1, LispObject a2)
 {   return plus_b_l(a2, a1);
 }
 
-static inline LispObject plus_l_r(LispObject a1, LispObject a2)
+inline LispObject plus_l_r(LispObject a1, LispObject a2)
 {   return plus_r_l(a2, a1);
 }
 
-static inline LispObject plus_l_c(LispObject a1, LispObject a2)
+inline LispObject plus_l_c(LispObject a1, LispObject a2)
 {   return plus_c_l(a2, a1);
 }
 
-static inline LispObject plus_l_s(LispObject a1, LispObject a2)
+inline LispObject plus_l_s(LispObject a1, LispObject a2)
 {   return plus_s_l(a2, a1);
 }
 
-static inline LispObject plus_l_f(LispObject a1, LispObject a2)
+inline LispObject plus_l_f(LispObject a1, LispObject a2)
 {   return plus_f_l(a2, a1);
 }
 
-static inline LispObject plus_l_d(LispObject a1, LispObject a2)
+inline LispObject plus_l_d(LispObject a1, LispObject a2)
 {   return plus_d_l(a2, a1);
 }
 
-static inline LispObject plus_l_l(LispObject a1, LispObject a2)
+inline LispObject plus_l_l(LispObject a1, LispObject a2)
 {   float128_t z;
     f128M_add(long_float_addr(a1), long_float_addr(a2), &z);
     return make_boxfloat128(z);
 }
+#endif // HAVE_SOFTFLOAT
 
-arith_dispatch_2(static inline, LispObject, plus)
+arith_dispatch_2(inline, LispObject, plus)
 
 LispObject plus2(LispObject a, LispObject b)
 {
@@ -1895,116 +1950,120 @@ LispObject plus2(LispObject a, LispObject b)
 #endif
 }
 
-static inline LispObject difference_i_i(LispObject a1, LispObject a2)
+inline LispObject difference_i_i(LispObject a1, LispObject a2)
 {   return make_lisp_integer64(int_of_fixnum(a1) - int_of_fixnum(a2));
 }
 
-static inline LispObject difference_i_b(LispObject a1, LispObject a2)
+inline LispObject difference_i_b(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_i(a1, a2);
 }
 
-static inline LispObject difference_i_r(LispObject a1, LispObject a2)
+inline LispObject difference_i_r(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_i_r(a1, a2);
 }
 
-static inline LispObject difference_i_c(LispObject a1, LispObject a2)
+inline LispObject difference_i_c(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_i_c(a1, a2);
 }
 
-static inline LispObject difference_i_s(LispObject a1, LispObject a2)
+inline LispObject difference_i_s(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_i_s(a1, a2);
 }
 
-static inline LispObject difference_i_f(LispObject a1, LispObject a2)
+inline LispObject difference_i_f(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_i_f(a1, a2);
 }
 
-static inline LispObject difference_i_d(LispObject a1, LispObject a2)
+inline LispObject difference_i_d(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_i_d(a1, a2);
 }
 
-static inline LispObject difference_i_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_i_l(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_i_l(a1, a2);
 }
+#endif // HAVE_SOFTFLOAT
 
-static inline LispObject difference_b_i(LispObject a1, LispObject a2)
+inline LispObject difference_b_i(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_b(a1, a2);
 }
 
-static inline LispObject difference_b_b(LispObject a1, LispObject a2)
+inline LispObject difference_b_b(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_b(a1, a2);
 }
 
-static inline LispObject difference_b_r(LispObject a1, LispObject a2)
+inline LispObject difference_b_r(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_b_r(a1, a2);
 }
 
-static inline LispObject difference_b_c(LispObject a1, LispObject a2)
+inline LispObject difference_b_c(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_b_c(a1, a2);
 }
 
-static inline LispObject difference_b_s(LispObject a1, LispObject a2)
+inline LispObject difference_b_s(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_b_s(a1, a2);
 }
 
-static inline LispObject difference_b_f(LispObject a1, LispObject a2)
+inline LispObject difference_b_f(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_b_f(a1, a2);
 }
 
-static inline LispObject difference_b_d(LispObject a1, LispObject a2)
+inline LispObject difference_b_d(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_b_d(a1, a2);
 }
 
-static inline LispObject difference_b_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_b_l(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_b_l(a1, a2);
 }
+#endif // HAVE_SOFTFLOAT
 
-static inline LispObject difference_r_i(LispObject a1, LispObject a2)
+inline LispObject difference_r_i(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = times2(a2, denominator(a1));
     a2 = difference2(numerator(stack[0]), a2);
@@ -2012,319 +2071,329 @@ static inline LispObject difference_r_i(LispObject a1, LispObject a2)
     return make_ratio(a2, denominator(a1));
 }
 
-static inline LispObject difference_r_b(LispObject a1, LispObject a2)
+inline LispObject difference_r_b(LispObject a1, LispObject a2)
 {   return difference_r_i(a1, a2);
 }
 
-static inline LispObject difference_r_r(LispObject a1, LispObject a2)
+inline LispObject difference_r_r(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_r_r(a1, a2);
 }
 
-static inline LispObject difference_r_c(LispObject a1, LispObject a2)
+inline LispObject difference_r_c(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_r_c(a1, a2);
 }
 
-static inline LispObject difference_r_s(LispObject a1, LispObject a2)
+inline LispObject difference_r_s(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_r_s(a1, a2);
 }
 
-static inline LispObject difference_r_f(LispObject a1, LispObject a2)
+inline LispObject difference_r_f(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_r_f(a1, a2);
 }
 
-static inline LispObject difference_r_d(LispObject a1, LispObject a2)
+inline LispObject difference_r_d(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_r_d(a1, a2);
 }
 
-static inline LispObject difference_r_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_r_l(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_r_l(a1, a2);
 }
+#endif // HAVE_SOFTFLOAT
 
-static inline LispObject difference_c_i(LispObject a1, LispObject a2)
+inline LispObject difference_c_i(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = make_lisp_integer64(-int_of_fixnum(a2));
     pop(a1);
     return plus_c_i(a1, a2);
 }
 
-static inline LispObject difference_c_b(LispObject a1, LispObject a2)
+inline LispObject difference_c_b(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negateb(a2);
     pop(a1);
     return plus_c_b(a1, a2);
 }
 
-static inline LispObject difference_c_r(LispObject a1, LispObject a2)
+inline LispObject difference_c_r(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_c_r(a1, a2);
 }
 
-static inline LispObject difference_c_c(LispObject a1, LispObject a2)
+inline LispObject difference_c_c(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_c_c(a1, a2);
 }
 
-static inline LispObject difference_c_s(LispObject a1, LispObject a2)
+inline LispObject difference_c_s(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_c_s(a1, a2);
 }
 
-static inline LispObject difference_c_f(LispObject a1, LispObject a2)
+inline LispObject difference_c_f(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_c_f(a1, a2);
 }
 
-static inline LispObject difference_c_d(LispObject a1, LispObject a2)
+inline LispObject difference_c_d(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_c_d(a1, a2);
 }
 
-static inline LispObject difference_c_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_c_l(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_c_l(a1, a2);
 }
+#endif // HAVE_SOFTFLOAT
 
-static inline LispObject difference_s_i(LispObject a1, LispObject a2)
+inline LispObject difference_s_i(LispObject a1, LispObject a2)
 {   double d = value_of_immediate_float(a1) - (double)int_of_fixnum(a2);
     return pack_immediate_float(d, a1);
 }
 
-static inline LispObject difference_s_b(LispObject a1, LispObject a2)
+inline LispObject difference_s_b(LispObject a1, LispObject a2)
 {   int x;
     double a2d = bignum_to_float(a2, length_of_header(numhdr(a2)), &x);
     double d = value_of_immediate_float(a1) - ldexp(a2d, x);
     return pack_immediate_float(d, a1);
 }
 
-static inline LispObject difference_s_r(LispObject a1, LispObject a2)
+inline LispObject difference_s_r(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_s_r(a1, a2);
 }
 
-static inline LispObject difference_s_c(LispObject a1, LispObject a2)
+inline LispObject difference_s_c(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_s_c(a1, a2);
 }
 
-static inline LispObject difference_s_s(LispObject a1, LispObject a2)
+inline LispObject difference_s_s(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_s_s(a1, a2);
 }
 
-static inline LispObject difference_s_f(LispObject a1, LispObject a2)
+inline LispObject difference_s_f(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_s_f(a1, a2);
 }
 
-static inline LispObject difference_s_d(LispObject a1, LispObject a2)
+inline LispObject difference_s_d(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_s_d(a1, a2);
 }
 
-static inline LispObject difference_s_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_s_l(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_s_l(a1, a2);
 }
+#endif // HAVE_SOFTFLOAT
 
-static inline LispObject difference_f_i(LispObject a1, LispObject a2)
+inline LispObject difference_f_i(LispObject a1, LispObject a2)
 {   double d = single_float_val(a1) - (double)int_of_fixnum(a2);
     return make_boxfloat(d, TYPE_SINGLE_FLOAT);
 }
 
-static inline LispObject difference_f_b(LispObject a1, LispObject a2)
+inline LispObject difference_f_b(LispObject a1, LispObject a2)
 {   int x;
     double a2d = bignum_to_float(a2, length_of_header(numhdr(a2)), &x);
     double d = single_float_val(a1) - ldexp(a2d, x);
     return make_boxfloat(d, TYPE_SINGLE_FLOAT);
 }
 
-static inline LispObject difference_f_r(LispObject a1, LispObject a2)
+inline LispObject difference_f_r(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_f_r(a1, a2);
 }
 
-static inline LispObject difference_f_c(LispObject a1, LispObject a2)
+inline LispObject difference_f_c(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_f_c(a1, a2);
 }
 
-static inline LispObject difference_f_s(LispObject a1, LispObject a2)
+inline LispObject difference_f_s(LispObject a1, LispObject a2)
 {   double d = single_float_val(a1) - value_of_immediate_float(a2);
     return make_boxfloat(d, TYPE_SINGLE_FLOAT);
 }
 
-static inline LispObject difference_f_f(LispObject a1, LispObject a2)
+inline LispObject difference_f_f(LispObject a1, LispObject a2)
 {   double d = single_float_val(a1) - single_float_val(a2);
     return make_boxfloat(d, TYPE_SINGLE_FLOAT);
 }
 
-static inline LispObject difference_f_d(LispObject a1, LispObject a2)
+inline LispObject difference_f_d(LispObject a1, LispObject a2)
 {   double d = single_float_val(a1) - single_float_val(a2);
     return make_boxfloat(d, TYPE_DOUBLE_FLOAT);
 }
 
-static inline LispObject difference_f_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_f_l(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_f_l(a1, a2);
 }
+#endif // HAVE_SOFTFLOAT
 
-static inline LispObject difference_d_i(LispObject a1, LispObject a2)
+inline LispObject difference_d_i(LispObject a1, LispObject a2)
 {   double d = double_float_val(a1) - (double)int_of_fixnum(a2);
     return make_boxfloat(d, TYPE_DOUBLE_FLOAT);
 }
 
-static inline LispObject difference_d_b(LispObject a1, LispObject a2)
+inline LispObject difference_d_b(LispObject a1, LispObject a2)
 {   int x;
     double a2d = bignum_to_float(a2, length_of_header(numhdr(a2)), &x);
     double d = double_float_val(a1) - ldexp(a2d, x);
     return make_boxfloat(d, TYPE_SINGLE_FLOAT);
 }
 
-static inline LispObject difference_d_r(LispObject a1, LispObject a2)
+inline LispObject difference_d_r(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_d_r(a1, a2);
 }
 
-static inline LispObject difference_d_c(LispObject a1, LispObject a2)
+inline LispObject difference_d_c(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_d_c(a1, a2);
 }
 
-static inline LispObject difference_d_s(LispObject a1, LispObject a2)
+inline LispObject difference_d_s(LispObject a1, LispObject a2)
 {   double d = double_float_val(a1) - value_of_immediate_float(a2);
     return make_boxfloat(d, TYPE_DOUBLE_FLOAT);
 }
 
-static inline LispObject difference_d_f(LispObject a1, LispObject a2)
+inline LispObject difference_d_f(LispObject a1, LispObject a2)
 {   double d = double_float_val(a1) - single_float_val(a2);
     return make_boxfloat(d, TYPE_DOUBLE_FLOAT);
 }
 
-static inline LispObject difference_d_d(LispObject a1, LispObject a2)
+inline LispObject difference_d_d(LispObject a1, LispObject a2)
 {   double d = double_float_val(a1) - double_float_val(a2);
     return make_boxfloat(d, TYPE_DOUBLE_FLOAT);
 }
 
-static inline LispObject difference_d_l(LispObject a1, LispObject a2)
+#ifdef HAVE_SOFTFLOAT
+inline LispObject difference_d_l(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_d_l(a1, a2);
 }
 
-static inline LispObject difference_l_i(LispObject a1, LispObject a2)
+inline LispObject difference_l_i(LispObject a1, LispObject a2)
 {   float128_t x, z;
     i64_to_f128M((int64_t)int_of_fixnum(a2), &x);
     f128M_sub(long_float_addr(a1), &x, &z);
     return make_boxfloat128(z);
 }
 
-static inline LispObject difference_l_b(LispObject a1, LispObject a2)
+inline LispObject difference_l_b(LispObject a1, LispObject a2)
 {   float128_t x, z;
     x = float128_of_number(a2);
     f128M_sub(long_float_addr(a2), &x, &z);
     return make_boxfloat128(z);
 }
 
-static inline LispObject difference_l_r(LispObject a1, LispObject a2)
+inline LispObject difference_l_r(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_l_r(a1, a2);
 }
 
-static inline LispObject difference_l_c(LispObject a1, LispObject a2)
+inline LispObject difference_l_c(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_l_c(a1, a2);
 }
 
-static inline LispObject difference_l_s(LispObject a1, LispObject a2)
+inline LispObject difference_l_s(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_l_s(a1, a2);
 }
 
-static inline LispObject difference_l_f(LispObject a1, LispObject a2)
+inline LispObject difference_l_f(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_l_f(a1, a2);
 }
 
-static inline LispObject difference_l_d(LispObject a1, LispObject a2)
+inline LispObject difference_l_d(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_l_d(a1, a2);
 }
 
-static inline LispObject difference_l_l(LispObject a1, LispObject a2)
+inline LispObject difference_l_l(LispObject a1, LispObject a2)
 {   push(a1);
     a2 = negate(a2);
     pop(a1);
     return plus_l_l(a1, a2);
 }
+#endif // HAVE_SOFTFLOAT
 
 //
 // and now for the dispatch code...
 //
 
-arith_dispatch_2(static inline, LispObject, difference)
+arith_dispatch_2(inline, LispObject, difference)
 
 LispObject difference2(LispObject a, LispObject b)
 {

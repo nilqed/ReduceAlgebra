@@ -30,7 +30,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: arith.h 4945 2019-03-16 17:32:52Z arthurcnorman $
+// $Id: arith.h 4980 2019-05-06 12:08:42Z arthurcnorman $
 
 #ifndef header_arith_h
 #define header_arith_h 1
@@ -133,10 +133,21 @@ extern unsigned char msd_table[256], lsd_table[256];
   (((intptr_t)(((uintptr_t)(n)&0x7fffffffU) << (8*sizeof(intptr_t) - 31)) / \
     ((intptr_t)1 << (8*sizeof(intptr_t) - 31))) == (intptr_t)(n))
 
+#ifdef HAVE_SOFTFLOAT
+// I use rounding-direction specifiers from SoftFloat because I can then
+// pass them down to the float128_t functions when I need to
 #define FIX_TRUNCATE softfloat_round_minMag
 #define FIX_ROUND    softfloat_round_near_even
 #define FIX_FLOOR    softfloat_round_min
 #define FIX_CEILING  softfloat_round_max
+#else
+// If I do not have SoftFloat I will use values that in fact match those I
+// would be using if I did!
+#define FIX_TRUNCATE 1
+#define FIX_ROUND    0
+#define FIX_FLOOR    2
+#define FIX_CEILING  3
+#endif // HAVE_SOFTFLOAT
 
 extern LispObject lisp_fix(LispObject a, int roundmode);
 extern LispObject lisp_ifix(LispObject a, LispObject b, int roundmode);
@@ -149,11 +160,11 @@ extern LispObject lisp_ifix(LispObject a, LispObject b, int roundmode);
 // for that architecture will use SSE instructions that behave in a more
 // obvious IEEE manner.
 
-static inline bool floating_edge_case(double r)
+inline bool floating_edge_case(double r)
 {   return (1.0/r == 0.0 || r != r);
 }
 
-static inline void floating_clear_flags()
+inline void floating_clear_flags()
 {}
 
 // An alternative possible implementation could go
@@ -212,7 +223,7 @@ static inline void floating_clear_flags()
 #define bignum_minusp(a) \
     ((int32_t)bignum_digits(a)[((bignum_length(a)-CELL)/4)-1]<0)
 
-static inline double value_of_immediate_float(LispObject a)
+inline double value_of_immediate_float(LispObject a)
 {   Float_union aa;
     if (SIXTY_FOUR_BIT) aa.i = (int32_t)((uint64_t)a>>32);
     else aa.i = (int32_t)(a - XTAG_SFLOAT);
@@ -220,11 +231,13 @@ static inline double value_of_immediate_float(LispObject a)
 }
 
 extern LispObject make_boxfloat(double a, int type);
+#ifdef HAVE_SOFTFLOAT
 extern LispObject make_boxfloat128(float128_t a);
+#endif // HAVE_SOFTFLOAT
 
 // Pack something as a short (28-bit) float
 
-static inline LispObject pack_short_float(double d)
+inline LispObject pack_short_float(double d)
 {   Float_union aa;
     aa.f = d;
     if (trap_floating_overflow &&
@@ -241,7 +254,7 @@ static inline LispObject pack_short_float(double d)
 // Create a single (32-bit) float. Just like make_single_float but inlined
 // in the 64-bit case
 
-static inline LispObject pack_single_float(double d)
+inline LispObject pack_single_float(double d)
 {   if (SIXTY_FOUR_BIT)
     {   Float_union aa;
         aa.f = d;
@@ -270,7 +283,7 @@ static inline LispObject pack_single_float(double d)
 // be a 28-bit value. If a second argument l2 is provided the width of the
 // result will match the wider of the two.
 
-static inline LispObject pack_immediate_float(double d,
+inline LispObject pack_immediate_float(double d,
                                               LispObject l1, LispObject l2=0)
 {   Float_union aa;
     aa.f = d;
@@ -296,7 +309,7 @@ static inline LispObject pack_immediate_float(double d,
 // a Dr Doobs article in 2013, the other is in (MIT Licensed) Julia and
 // a discussion at https://github.com/JuliaLang/julia/issues/257.
 
-static inline bool eq_i64d(int64_t a, double b)
+inline bool eq_i64d(int64_t a, double b)
 {
 // The integer can always be converted to a double, but of course
 // sometimes there will be rounding involved. But if the value does not
@@ -317,7 +330,7 @@ static inline bool eq_i64d(int64_t a, double b)
     return a == (int64_t)b;
 }
 
-static inline bool lessp_i64d(int64_t a, double b)
+inline bool lessp_i64d(int64_t a, double b)
 {
 // If the integer is <= 2^53 then converting it to a double does not
 // introduce any error at all, so I can perform the comparison reliably
@@ -346,7 +359,7 @@ static inline bool lessp_i64d(int64_t a, double b)
     return a < (int64_t)b;
 }
 
-static inline bool lessp_di64(double a, int64_t b)
+inline bool lessp_di64(double a, int64_t b)
 {
 // The logic here is much as above - by omitting all the commentary
 // you can see much more clearly just how long the code is.
@@ -411,19 +424,19 @@ extern LispObject make_n5_word_bignum(int32_t a4, uint32_t a3,
 extern LispObject make_power_of_two(size_t n);
 
 extern LispObject make_lisp_integer32_fn(int32_t n);
-static inline LispObject make_lisp_integer32(int32_t n)
+inline LispObject make_lisp_integer32(int32_t n)
 {   if (SIXTY_FOUR_BIT || valid_as_fixnum(n)) return fixnum_of_int((intptr_t)n);
     else return make_lisp_integer32_fn(n);
 }
 
 extern LispObject make_lisp_integer64_fn(int64_t n);
-static inline LispObject make_lisp_integer64(int64_t n)
+inline LispObject make_lisp_integer64(int64_t n)
 {   if (valid_as_fixnum(n)) return fixnum_of_int((intptr_t)n);
     else return make_lisp_integer64_fn(n);
 }
 
 extern LispObject make_lisp_unsigned64_fn(uint64_t n);
-static inline LispObject make_lisp_unsigned64(uint64_t n)
+inline LispObject make_lisp_unsigned64(uint64_t n)
 {   if (n < ((uint64_t)1)<<(8*sizeof(intptr_t)-5))
         return fixnum_of_int((intptr_t)n);
     else return make_lisp_unsigned64_fn(n);
@@ -445,26 +458,26 @@ extern LispObject make_lisp_integerptr_fn(intptr_t n);
 // in the meanwhile having conservative code feels safer... so this comment is
 // the main cost.
 
-static inline LispObject make_lisp_integerptr(intptr_t n)
+inline LispObject make_lisp_integerptr(intptr_t n)
 {   if (intptr_valid_as_fixnum(n)) return fixnum_of_int(n);
     else return make_lisp_integerptr_fn(n);
 }
 
 extern LispObject make_lisp_unsignedptr_fn(uintptr_t n);
-static inline LispObject make_lisp_unsignedptr(uintptr_t n)
+inline LispObject make_lisp_unsignedptr(uintptr_t n)
 {   if (n < ((uintptr_t)1)<<(8*sizeof(intptr_t)-5))
         return fixnum_of_int((intptr_t)n);
     else return make_lisp_unsignedptr_fn(n);
 }
 
 extern LispObject make_lisp_integer128_fn(int128_t n);
-static inline LispObject make_lisp_integer128(int128_t n)
+inline LispObject make_lisp_integer128(int128_t n)
 {   if (valid_as_fixnum(n)) return fixnum_of_int(NARROW128(n));
     else return make_lisp_integer128_fn(n);
 }
 
 extern LispObject make_lisp_unsigned128_fn(uint128_t n);
-static inline LispObject make_lisp_unsigned128(uint128_t n)
+inline LispObject make_lisp_unsigned128(uint128_t n)
 {   if (uint128_valid_as_fixnum(n))
         return fixnum_of_int((uint64_t)NARROW128(n));
     else return make_lisp_unsigned128_fn(n);
@@ -475,7 +488,9 @@ extern LispObject add1(LispObject p);
 extern LispObject sub1(LispObject p);
 extern LispObject integerp(LispObject p);
 extern double float_of_number(LispObject a);
+#ifdef HAVE_SOFTFLOAT
 extern float128_t float128_of_number(LispObject a);
+#endif // HAVE_SOFTFLOAT
 extern LispObject make_complex(LispObject r, LispObject i);
 extern LispObject make_ratio(LispObject p, LispObject q);
 extern LispObject make_approx_ratio(LispObject p, LispObject q, int bits);
@@ -486,7 +501,9 @@ extern LispObject logxor2(LispObject a, LispObject b);
 extern LispObject logand2(LispObject a, LispObject b);
 extern LispObject logeqv2(LispObject a, LispObject b);
 extern LispObject rationalf(double d);
+#ifdef HAVE_SOFTFLOAT
 extern LispObject rationalf128(float128_t *d);
+#endif // HAVE_SOFTFLOAT
 
 extern int _reduced_exp(double, double *);
 extern bool lesspbi(LispObject a, LispObject b);
@@ -526,7 +543,7 @@ extern int kara_done;
 
 #endif
 
-extern size_t karatsuba_parallel;
+extern size_t kparallel, karatsuba_parallel;
 
 //
 // Tests on my Intel i7 4770K system running Windows 7 (64-bit) I find that
@@ -555,6 +572,7 @@ extern size_t karatsuba_parallel;
 #endif
 
 
+#ifdef HAVE_SOFTFLOAT
 // Now some stuff relating to the float128_t type
 
 static int f128M_exponent(const float128_t *p);
@@ -578,77 +596,80 @@ extern void f128M_split(
 #define LOPART 1
 #endif
 
-static inline bool f128M_zero(const float128_t *p)
+inline bool f128M_zero(const float128_t *p)
 {   return ((p->v[HIPART] & INT64_C(0x7fffffffffffffff)) == 0) &&
             (p->v[LOPART] == 0);
 }
 
-static inline bool f128M_infinite(const float128_t *p)
+inline bool f128M_infinite(const float128_t *p)
 {   return (((p->v[HIPART] >> 48) & 0x7fff) == 0x7fff) &&
             ((p->v[HIPART] & INT64_C(0xffffffffffff)) == 0) &&
             (p->v[LOPART] == 0);
 }
 
-static inline bool f128M_finite(const float128_t *p)
+inline bool f128M_finite(const float128_t *p)
 {   return (((p->v[HIPART] >> 48) & 0x7fff) != 0x7fff);
 }
 
-static inline void f128M_make_infinite(float128_t *p)
+inline void f128M_make_infinite(float128_t *p)
 {   p->v[HIPART] |= UINT64_C(0x7fff000000000000);
     p->v[HIPART] &= UINT64_C(0xffff000000000000);
     p->v[LOPART] = 0;
 }
 
-static inline void f128M_make_zero(float128_t *p)
+inline void f128M_make_zero(float128_t *p)
 {   p->v[HIPART] &= UINT64_C(0x8000000000000000);
     p->v[LOPART] = 0;
 }
 
 // Here I do not count 0.0 (or -0.0) as sub-normal.
 
-static inline bool f128M_subnorm(const float128_t *p)
+inline bool f128M_subnorm(const float128_t *p)
 {   return (((p->v[HIPART] >> 48) & 0x7fff) == 0) &&
             (((p->v[HIPART] & INT64_C(0xffffffffffff)) != 0) ||
              (p->v[LOPART] != 0));
 }
 
-static inline bool f128M_nan(const float128_t *p)
+inline bool f128M_nan(const float128_t *p)
 {   return (((p->v[HIPART] >> 48) & 0x7fff) == 0x7fff) &&
             (((p->v[HIPART] & INT64_C(0xffffffffffff)) != 0) ||
              (p->v[LOPART] != 0));
 }
 
-static inline bool f128M_negative(const float128_t *x)
+inline bool f128M_negative(const float128_t *x)
 {   if (f128M_nan(x)) return false;
     return ((int64_t)x->v[HIPART]) < 0;
 }
 
-static inline int f128M_exponent(const float128_t *p)
+inline int f128M_exponent(const float128_t *p)
 {   return ((p->v[HIPART] >> 48) & 0x7fff) - 0x3fff;
 }
 
-static inline void f128M_set_exponent(float128_t *p, int n)
+inline void f128M_set_exponent(float128_t *p, int n)
 {   p->v[HIPART] = (p->v[HIPART] & INT64_C(0x8000ffffffffffff)) |
         (((uint64_t)n + 0x3fff) << 48);
 }
 
-static inline void f128M_negate(float128_t *x)
+inline void f128M_negate(float128_t *x)
 {   x->v[HIPART] ^= UINT64_C(0x8000000000000000);
 }
 
-static inline bool floating_edge_case128(float128_t *r)
+inline bool floating_edge_case128(float128_t *r)
 {   return f128M_infinite(r) || f128M_nan(r);
 }
 
+#endif // HAVE_SOFTFLOAT
+
 extern int double_to_binary(double d, int64_t &m);
+#ifdef HAVE_SOFTFLOAT
 extern int float128_to_binary(const float128_t *d,
                               int64_t &mhi, uint64_t &mlo);
-
+#endif // HAVE_SOFTFLOAT
 extern intptr_t double_to_3_digits(double d,
     int32_t &a2, uint32_t &a1, uint32_t &a0);
+#ifdef HAVE_SOFTFLOAT
 extern intptr_t float128_to_5_digits(float128_t *d,
     int32_t &a4, uint32_t &a3, uint32_t &a2, uint32_t &a1, uint32_t &a0);
-
 
 extern float128_t f128_0,      // 0.0L0
                       f128_half,   // 0.5L0
@@ -671,7 +692,7 @@ typedef struct _float256_t
 #endif
 } float256_t;
 
-static inline void f128M_to_f256M(const float128_t *a, float256_t *b)
+inline void f128M_to_f256M(const float128_t *a, float256_t *b)
 {   b->hi = *a;
     b->lo = f128_0;
 } 
@@ -699,10 +720,13 @@ extern int f128M_print_G(int width, int precision, float128_t *p);
 
 extern float128_t atof128(const char *s);
 
+#endif // HAVE_SOFTFLOAT
+
 // Now let me provide a macro to do full type-dispatch for the implementation
 // of a generic arithmetic operator. This is a pretty hideously large macro
 // and it does a full dispatch in every single case, but still writing it
-// just once is probably a good idea.
+// just once is probably a good idea. Well if HAVE_SOFTFLOAT is not defined
+// I will want the "long float" cases to be supressed!
 
 // This checks for
 //   i    fixnum
@@ -714,6 +738,9 @@ extern float128_t atof128(const char *s);
 //   d    double float
 //   l    long float
 //
+
+
+#ifdef HAVE_SOFTFLOAT
 
 // arith_dispatch_1 switches into one of 8 sub-functions whose names are
 // got be suffixing the top-level name with one of the above letters.
@@ -796,21 +823,21 @@ stgclass type name(LispObject a1, LispObject a2)                    \
 }
 
 #define arith_dispatch_2(stgclass, type, name)                      \
-arith_dispatch_1a(static inline, type, name##_i, name)              \
+arith_dispatch_1a(inline, type, name##_i, name)                     \
                                                                     \
-arith_dispatch_1a(static inline, type, name##_b, name)              \
+arith_dispatch_1a(inline, type, name##_b, name)                     \
                                                                     \
-arith_dispatch_1a(static inline, type, name##_r, name)              \
+arith_dispatch_1a(inline, type, name##_r, name)                     \
                                                                     \
-arith_dispatch_1a(static inline, type, name##_c, name)              \
+arith_dispatch_1a(inline, type, name##_c, name)                     \
                                                                     \
-arith_dispatch_1a(static inline, type, name##_s, name)              \
+arith_dispatch_1a(inline, type, name##_s, name)                     \
                                                                     \
-arith_dispatch_1a(static inline, type, name##_f, name)              \
+arith_dispatch_1a(inline, type, name##_f, name)                     \
                                                                     \
-arith_dispatch_1a(static inline, type, name##_d, name)              \
+arith_dispatch_1a(inline, type, name##_d, name)                     \
                                                                     \
-arith_dispatch_1a(static inline, type, name##_l, name)              \
+arith_dispatch_1a(inline, type, name##_l, name)                     \
                                                                     \
 stgclass type name(LispObject a1, LispObject a2)                    \
 {   if (is_fixnum(a1)) return name##_i(a1, a2);                     \
@@ -846,6 +873,134 @@ stgclass type name(LispObject a1, LispObject a2)                    \
         return name##_s(a1, a2);                                    \
     }                                                               \
 }
+
+#else // HAVE_SOFTFLOAT
+
+// arith_dispatch_1 switches into one of 7 sub-functions whose names are
+// got be suffixing the top-level name with one of the above letters.
+// arith_dispatch_2 ends up with 49 sub-functions to call.
+
+// First for 1-arg functions
+
+#define arith_dispatch_1(stgclass, type, name)                      \
+stgclass type name(LispObject a1)                                   \
+{   if (is_fixnum(a1)) return name##_i(a1);                         \
+    switch (a1 & TAG_BITS)                                          \
+    {                                                               \
+    case TAG_NUMBERS:                                               \
+        switch (type_of_header(numhdr(a1)))                         \
+        {                                                           \
+        case TYPE_BIGNUM:                                           \
+            return name##_b(a1);                                    \
+        case TYPE_RATNUM:                                           \
+            return name##_r(a1);                                    \
+        case TYPE_COMPLEX_NUM:                                      \
+            return name##_c(a1);                                    \
+        default:                                                    \
+            aerror1("bad arg for " #name, a1);                      \
+        }                                                           \
+    case TAG_BOXFLOAT:                                              \
+        switch (type_of_header(flthdr(a1)))                         \
+        {                                                           \
+        case TYPE_SINGLE_FLOAT:                                     \
+            return name##_f(a1);                                    \
+        case TYPE_DOUBLE_FLOAT:                                     \
+            return name##_d(a1);                                    \
+        default:                                                    \
+            aerror1("bad arg for " #name, a1);                      \
+        }                                                           \
+    default:                                                        \
+        aerror1("bad arg for " #name, a1);                          \
+    case (XTAG_SFLOAT & TAG_BITS):                                  \
+        return name##_s(a1);                                        \
+    }                                                               \
+}
+
+// Now a helper macro for 2-arg functions
+
+#define arith_dispatch_1a(stgclass, type, name, rawname)            \
+stgclass type name(LispObject a1, LispObject a2)                    \
+{   if (is_fixnum(a2)) return name##_i(a1, a2);                     \
+    switch (a2 & TAG_BITS)                                          \
+    {                                                               \
+    case TAG_NUMBERS:                                               \
+        switch (type_of_header(numhdr(a2)))                         \
+        {                                                           \
+        case TYPE_BIGNUM:                                           \
+            return name##_b(a1, a2);                                \
+        case TYPE_RATNUM:                                           \
+            return name##_r(a1, a2);                                \
+        case TYPE_COMPLEX_NUM:                                      \
+            return name##_c(a1, a2);                                \
+        default:                                                    \
+            aerror2("bad arg for " #rawname, a1, a2);               \
+        }                                                           \
+    case TAG_BOXFLOAT:                                              \
+        switch (type_of_header(flthdr(a2)))                         \
+        {                                                           \
+        case TYPE_SINGLE_FLOAT:                                     \
+            return name##_f(a1, a2);                                \
+        case TYPE_DOUBLE_FLOAT:                                     \
+            return name##_d(a1, a2);                                \
+        default:                                                    \
+            aerror2("bad arg for " #rawname, a1, a2);               \
+        }                                                           \
+    default:                                                        \
+        aerror2("bad arg for " #rawname, a1, a2);                   \
+    case (XTAG_SFLOAT & TAG_BITS):                                  \
+        return name##_s(a1, a2);                                    \
+    }                                                               \
+}
+
+#define arith_dispatch_2(stgclass, type, name)                      \
+arith_dispatch_1a(inline, type, name##_i, name)                     \
+                                                                    \
+arith_dispatch_1a(inline, type, name##_b, name)                     \
+                                                                    \
+arith_dispatch_1a(inline, type, name##_r, name)                     \
+                                                                    \
+arith_dispatch_1a(inline, type, name##_c, name)                     \
+                                                                    \
+arith_dispatch_1a(inline, type, name##_s, name)                     \
+                                                                    \
+arith_dispatch_1a(inline, type, name##_f, name)                     \
+                                                                    \
+arith_dispatch_1a(inline, type, name##_d, name)                     \
+                                                                    \
+stgclass type name(LispObject a1, LispObject a2)                    \
+{   if (is_fixnum(a1)) return name##_i(a1, a2);                     \
+    switch (a1 & TAG_BITS)                                          \
+    {                                                               \
+    case TAG_NUMBERS:                                               \
+        switch (type_of_header(numhdr(a1)))                         \
+        {                                                           \
+        case TYPE_BIGNUM:                                           \
+            return name##_b(a1, a2);                                \
+        case TYPE_RATNUM:                                           \
+            return name##_r(a1, a2);                                \
+        case TYPE_COMPLEX_NUM:                                      \
+            return name##_c(a1, a2);                                \
+        default:                                                    \
+            aerror2("bad arg for " #name, a1, a2);                  \
+        }                                                           \
+    case TAG_BOXFLOAT:                                              \
+        switch (type_of_header(flthdr(a1)))                         \
+        {                                                           \
+        case TYPE_SINGLE_FLOAT:                                     \
+            return name##_f(a1, a2);                                \
+        case TYPE_DOUBLE_FLOAT:                                     \
+            return name##_d(a1, a2);                                \
+        default:                                                    \
+            aerror2("bad arg for " #name, a1, a2);                  \
+        }                                                           \
+    default:                                                        \
+        aerror2("bad arg for " #name, a1, a2);                      \
+    case (XTAG_SFLOAT & TAG_BITS):                                  \
+        return name##_s(a1, a2);                                    \
+    }                                                               \
+}
+
+#endif // HAVE_SOFTFLOAT
 
 #endif // header_arith_h
 

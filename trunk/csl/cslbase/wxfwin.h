@@ -49,7 +49,7 @@
 // I called "cwin".
 //
 
-// $Id: wxfwin.h 4617 2018-05-20 17:30:55Z arthurcnorman $
+// $Id: wxfwin.h 4975 2019-05-01 20:54:45Z arthurcnorman $
 
 #ifndef header_wxfwin_h
 #define header_wxfwin_h 1
@@ -167,7 +167,7 @@ extern void fwin_exit(int return_code);
 // program so an extra prompt seems unnecessary. This behaviour provides
 // at least one reason to use fwin_exit() rather than just exit().
 //
-extern int fwin_pause_at_end;
+extern bool fwin_pause_at_end;
 
 
 //
@@ -344,12 +344,8 @@ extern void fwin_callback_on_delay(delay_callback_t *f);
 #define TICK_INTERRUPT  1
 #define QUIET_INTERRUPT 2
 #define NOISY_INTERRUPT 3
+#define QUIT_PROGRAM    4
 
-typedef int interrupt_callback_t(int);
-
-extern void fwin_callback_to_interrupt(interrupt_callback_t *f);
-
-//
 // When a TICK is handed to the user the following should be called
 // to confirm that it has been seen.
 //
@@ -528,7 +524,7 @@ extern int windowed_worker(int argc, const char *argv[],
 
 extern bool directoryp(char *f, const char *o, size_t n);
 
-extern int using_termed;
+extern bool using_termed;
 
 extern int fwin_plain_getchar();
 

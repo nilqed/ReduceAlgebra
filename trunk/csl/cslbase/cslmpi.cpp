@@ -36,7 +36,7 @@
  *************************************************************************/
 
 
-// $Id: cslmpi.cpp 4188 2017-09-08 07:44:29Z arthurcnorman $
+// $Id: cslmpi.cpp 4975 2019-05-01 20:54:45Z arthurcnorman $
 
 #include "headers.h"
 
@@ -52,7 +52,7 @@
 
 #include "mpipack.c"
 
-static inline LispObject get_fix_arg(LispObject& v, const char *fun_name)
+inline LispObject get_fix_arg(LispObject& v, const char *fun_name)
 {   if (!is_fixnum(v)) aerror1(fun_name, v)
     v = int_of_fixnum(v);
 }

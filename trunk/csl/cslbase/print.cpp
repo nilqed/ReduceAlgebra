@@ -33,7 +33,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: print.cpp 4945 2019-03-16 17:32:52Z arthurcnorman $
+// $Id: print.cpp 4980 2019-05-06 12:08:42Z arthurcnorman $
 
 #include "headers.h"
 
@@ -455,7 +455,7 @@ LispObject Lmake_broadcast_stream_n(LispObject env, int nargs, ...)
     va_list a;
     va_start(a, nargs);
     while (nargs > 1)
-    {   pop2(w, w1);
+    {   pop(w, w1);
         nargs-=2;
         r = list2star(w1, w, r);
     }
@@ -486,7 +486,7 @@ LispObject Lmake_concatenated_stream_n(LispObject env, int nargs, ...)
     va_list a;
     va_start(a, nargs);
     while (nargs > 1)
-    {   pop2(w, w1);
+    {   pop(w, w1);
         nargs-=2;
         r = list2star(w1, w, r);
     }
@@ -531,9 +531,9 @@ LispObject Lmake_two_way_stream(LispObject env, LispObject a, LispObject b)
 {   LispObject w;
     if (!is_symbol(a)) aerror1("make-two-way-stream", a);
     if (!is_symbol(b)) aerror1("make-two-way-stream", b);
-    push2(a, b);
+    push(a, b);
     w = make_stream_handle();
-    pop2(b, a);
+    pop(b, a);
     set_stream_write_fn(w, char_to_synonym);
     set_stream_write_other(w, write_action_synonym);
     stream_write_data(w) = b;
@@ -547,9 +547,9 @@ LispObject Lmake_echo_stream(LispObject env, LispObject a, LispObject b)
 {   LispObject w;
     if (!is_symbol(a)) aerror1("make-echo-stream", a);
     if (!is_symbol(b)) aerror1("make-echo-stream", b);
-    push2(a, b);
+    push(a, b);
     w = make_stream_handle();
-    pop2(b, a);
+    pop(b, a);
     set_stream_write_fn(w, char_to_synonym);
     set_stream_write_other(w, write_action_synonym);
     stream_write_data(w) = b;
@@ -645,12 +645,13 @@ int char_to_terminal(int c, LispObject)
 #endif
     }
     if (procedural_output != NULL) return (*procedural_output)(c);
-#ifdef WINDOW_SYSTEM
+#ifdef WITH_GUI
+// "alternative_stdout" is only relevant if there may be a GUI.
     if (alternative_stdout != NULL)
     {   PUTC(c, alternative_stdout);
         return 0;
     }
-#endif
+#endif // WITH_GUI
     fwin_putchar(c);
     return 0;   // indicate success
 }
@@ -774,9 +775,9 @@ int32_t write_action_broadcast(int32_t c, LispObject f)
         if (!is_symbol(f1)) continue;
         f1 = qvalue(f1);
         if (!is_stream(f1)) continue;
-        push2(l, f);
+        push(l, f);
         r1 = other_write_action(c, f1);
-        pop2(f, l);
+        pop(f, l);
         if (r == 0) r = r1;
     }
     if (c == WRITE_CLOSE)
@@ -1746,7 +1747,7 @@ static void fp_sprint(char *buff, double x, int prec, int xmark)
     else if (*buff == '0' && *(buff+2) != 0) char_del(buff);
 }
 
-
+#ifdef HAVE_SOFTFLOAT
 static void fp_sprint128(char *buff, float128_t x, int prec, int xchar)
 {   if (f128M_eq(&x, &f128_0))
     {   if (f128M_negative(&x)) strcpy(buff, "-0.0L+00");
@@ -1810,7 +1811,7 @@ static void fp_sprint128(char *buff, float128_t x, int prec, int xchar)
     if (*(buff+1) == 0) char_ins(buff, '0');
     else if (*buff == '0' && *(buff+2) != 0) char_del(buff);
 }
-
+#endif // HAVE_SOFTFLOAT
 
 static int32_t local_gensym_count;
 
@@ -1878,11 +1879,7 @@ void internal_prin(LispObject u, int blankp)
     }
 restart:
 #endif
-    if (--countdown < 0) deal_with_tick();
-    if (++reclaim_trigger_count == reclaim_trigger_target ||
-        stack >= stacklimit)
-    {   u = reclaim(u, "stack", GC_STACK, 0);
-    }
+    if (stack >= stacklimit) respond_to_stack_event();
     switch ((int)u & TAG_BITS)
     {   case TAG_CONS:
 #ifdef COMMON
@@ -2453,13 +2450,7 @@ restart:
                 case TYPE_BITVEC_30:  bl = 30; break;
                 case TYPE_BITVEC_31:  bl = 31; break;
                 case TYPE_BITVEC_32:  bl = 32; break;
-#ifndef COMMON
-                case TYPE_STRUCTURE:
-                    pop(u);
-                    sprintf(my_buff, "[e-vector:%.8lx]", (long)(uint32_t)u);
-                    goto print_my_buff;
-
-#else
+#ifdef COMMON
                 case TYPE_STRUCTURE:
                     if (elt(stack[0], 0) == package_symbol)
                     {   outprefix(blankp, 3);
@@ -2472,6 +2463,12 @@ restart:
                         goto restart;
                     }
                     // Drop through
+#else
+                case TYPE_STRUCTURE:
+                    pop(u);
+                    sprintf(my_buff, "[e-vector:%.8lx]", (long)(uint32_t)u);
+                    goto print_my_buff;
+
 #endif
                 case TYPE_ARRAY:
 #ifdef COMMON
@@ -3158,6 +3155,7 @@ restart:
                     else fp_sprint(my_buff, double_float_val(u),
                                    print_precision, 'e');
                     break;
+#ifdef HAVE_SOFTFLOAT
                 case TYPE_LONG_FLOAT:
                     if (escaped_printing & escape_checksum)
                     {   int64_t v0 = intfloat128_t_val0(u);
@@ -3211,6 +3209,7 @@ restart:
                     else fp_sprint128(my_buff, long_float_val(u),
                                       print_precision, 'L');
                     break;
+#endif // HAVE_SOFTFLOAT
                 default:
                     sprintf(my_buff, "?%.8lx?", (long)(uint32_t)u);
                     break;
@@ -3296,13 +3295,6 @@ void prin_to_terminal(LispObject u)
     if (!is_stream(active_stream)) active_stream = lisp_terminal_io;
     ignore_error(internal_prin(u, 0));
     ensure_screen();
-//
-// The various "prin_to_xxx()" functions here are generally used (only) for
-// diagnostic printing. So to try to keep interaction as smooth as possible
-// in such cases I arrange that the operating system (eg window manager) will
-// be polled rather soon...
-//
-    if (countdown > 5) countdown = 5;
 }
 
 void prin_to_stdout(LispObject u)
@@ -3311,7 +3303,6 @@ void prin_to_stdout(LispObject u)
     if (!is_stream(active_stream)) active_stream = lisp_standard_output;
     ignore_error(internal_prin(u, 0));
     ensure_screen();
-    if (countdown > 5) countdown = 5;
 }
 
 void prin_to_error(LispObject u)
@@ -3320,7 +3311,6 @@ void prin_to_error(LispObject u)
     if (!is_stream(active_stream)) active_stream = lisp_error_output;
     ignore_error(internal_prin(u, 0));
     ensure_screen();
-    if (countdown > 5) countdown = 5;
 }
 
 void prin_to_trace(LispObject u)
@@ -3329,7 +3319,6 @@ void prin_to_trace(LispObject u)
     if (!is_stream(active_stream)) active_stream = lisp_trace_output;
     ignore_error(internal_prin(u, 0));
     ensure_screen();
-    if (countdown > 5) countdown = 5;
 }
 
 // This is JUST for debugging. Itr prints a message then something (using
@@ -3345,7 +3334,6 @@ void prinhex_to_trace(const char *msg, LispObject u)
     ignore_error(internal_prin(u, escape_yes+escape_hex));
     putc_stream('\n', active_stream);
     ensure_screen();
-    if (countdown > 5) countdown = 5;
 }
 
 void prin_to_debug(LispObject u)
@@ -3354,7 +3342,6 @@ void prin_to_debug(LispObject u)
     if (!is_stream(active_stream)) active_stream = lisp_debug_io;
     ignore_error(internal_prin(u, 0));
     ensure_screen();
-    if (countdown > 5) countdown = 5;
 }
 
 void prin_to_query(LispObject u)
@@ -3363,7 +3350,6 @@ void prin_to_query(LispObject u)
     if (!is_stream(active_stream)) active_stream = lisp_query_io;
     ignore_error(internal_prin(u, 0));
     ensure_screen();
-    if (countdown > 5) countdown = 5;
 }
 
 void loop_print_stdout(LispObject o)
@@ -3404,7 +3390,8 @@ void loop_print_error(LispObject o)
 }
 
 void loop_print_trace(LispObject o)
-{   LispObject w = qvalue(standard_output);
+{   STACK_SANITY;
+    LispObject w = qvalue(standard_output);
     push(w);
     if (is_stream(qvalue(trace_output)))
         qvalue(standard_output) = qvalue(trace_output);
@@ -5183,20 +5170,23 @@ LispObject Lwindow_heading2(LispObject env, LispObject a, LispObject b)
     {   case 0: fwin_report_left(s);  bit = 1; break;
         case 1: fwin_report_mid(s);   bit = 2; break;
         default:
-#ifdef WINDOW_SYSTEM
+#ifdef WITH_GUI
             if (alternative_stdout != NULL)
             {   if (strcmp(txt, saveright) != 0 && s != NULL)
                 {   fprintf(stderr, "Info: %s\n", txt);
+#ifdef __CYGWIN__
+                    putc('\r', stderr);
+#endif
                     fflush(stderr);
                 }
                 strcpy(saveright, txt);
             }
-#endif
+#endif // WITH_GUI
             fwin_report_right(s); bit = 4; break;
     }
     if (s == NULL || *s == 0) window_heading &= ~bit;
     else window_heading |= bit;
-#endif
+#endif // !EMBEDDED
     return onevalue(nil);
 }
 

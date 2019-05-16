@@ -26,7 +26,7 @@ module cslrend; % CSL REDUCE "back-end".
 % POSSIBILITY OF SUCH DAMAGE.
 %
 
-% $Id: cslrend.red 4954 2019-03-30 22:18:32Z schoepf $
+% $Id: cslrend.red 4975 2019-05-01 20:54:45Z arthurcnorman $
 
 create!-package('(cslrend csl),nil);
 
@@ -505,7 +505,7 @@ set!-small!-modulus 3;
 
 !#if (or (memq  'vsl lispsystem!*) (memq 'jlisp lispsystem!*))
 
-flag('(cos exp expt log sin sqrt fix
+flag('(cos exp expt log sin sqrt atan fix
        ceiling floor round clrhash puthash gethash remhash), 'lose);
 
 !#else

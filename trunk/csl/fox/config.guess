@@ -1,8 +1,20 @@
 #! /bin/sh
 # Attempt to guess a canonical system name.
+<<<<<<< .mine
 #   Copyright 1992-2013 Free Software Foundation, Inc.
+||||||| .r4961
+#   Copyright 1992-2017 Free Software Foundation, Inc.
+=======
+#   Copyright 1992-2015 Free Software Foundation, Inc.
+>>>>>>> .r4997
 
+<<<<<<< .mine
 timestamp='2013-11-29'
+||||||| .r4961
+timestamp='2017-03-05'
+=======
+timestamp='2015-08-20'
+>>>>>>> .r4997
 
 # This file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -50,7 +62,13 @@ version="\
 GNU config.guess ($timestamp)
 
 Originally written by Per Bothner.
+<<<<<<< .mine
 Copyright 1992-2013 Free Software Foundation, Inc.
+||||||| .r4961
+Copyright 1992-2017 Free Software Foundation, Inc.
+=======
+Copyright 1992-2015 Free Software Foundation, Inc.
+>>>>>>> .r4997
 
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
@@ -181,7 +199,16 @@ case "${UNAME_MACHINE}:${UNAME_SYSTEM}:${UNAME_RELEASE}:${UNAME_VERSION}" in
 	# The Operating System including object format, if it has switched
 	# to ELF recently, or will in the future.
 	case "${UNAME_MACHINE_ARCH}" in
+<<<<<<< .mine
 	    arm*|i386|m68k|ns32k|sh3*|sparc|vax)
+||||||| .r4961
+	    earm*)
+		os=netbsdelf
+		;;
+	    arm*|i386|m68k|ns32k|sh3*|sparc|vax)
+=======
+	    arm*|earm*|i386|m68k|ns32k|sh3*|sparc|vax)
+>>>>>>> .r4997
 		eval $set_cc_for_build
 		if echo __ELF__ | $CC_FOR_BUILD -E - 2>/dev/null \
 			| grep -q __ELF__
@@ -972,9 +999,16 @@ EOF
 	eval `$CC_FOR_BUILD -E $dummy.c 2>/dev/null | grep '^CPU'`
 	test x"${CPU}" != x && { echo "${CPU}-unknown-linux-${LIBC}"; exit; }
 	;;
+<<<<<<< .mine
     or1k:Linux:*:*)
 	echo ${UNAME_MACHINE}-unknown-linux-${LIBC}
 	exit ;;
+||||||| .r4961
+    mips64el:Linux:*:*)
+	echo ${UNAME_MACHINE}-unknown-linux-${LIBC}
+	exit ;;
+=======
+>>>>>>> .r4997
     or32:Linux:*:*)
 	echo ${UNAME_MACHINE}-unknown-linux-${LIBC}
 	exit ;;

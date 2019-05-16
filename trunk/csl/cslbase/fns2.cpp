@@ -33,7 +33,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: fns2.cpp 4196 2017-09-13 06:58:11Z arthurcnorman $
+// $Id: fns2.cpp 4980 2019-05-06 12:08:42Z arthurcnorman $
 
 #include "headers.h"
 
@@ -628,7 +628,7 @@ LispObject Lsymbol_set_definition(LispObject env,
             {
                 LispObject c = get(b, unset_var, nil);
                 if (c == nil) c = b;
-                push2(c, a);
+                push(c, a);
                 putprop(a, unset_var, c);
                 pop(a);
                 a = cons(a, get(stack[0], work_symbol, nil));
@@ -785,10 +785,10 @@ LispObject Lset_autoload(LispObject env, LispObject a, LispObject b)
           qfn4up(a) == undefined_4up)) return onevalue(nil);
     if ((qheader(a) & (SYM_C_DEF | SYM_CODEPTR)) ==
         (SYM_C_DEF | SYM_CODEPTR)) return onevalue(nil);
-    push2(a, b);
+    push(a, b);
     if (consp(b)) res = cons(a, b);
     else res = list2(a, b);
-    pop2(b, a);
+    pop(b, a);
 //
 // I treat an explicit use of set-autoload as a redefinition, and ensure that
 // restarting a preserved image will not put the definition back.  Note that
@@ -1151,9 +1151,9 @@ static LispObject Lcheckpoint(LispObject env,
 // image-writing. But the image writing will not actually move any data
 // around so all is still OK, I hope!
 //
-    push3(catch_tags, faslvec, faslgensyms);
+    push(catch_tags, faslvec, faslgensyms);
     preserve(msg, len);
-    pop3(faslgensyms, faslvec, catch_tags);
+    pop(faslgensyms, faslvec, catch_tags);
     set_up_functions(true);
     return onevalue(nil);
 }
@@ -1174,7 +1174,7 @@ static LispObject Lcheckpoint_1(LispObject env, LispObject startup)
 // been an overflow.
 //
 
-NORETURN static LispObject Lresource_exceeded(LispObject env)
+[[noreturn]] static LispObject Lresource_exceeded(LispObject env)
 {   resource_exceeded();
 }
 
@@ -1234,8 +1234,12 @@ bool eql_fn(LispObject a, LispObject b)
             return (single_float_val(a) == single_float_val(b));
         else if (type_of_header(h) == TYPE_DOUBLE_FLOAT)
             return (double_float_val(a) == double_float_val(b));
+#ifdef HAVE_SOFTFLOAT
 // Here I must have a long float.
         return f128_eq(float128_of_number(a), float128_of_number(b));
+#else
+        return false;
+#endif // HAVE_SOFTFLOAT
     }
     else    // ratio, complex or bignum
     {   Header h = numhdr(a);
@@ -1495,10 +1499,14 @@ bool cl_equal_fn(LispObject a, LispObject b)
                                         double_float_val(cb)) return false;
                                     else break;
                                 }
+#ifdef HAVE_SOFTFLOAT
                                 else if (!f128_eq(
                                     float128_of_number(ca),
                                     float128_of_number(cb))) return false;
                                 else break;
+#else
+                                else return false;
+#endif // HAVE_SOFTFLOAT
                             }
                         }
                     break;  // out of the for (;;) loop
@@ -1549,9 +1557,13 @@ bool cl_equal_fn(LispObject a, LispObject b)
                             return false;
                         else return true;
                     }
+#ifdef HAVE_SOFTFLOAT
                     else return f128_eq(
                         float128_of_number(a),
                         float128_of_number(b));
+#else
+                    else return false;
+#endif // HAVE_SOFTFLOAT
                 }
             }
     }
@@ -1735,10 +1747,14 @@ bool equal_fn(LispObject a, LispObject b)
                                         double_float_val(cb)) return false;
                                     else break;
                                 }
+#ifdef HAVE_SOFTFLOAT
                                 else if (!f128_eq(
                                     float128_of_number(ca),
                                     float128_of_number(cb))) return false;
                                 else break;
+#else
+                                else return false;
+#endif // HAVE_SOFTFLOAT
                             }
                         }
                     break;  // out of the for (;;) loop
@@ -1784,9 +1800,13 @@ bool equal_fn(LispObject a, LispObject b)
                             return false;
                         else return true;
                     }
+#ifdef HAVE_SOFTFLOAT
                     else return f128_eq(
                         float128_of_number(a),
                         float128_of_number(b));
+#else
+                    else return false;
+#endif // HAVE_SOFTFLOAT
                 }
             }
     }
@@ -1933,10 +1953,14 @@ bool equalp(LispObject a, LispObject b)
                                         double_float_val(cb)) return false;
                                     else break;
                                 }
+#ifdef HAVE_SOFTFLOAT
                                 else if (!f128_eq(
                                     float128_of_number(ca),
                                     float128_of_number(cb))) return false;
                                 else break;
+#else
+                                else return false;
+#endif // HAVE_SOFTFLOAT
                             }
                         }
                     break;  // out of the for (;;) loop
@@ -1984,9 +2008,13 @@ bool equalp(LispObject a, LispObject b)
                             return false;
                         else return true;
                     }
+#ifdef HAVE_SOFTFLOAT
                     else return f128_eq(
                         float128_of_number(a),
                         float128_of_number(b));
+#else
+                    else return false;
+#endif // HAVE_SOFTFLOAT
                 }
             }
     }
@@ -2136,7 +2164,7 @@ LispObject Lnreverse0(LispObject env, LispObject a)
 
 LispObject Lreverse(LispObject env, LispObject a)
 {   LispObject r;
-    stackcheck1(a);
+    stackcheck(a);
     r = nil;
     while (consp(a))
     {   push(a);
@@ -2464,7 +2492,7 @@ LispObject Lappend_1(LispObject, LispObject a)
 LispObject Lappend_2(LispObject env, LispObject a, LispObject b)
 {   LispObject r = nil;
     push(b);
-    stackcheck2(a, r);
+    stackcheck(a, r);
     while (consp(a))
     {   push(qcdr(a));
         r = cons(qcar(a), r);
@@ -2489,7 +2517,7 @@ LispObject Lappend_3(LispObject env, LispObject a, LispObject b, LispObject c)
 
 LispObject Lappend_4up(LispObject env, LispObject a1, LispObject a2,
         LispObject a3, LispObject a4up)
-{   push3(a1, a2, a3);
+{   push(a1, a2, a3);
 // Note that the list of arguments from a4 upwards will be freshly consed
 // and so I am entitled to overwrite it as I go.
     a4up = nreverse(a4up);
@@ -2511,7 +2539,7 @@ LispObject Lappend_4up(LispObject env, LispObject a1, LispObject a2,
 
 LispObject Ldelete(LispObject env, LispObject a, LispObject b)
 {   LispObject r;
-    push2(a, b);
+    push(a, b);
     r = nil;
     if (is_symbol(a) || is_fixnum(a))
     {   while (consp(b))
@@ -2555,7 +2583,7 @@ LispObject Ldelete(LispObject env, LispObject a, LispObject b)
 
 LispObject Ldeleq(LispObject env, LispObject a, LispObject b)
 {   LispObject r;
-    push2(a, b);
+    push(a, b);
     r = nil;
     while (consp(b))
     {   LispObject q = qcar(b);
@@ -2704,9 +2732,9 @@ LispObject Lnconc(LispObject env, LispObject a, LispObject b)
 
 static LispObject substq(LispObject a, LispObject b, LispObject c)
 {   LispObject w;
-    stackcheck3(a, b, c);
-    push2(TAG_FIXNUM, TAG_FIXNUM); // rx and r
-    push3(a, b, c);
+    stackcheck(a, b, c);
+    push(TAG_FIXNUM, TAG_FIXNUM); // rx and r
+    push(a, b, c);
 #define c   stack[0]
 #define b   stack[-1]
 #define a   stack[-2]
@@ -2789,9 +2817,9 @@ static LispObject substq(LispObject a, LispObject b, LispObject c)
 #undef a
 #undef r
 #undef rx
-    pop3(c, b, a);
+    pop(c, b, a);
     {   LispObject r, rx;
-        pop2(r, rx);
+        pop(r, rx);
         while (r != TAG_FIXNUM)
         {   w = qcdr(r);
             qcdr(r) = c;
@@ -2816,9 +2844,9 @@ static LispObject substq(LispObject a, LispObject b, LispObject c)
 
 LispObject subst(LispObject a, LispObject b, LispObject c)
 {   LispObject w;
-    stackcheck3(a, b, c);
-    push2(TAG_FIXNUM, TAG_FIXNUM); // rx and r
-    push3(a, b, c);
+    stackcheck(a, b, c);
+    push(TAG_FIXNUM, TAG_FIXNUM); // rx and r
+    push(a, b, c);
 #define c   stack[0]
 #define b   stack[-1]
 #define a   stack[-2]
@@ -2911,9 +2939,9 @@ LispObject subst(LispObject a, LispObject b, LispObject c)
 #undef a
 #undef r
 #undef rx
-    pop3(c, b, a);
+    pop(c, b, a);
     {   LispObject r, rx;
-        pop2(r, rx);
+        pop(r, rx);
         while (r != TAG_FIXNUM)
         {   w = qcdr(r);
             qcdr(r) = c;
@@ -2937,9 +2965,9 @@ LispObject subst(LispObject a, LispObject b, LispObject c)
 
 LispObject subla(LispObject a, LispObject c)
 {   LispObject w;
-    stackcheck2(a, c);
-    push2(TAG_FIXNUM, TAG_FIXNUM); // rx and r
-    push2(a, c);
+    stackcheck(a, c);
+    push(TAG_FIXNUM, TAG_FIXNUM); // rx and r
+    push(a, c);
 #define c   stack[0]
 #define a   stack[-1]
 #define r   stack[-2]
@@ -3032,9 +3060,9 @@ LispObject subla(LispObject a, LispObject c)
 #undef a
 #undef r
 #undef rx
-    pop2(c, a);
+    pop(c, a);
     {   LispObject r, rx;
-        pop2(r, rx);
+        pop(r, rx);
         while (r != TAG_FIXNUM)
         {   w = qcdr(r);
             qcdr(r) = c;
@@ -3058,9 +3086,9 @@ LispObject subla(LispObject a, LispObject c)
 
 LispObject sublis(LispObject a, LispObject c)
 {   LispObject w;
-    stackcheck2(a, c);
-    push2(TAG_FIXNUM, TAG_FIXNUM); // rx and r
-    push2(a, c);
+    stackcheck(a, c);
+    push(TAG_FIXNUM, TAG_FIXNUM); // rx and r
+    push(a, c);
 #define c   stack[0]
 #define a   stack[-1]
 #define r   stack[-2]
@@ -3162,9 +3190,9 @@ LispObject sublis(LispObject a, LispObject c)
 #undef a
 #undef r
 #undef rx
-    pop2(c, a);
+    pop(c, a);
     {   LispObject r, rx;
-        pop2(r, rx);
+        pop(r, rx);
         while (r != TAG_FIXNUM)
         {   w = qcdr(r);
             qcdr(r) = c;
@@ -3212,7 +3240,7 @@ LispObject Lsubst(LispObject env, LispObject a, LispObject b, LispObject c)
 }
 
 LispObject Lsublis(LispObject env, LispObject al, LispObject x)
-{   stackcheck2(al, x);
+{   stackcheck(al, x);
 #ifdef CHECK_STACK
     if (check_stack("@" __FILE__,__LINE__))
     {   show_stack();
@@ -3228,7 +3256,7 @@ LispObject Lsubla(LispObject env, LispObject al, LispObject x)
 //
 // as sublis, but uses eq test rather than equal
 //
-{   stackcheck2(al, x);
+{   stackcheck(al, x);
 #ifdef CHECK_STACK
     if (check_stack("@" __FILE__,__LINE__))
     {   show_stack();

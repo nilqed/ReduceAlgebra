@@ -3,7 +3,7 @@
 #ifndef header_version_h
 #define header_version_h 1
 
-// $Id: version.h 4949 2019-03-17 19:48:50Z arthurcnorman $
+// $Id: version.h 4997 2019-05-16 16:00:30Z arthurcnorman $
 
 
 /**************************************************************************
@@ -39,7 +39,7 @@
 // (scripts/commit.sh) that is used to update the subversion repository to
 // update the revision number here.
 
-#define REVISION 4948
+#define REVISION 4997
 
 #endif // header_version_h
 

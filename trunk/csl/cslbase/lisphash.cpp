@@ -29,7 +29,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: lisphash.cpp 4945 2019-03-16 17:32:52Z arthurcnorman $
+// $Id: lisphash.cpp 4980 2019-05-06 12:08:42Z arthurcnorman $
 
 // This is a refresh of the Lisp hash table support for CSL, installed
 // in 2017. It uses a scheme fairly traditional double hashing and by
@@ -99,18 +99,18 @@ static hash_compare_t  *hash_compare;
 // other more elaborate  cases it will need to descend into the
 // representation of its key.
 
-static inline void UPDATE(uint64_t& r, uint64_t x)
+inline void UPDATE(uint64_t& r, uint64_t x)
 {   r = HASH_MULTIPLIER*(r ^ x);
     if (SIXTY_FOUR_BIT) r = HASH_MULTIPLIER*(r ^ (x>>32));
 //  trace_printf("UPDATE64 %" PRIx64 "\n", x);
 }
 
-static inline void UPDATE32(uint64_t& r, uint32_t x)
+inline void UPDATE32(uint64_t& r, uint32_t x)
 {   r = HASH_MULTIPLIER*(r ^ x);
 //  trace_printf("UPDATE32 %" PRIx32 "\n", x);
 }
 
-static inline uint64_t HASH(LispObject key)
+inline uint64_t HASH(LispObject key)
 {
 //  trace_printf("\nhash "); prin_to_trace(key);
     uint64_t h = (*hash_function)(0, key);
@@ -120,11 +120,11 @@ static inline uint64_t HASH(LispObject key)
 
 // SECOND_HASH generated a second hash value from the initial one.
 
-static inline uint64_t SECOND_HASH(uint64_t h)
+inline uint64_t SECOND_HASH(uint64_t h)
 {   return ((h ^ (h>>32)) + 0x1234567)*HASH_MULTIPLIER;
 }
 
-static inline bool COMPARE(LispObject k1, LispObject k2)
+inline bool COMPARE(LispObject k1, LispObject k2)
 {
 // Here neither k1 not k2 will be SPID_HASHEMPTY or SPID_HASHTOMB.
     return (*hash_compare)(k1, k2);
@@ -132,11 +132,11 @@ static inline bool COMPARE(LispObject k1, LispObject k2)
 
 // I will give myself accessors to the keys and values.
 
-static inline LispObject& ht(size_t n)
+inline LispObject& ht(size_t n)
 {   return elt(h_table, n);
 }
 
-static inline LispObject& htv(size_t n)
+inline LispObject& htv(size_t n)
 {   return elt(v_table, n);
 }
 
@@ -311,7 +311,8 @@ LispObject Lmkhash_3(LispObject env, LispObject size, LispObject flavour, LispOb
 //    #define HASH_AS_EQUALP    4
 //    #define HASH_AS_SYMBOL    5  // potential internal use for symbol table.
 //    #define HASH_AS_SXHASH    6  // never used for a hash table!
-{   if (!is_fixnum(flavour) ||
+{   STACK_SANITY;
+    if (!is_fixnum(flavour) ||
         int_of_fixnum(flavour) < 0 ||
         int_of_fixnum(flavour) > HASH_AS_SYMBOL)
     {   if (flavour == eq_symbol) flavour = fixnum_of_int(HASH_AS_EQ);
@@ -328,7 +329,7 @@ LispObject Lmkhash_3(LispObject env, LispObject size, LispObject flavour, LispOb
     LispObject v2 = get_vector_init(CELL*((1<<bits)+1), SPID_HASHEMPTY);
     push(v2);
     LispObject v = get_basic_vector_init(6*CELL, nil);
-    pop2(v2, v1);
+    pop(v2, v1);
     basic_elt(v, HASH_FLAVOUR) = flavour;         // comparison method
     basic_elt(v, HASH_COUNT) = fixnum_of_int(0);  // current number of items stored.
     int shift = 64 - bits;
@@ -358,7 +359,8 @@ LispObject Lmkhash_1(LispObject env, LispObject a)
 
 LispObject Lmkhashset(LispObject env, LispObject flavour)
 // (mkhashset flavour)
-{   if (!is_fixnum(flavour)) aerror1("mkhashset", flavour);
+{   STACK_SANITY;
+    if (!is_fixnum(flavour)) aerror1("mkhashset", flavour);
     size_t bits = 3;
     LispObject v1 = get_vector_init(CELL*((1<<bits)+1), SPID_HASHEMPTY);
     push(v1);
@@ -484,6 +486,7 @@ static uint64_t hash_eql(uint64_t r, LispObject key)
                 if (double_float_val(key) == 0.0) UPDATE(r, 0);
                 else UPDATE(r, intfloat64_t_val(key));
                 return r;
+#ifdef HAVE_SOFTFLOAT
             case TYPE_LONG_FLOAT:
                 UPDATE32(r, (uint64_t)h);
                 if (f128M_zero(long_float_addr(key)))
@@ -495,6 +498,7 @@ static uint64_t hash_eql(uint64_t r, LispObject key)
                     UPDATE(r, intfloat128_t_val1(key));
                 }
                 return r;
+#endif // HAVE_SOFTFLOAT
         }
     }
     else if (is_numbers(key))
@@ -606,6 +610,7 @@ static uint64_t hash_nonsimple_bitvector(uint64_t r, LispObject key)
 // and if the denominator is a power of 2 so that there is no underflow.
 // Sub-normal numbers represent a special edge case for this.
 
+#ifdef HAVE_SOFTFLOAT
 static float128_t bigfloat_result;
 
 static bool float_if_exact(LispObject x)
@@ -639,6 +644,7 @@ static bool float_if_exact(LispObject x)
     else if (is_sfloat(x)) return false;      // @@@ More work
     else return false;
 }
+#endif // HAVE_SOFTFLOAT
 
 static uint64_t hash_generic_equal(uint64_t r, LispObject key,
                                       int mode, size_t depth)
@@ -861,7 +867,8 @@ static bool hash_compare_symtab(LispObject key, LispObject hashentry)
 //==========================================================================
 
 LispObject Lget_hash(LispObject env, LispObject key, LispObject tab, LispObject dflt)
-{   size_t pos;
+{   STACK_SANITY;
+    size_t pos;
     if (!is_vector(tab) || type_of_header(vechdr(tab)) != TYPE_HASH)
     {   if (type_of_header(vechdr(tab)) != TYPE_HASHX)
             aerror1("gethash", tab);
@@ -923,7 +930,8 @@ LispObject Lmap_hash(LispObject env, LispObject fn, LispObject tab)
 // the table is re-tagged from TYPE_HASH to TYPE_HASHX. So I believe
 // that provided nobody tries either lookup or set operations on the table I
 // will be OK.
-{   int32_t size, i;
+{   STACK_SANITY;
+    int32_t size, i;
     LispObject v, v1;
     if (!is_vector(tab) ||
         (type_of_header(vechdr(tab)) != TYPE_HASH &&
@@ -936,15 +944,15 @@ LispObject Lmap_hash(LispObject env, LispObject fn, LispObject tab)
     {   LispObject key = elt(v, i);
         if (key == SPID_HASHEMPTY) continue;
         if (v1 == nil)
-        {   push3(v, v1, fn);
+        {   push(v, v1, fn);
             Lapply1(nil, fn, key);
-            pop3(fn, v1, v);
+            pop(fn, v1, v);
         }
         else
         {   LispObject val = elt(v1, i);
-            push3(v, v1, fn);
+            push(v, v1, fn);
             Lapply2(nil, fn, key, val);
-            pop3(fn, v1, v);
+            pop(fn, v1, v);
         }
     }
     return onevalue(nil);
@@ -955,7 +963,8 @@ LispObject Lhash_contents(LispObject env, LispObject tab)
 // I make this work on both hashsets and hashtables. In the former case it
 // returns a list of keys, in the latter an association list of keys
 // and values.
-{   size_t size, i;
+{   STACK_SANITY;
+    size_t size, i;
     LispObject v, v1, r;
     if (!is_vector(tab) ||
         (type_of_header(vechdr(tab)) != TYPE_HASH &&
@@ -968,10 +977,10 @@ LispObject Lhash_contents(LispObject env, LispObject tab)
     for (i=0; i<size; i++)
     {   LispObject key = elt(v, i);
         if (key == SPID_HASHEMPTY) continue;
-        push2(v, v1);
+        push(v, v1);
         if (v1 == nil) r = cons(key, r);
         else r = acons(key, elt(v1, i), r);
-        pop2(v1, v);
+        pop(v1, v);
     }
 // The ordering of items in the result a-list is unpredictable.
 // That is probably quite reasonable.
@@ -1002,7 +1011,8 @@ LispObject Lget_hash_2(LispObject env, LispObject key, LispObject tab)
 
 LispObject Lput_hash(LispObject env,
                         LispObject key, LispObject tab, LispObject val)
-{   LispObject k1;
+{   STACK_SANITY;
+    LispObject k1;
     bool needs_rehashing = false;
     if (!is_vector(tab)) aerror1("puthash", tab);
     if (type_of_header(vechdr(tab)) != TYPE_HASH)
@@ -1036,7 +1046,7 @@ LispObject Lput_hash(LispObject env,
 // have to get 80% full before expanding. If there are many deletions this
 // will tend to keep tables sparse all the time.
         if (2*load >= h_table_size)
-        {   push2(key, val);
+        {   push(key, val);
             h_shift--;
             push(tab);
             LispObject newkeys =
@@ -1044,8 +1054,8 @@ LispObject Lput_hash(LispObject env,
             push(newkeys);
             LispObject newvals = v_table == nil ? nil :
                 get_vector_init(CELL*(2*h_table_size+1), SPID_HASHEMPTY);
-            pop2(newkeys, tab);
-            pop2(val, key);
+            pop(newkeys, tab);
+            pop(val, key);
 // Allocating the new table might trigger garbage collection, and that
 // could mark the table as in need of rehashing. Well I am about to
 // rehash everything already, so I can cancel any new request.

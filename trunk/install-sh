@@ -1,7 +1,13 @@
 #!/bin/sh
 # install - install a program, script, or datafile
 
+<<<<<<< .mine
 scriptversion=2018-03-11.20; # UTC
+||||||| .r4961
+scriptversion=2016-01-11.22; # UTC
+=======
+scriptversion=2014-09-12.12; # UTC
+>>>>>>> .r4997
 
 # This originates from X11R5 (mit/util/scripts/install.sh), which was
 # later released in X11R6 (xc/config/util/install.sh) with the
@@ -332,16 +338,35 @@ do
             # is incompatible with FreeBSD 'install' when (umask & 300) != 0.
             ;;
           *)
+<<<<<<< .mine
             # Note that $RANDOM variable is not portable (e.g. dash);  Use it
             # here however when possible just to lower collision chance.
+||||||| .r4961
+=======
+            # $RANDOM is not portable (e.g. dash);  use it when possible to
+            # lower collision chance
+>>>>>>> .r4997
             tmpdir=${TMPDIR-/tmp}/ins$RANDOM-$$
+<<<<<<< .mine
+||||||| .r4961
+            trap 'ret=$?; rmdir "$tmpdir/d" "$tmpdir" 2>/dev/null; exit $ret' 0
+=======
+            trap 'ret=$?; rmdir "$tmpdir/a/b" "$tmpdir/a" "$tmpdir" 2>/dev/null; exit $ret' 0
+>>>>>>> .r4997
 
+<<<<<<< .mine
             trap 'ret=$?; rmdir "$tmpdir/a/b" "$tmpdir/a" "$tmpdir" 2>/dev/null; exit $ret' 0
 
             # Because "mkdir -p" follows existing symlinks and we likely work
             # directly in world-writeable /tmp, make sure that the '$tmpdir'
             # directory is successfully created first before we actually test
             # 'mkdir -p' feature.
+||||||| .r4961
+=======
+            # As "mkdir -p" follows symlinks and we work in /tmp possibly;  so
+            # create the $tmpdir first (and fail if unsuccessful) to make sure
+            # that nobody tries to guess the $tmpdir name.
+>>>>>>> .r4997
             if (umask $mkdir_umask &&
                 $mkdirprog $mkdir_mode "$tmpdir" &&
                 exec $mkdirprog $mkdir_mode -p -- "$tmpdir/a/b") >/dev/null 2>&1
@@ -513,6 +538,6 @@ done
 # eval: (add-hook 'before-save-hook 'time-stamp)
 # time-stamp-start: "scriptversion="
 # time-stamp-format: "%:y-%02m-%02d.%02H"
-# time-stamp-time-zone: "UTC0"
+# time-stamp-time-zone: "UTC"
 # time-stamp-end: "; # UTC"
 # End:

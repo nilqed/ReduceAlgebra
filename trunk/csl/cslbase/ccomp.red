@@ -35,7 +35,7 @@
 %% DAMAGE.                                                                *
 %%
 
-% $Id: ccomp.red 4219 2017-09-18 20:58:19Z arthurcnorman $
+% $Id: ccomp.red 4975 2019-05-01 20:54:45Z arthurcnorman $
 
 symbolic;
 
@@ -2109,7 +2109,7 @@ symbolic procedure c!:pushpop(op, v);
        n := n-w;
        if w = 1 then c!:printf("        %s(%s);\n", op, car v)
        else <<
-          c!:printf("        %s%d(%s", op, w, car v);
+          c!:printf("        %s(%s", op, car v);
           v := cdr v;
           for i := 2:w do <<
              c!:printf(",%s", car v);
