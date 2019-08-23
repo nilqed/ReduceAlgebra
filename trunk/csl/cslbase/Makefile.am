@@ -1,11 +1,12 @@
-## process this file with automake to create Makefile.in
+## process this file with automake to create Makefile.
+
 
 ## and then use autoconf to create ./configure. Finally run that
 ## to build your usable Makefile (probably in another directory)
 
 # CSL and REDUCE build sequences
 
-# $Id: Makefile.am 4992 2019-05-11 21:20:04Z arthurcnorman $
+# $Id: Makefile.am 5096 2019-08-21 10:57:31Z arthurcnorman $
 
 # Set up ways to refer to files in the main Reduce source tree.
 
@@ -31,17 +32,21 @@ TRACE =
 # The next few lines represent a hideous hack so that I can have a GNU make
 # conditional that will be processed when make is finally invoked. It is
 # here so that if you try to build a 32-bit cygwin version of everything but
-# you happen to be runinning using a 64-bit cygwin shell things get sorted
+# you happen to be running using a 64-bit cygwin shell things get sorted
 # out - and similarly for building a 64-bit system from a 32-bit shell.
 # The mess is because I need to put in GNU make conditionals and not have
 # automake mess with them too much: the extra substitutions avoid tokens
 # here getting interpreted by automake.
 
+if win32bit
 ifeq ($(shell uname -m),$(CYGWIN_FLAVOUR))
 USE_CORRECT_CYGWIN@EQUALS@
 @ELSEWORD@
 USE_CORRECT_CYGWIN@EQUALS@$(LOCALCYG)
 @ENDIFWORD@
+else !win32bit
+USE_CORRECT_CYGWIN=
+endif !win32bit
 
 AM_CPPFLAGS = $(TRACE)
 AM_LDFLAGS  = $(TRACE)
@@ -61,6 +66,9 @@ csl_CPPFLAGS    = $(TRACE)
 # This is just for flatcsl where the program is all compiled as a single
 # compilation unit, so "spurious" warnings are especially bulky.
 flatcsl_CPPFLAGS = $(TRACE) -Wno-unused-function
+if conservative
+alloctest_CPPFLAGS = $(TRACE)
+endif conservative
 
 bootstrapreduce_CPPFLAGS = $(TRACE) -DBOOTSTRAP=1 -DREDUCE_PROMPTS=1
 
@@ -95,6 +103,7 @@ plain_wxshowmathdemo = wxshowmathdemo
 plain_dyndemo = dyndemo
 plain_zlibdemo = zlibdemo
 plain_gctest = gctest
+plain_alloctest = alloctest
 else !exeext
 plain_csl = csl.unnecessary.except.on.windows
 plain_flatcsl = csl.unnecessary.except.on.windows
@@ -115,6 +124,7 @@ plain_wxshowmathdemo = wxshowmathdemo.unnecessary.except.on.windows
 plain_dyndemo = dyndemo.unnecessary.except.on.windows
 plain_zlibdemo = zlibdemo.unnecessary.except.on.windows
 plain_gctest = gctest.unnecessary.except.on.windows
+plain_alloctest = gctest.unnecessary.except.on.windows
 endif !exeext
 
 .PHONY: $(plain_csl)
@@ -136,6 +146,7 @@ endif !exeext
 .PHONY: $(plain_dyndemo)
 .PHONY: $(plain_zlibdemo)
 .PHONY: $(plain_gctest)
+.PHONY: $(plain_alloctest)
 
 .PHONY:	bootstraprecompile
 .PHONY:	recompile
@@ -172,6 +183,7 @@ CYGSRC = $(cslbase)
 endif !cygpath
 CYGREDUCE = $(CYGSRC)/../..
 
+if win32bit
 if cygwin
 EXE=
 
@@ -194,6 +206,7 @@ cyg32.exe:	$(cslbase)/other-cygwin.cpp
 cyg64.exe:	$(cslbase)/other-cygwin.cpp
 	i686-w64-mingw32-g++ -O3 -DFORCE64 $(cslbase)/other-cygwin.cpp -static -o cyg64
 	i686-w64-mingw32-strip cyg64
+endif win32bit
 
 if wx
 FWIN = wxfwin.h
@@ -208,6 +221,9 @@ AM_CPPFLAGS     += $(MY_CPPFLAGS)
 reduce_CPPFLAGS += $(MY_CPPFLAGS)
 bootstrapreduce_CPPFLAGS += $(MY_CPPFLAGS)
 csl_CPPFLAGS    += $(MY_CPPFLAGS)
+if conservative
+alloctest_CPPFLAGS += $(MY_CPPFLAGS)
+endif conservative
 # For at least a while I will NOT warn about unused (static) functions, because
 # I have rather a lot of that that are to do with support for short floats.
 flatcsl_CPPFLAGS    += $(MY_CPPFLAGS)
@@ -276,6 +292,9 @@ noinst_PROGRAMS += bootstrapreduce$(EXEEXT)
 check_PROGRAMS = flatcsl$(EXEEXT) fwindemo$(EXEEXT) \
 	termdemo$(EXEEXT) $(foxdemotarget) \
 	dyndemo$(EXEEXT) zlibdemo$(EXEEXT) $(wxdemotarget)
+if conservative
+check_PROGRAMS += alloctest$(EXEEXT)
+endif
 endif !mac_framework
 
 if mac_framework
@@ -287,20 +306,29 @@ endif !mac_framework
 all-local:	csl.img $(REDUCE_IMG)
 
 if arithlib
-arith_sources = arith-plus.cpp arith-times.cpp arith-float.cpp \
-		arith-gcdn.cpp
+arith_sources = arith-setup.cpp arith-plus.cpp arith-times.cpp \
+		arith-float.cpp arith-gcdn.cpp arith-print.cpp \
+		arith-compare.cpp arith-logops.cpp arith-modular.cpp \
+		arith-float128.cpp
 else !arithlib
 arith_sources =
 endif !arithlib
 
+if conservative
+gc_sources = newcslgc.cpp newallocate.cpp 
+alloctest_SOURCES = alloctest.cpp sysfwin.cpp $(gc_sources)
+else !conservative
+gc_sources = cslgc.cpp allocate.cpp 
+endif !conservative
+
 core_sources = arith01.cpp arith02.cpp arith03.cpp arith04.cpp arith05.cpp \
 		arith06.cpp arith07.cpp arith08.cpp arith09.cpp arith10.cpp \
 		arith11.cpp arith12.cpp arith13.cpp arith14.cpp isprime.cpp \
-                allocate.cpp bytes1.cpp \
 		char.cpp cslmpi.cpp eval1.cpp eval2.cpp eval3.cpp eval4.cpp \
 		fns1.cpp fns2.cpp fns3.cpp inthash.cpp print.cpp cslread.cpp \
 		restart.cpp lisphash.cpp serialize.cpp sysfwin.cpp \
-		$(arith_sources)
+		csl.cpp fasl.cpp preserve.cpp bytes1.cpp \
+		$(gc_sources) $(arith_sources)
 
 # Thie little rule is because from time to time I really want to see the
 # expanded version of a C++ file (ie after C++ macroexpansion has taken place).
@@ -315,7 +343,8 @@ core_sources = arith01.cpp arith02.cpp arith03.cpp arith04.cpp arith05.cpp \
 
 %.cxx:	%.cpp
 	echo CXX -E $<
-	@$(AM_V_CXX)$(CXXCOMPILE) -E -o $@ $<
+	@printf "$(BUILTFOR) "
+	$(AM_V_CXX)$(CXXCOMPILE) -E -o $@ $<
 	astyle -n $@
 	sed -e '/^#/ s:#:// #:' < $@ > $@.tmp
 	mv $@.tmp $@
@@ -324,12 +353,9 @@ core_sources = arith01.cpp arith02.cpp arith03.cpp arith04.cpp arith05.cpp \
 # form of foo.
 
 %.s:	%.cpp
-	echo CXX -S $<
-	@$(AM_V_CXX)$(CXXCOMPILE) -S -o $@ $<
-
-demo_sources = csl.cpp fasl.cpp cslgc.cpp preserve.cpp
-
-undemo_sources = csl.cpp fasl.cpp cslgc.cpp preserve.cpp
+	@echo CXX -S $<
+	@printf "$(BUILTFOR) "
+	$(AM_V_CXX)$(CXXCOMPILE) -S -o $@ $<
 
 # If I am building under FOX then the main parts of material from
 # fwin.cpp and termed.cpp get picked up from the FOX library.
@@ -480,16 +506,13 @@ generated_lisp =                  $(gensrc)/u01.lsp \
 		$(gensrc)/u58.lsp $(gensrc)/u59.lsp \
 		$(gensrc)/u60.lsp
 
-csl_SOURCES = $(core_sources) $(undemo_sources) $(fwin_sources) \
-		stubs.cpp
+csl_SOURCES = $(core_sources) $(fwin_sources) stubs.cpp
 
 flatcsl_SOURCES = flatcsl.cpp
 
-bootstrapreduce_SOURCES = $(core_sources) $(undemo_sources) $(fwin_sources) \
-		stubs.cpp
+bootstrapreduce_SOURCES = $(core_sources) $(fwin_sources) stubs.cpp
 
-reduce_SOURCES = $(core_sources) $(demo_sources) $(fwin_sources) \
-		$(generated_sources)
+reduce_SOURCES = $(core_sources) $(fwin_sources) $(generated_sources)
 
 fwindemo_SOURCES=fwindemo.cpp $(fwin_sources)
 if wx
@@ -612,6 +635,10 @@ remake-zlibdemo-source:	$(cslbase)/preserve.cpp
 	unifdef -x2 -DZLIB_DEMO < $(cslbase)/preserve.cpp > $(cslbase)/zlibdemo.cpp
 
 
+if conservative
+alloctest_LDADD =
+alloctest_DEPENDENCIES =
+endif conservative
 
 if windows
 
@@ -682,24 +709,36 @@ reduce_LDADD = $(reduceres) $(FOX_LIBS)
 if cygwin
 WINHELPERS=
 else !cygwin
+if win32bit
 WINHELPERS= cygwin-isatty.exe cygwin64-isatty.exe not-under-cygwin.exe
+else !win32bit
+WINHELPERS= cygwin64-isatty.exe not-under-cygwin.exe
+endif !win32bit
 endif !cygwin
 
+if win32bit
 cygwin-isatty.exe:	$(cslbase)/cygwin-isatty.cpp $(absolute_cyg32)
 	$(absolute_cyg32) g++ -O3 $(cslbase)/cygwin-isatty.cpp -o cygwin-isatty.exe
 
 cygwin64-isatty.exe:	$(cslbase)/cygwin-isatty.cpp $(absolute_cyg64)
 	$(absolute_cyg64) g++ -O3 $(cslbase)/cygwin-isatty.cpp -o cygwin64-isatty.exe
+else
+cygwin64-isatty.exe:	$(cslbase)/cygwin-isatty.cpp
+	g++ -O3 $(cslbase)/cygwin-isatty.cpp -o cygwin64-isatty.exe
+endif
 
 not-under-cygwin.exe:	$(cslbase)/not-under-cygwin.cpp
+if win32bit
 	i686-w64-mingw32-g++ -O3 $(cslbase)/not-under-cygwin.cpp -static -o not-under-cygwin.exe
 	i686-w64-mingw32-strip not-under-cygwin.exe
+else !win32bit
+	x86_64-w64-mingw32-g++ -O3 $(cslbase)/not-under-cygwin.cpp -static -o not-under-cygwin.exe
+	x86_64-w64-mingw32-strip not-under-cygwin.exe
+endif !win32bit
 
 # These used to have things like local-cslexe.def as dependencies...
-csl_DEPENDENCIES = fwin-csl.$(OBJEXT) \
-		$(FONTDEP) $(WXC)
-flatcsl_DEPENDENCIES = fwin-csl.$(OBJEXT) \
-		$(FONTDEP) $(WXC)
+csl_DEPENDENCIES = fwin-csl.$(OBJEXT) $(FONTDEP) $(WXC)
+flatcsl_DEPENDENCIES = fwin-csl.$(OBJEXT) $(FONTDEP) $(WXC)
 bootstrapreduce_DEPENDENCIES = fwin-csl.$(OBJEXT) $(FONTDEP) \
 		reduce.doc/index.html $(AWKFILES) $(GP) $(WXC)
 reduce_DEPENDENCIES = $(reduceres) \
@@ -805,7 +844,7 @@ endif !fox
 # that does not cause me to record it in the CHANGED file.
 
 $(FOXDEPS):	$(csl)/fox/CHANGED $(USE_CORRECT_CYGWIN)
-	printf "About to build FOX for %s\n" `pwd`
+	@printf "About to build FOX for %s\n" `pwd`
 	$(TRACE)@cd ../fox && $(USE_CORRECT_CYGWIN) $(MAKE) install
 
 
@@ -820,6 +859,9 @@ reduce_CPPFLAGS += $(CRINC)
 bootstrapreduce_CPPFLAGS += $(CRINC)
 csl_CPPFLAGS    += $(CRINC)
 flatcsl_CPPFLAGS    += $(CRINC)
+if conservative
+alloctest_CPPFLAGS += $(CRINC)
+endif conservative
 
 # The following ugly dependencies are here so that one can go, for
 # instance, "make csl.o" in a clean tree and crlibm building will get
@@ -830,14 +872,20 @@ csl_LDADD += ../lib/libcrlibm.a
 flatcsl_LDADD += ../lib/libcrlibm.a
 bootstrapreduce_LDADD += ../lib/libcrlibm.a
 reduce_LDADD += ../lib/libcrlibm.a
+if conservative
+alloctest_LDADD += ../lib/libcrlibm.a
+endif conservative
 
 csl_DEPENDENCIES += $(CRLIBMDEPS)
 flatcsl_DEPENDENCIES += $(CRLIBMDEPS)
 bootstrapreduce_DEPENDENCIES += $(CRLIBMDEPS)
 reduce_DEPENDENCIES += $(CRLIBMDEPS)
+if conservative
+alloctest_DEPENDENCIES += $(CRLIBMDEPS)
+endif conservative
 
 $(CRLIBMDEPS):	$(USE_CORRECT_CYGWIN)
-	printf "About to build crlibm for %s\n" `pwd`
+	@printf "About to build crlibm for %s\n" `pwd`
 	$(TRACE)@cd ../crlibm && \
 		$(USE_CORRECT_CYGWIN) $(MAKE) install
 
@@ -856,6 +904,9 @@ reduce_CPPFLAGS += $(FFINC)
 bootstrapreduce_CPPFLAGS += $(FFINC)
 csl_CPPFLAGS    += $(FFINC)
 flatcsl_CPPFLAGS    += $(FFINC)
+if conservative
+alloctest_CPPFLAGS    += $(FFINC)
+endif
 
 # The following ugly dependencies are here so that one can go, for
 # instance, "make csl.o" in a clean tree and libffi building will get
@@ -866,14 +917,20 @@ csl_LDADD += ../lib/libffi.a
 flatcsl_LDADD += ../lib/libffi.a
 bootstrapreduce_LDADD += ../lib/libffi.a
 reduce_LDADD += ../lib/libffi.a
+if conservative
+alloctest_LDADD += ../lib/libffi.a
+endif conservative
 
 csl_DEPENDENCIES += $(LIBFFIDEPS)
 flatcsl_DEPENDENCIES += $(LIBFFIDEPS)
 bootstrapreduce_DEPENDENCIES += $(LIBFFIDEPS)
 reduce_DEPENDENCIES += $(LIBFFIDEPS)
+if conservative
+alloctest_DEPENDENCIES += $(LIBFFIDEPS)
+endif conservative
 
 $(LIBFFIDEPS):	$(USE_CORRECT_CYGWIN)
-	printf "About to build libffi for %s\n" `pwd`
+	@printf "About to build libffi for %s\n" `pwd`
 	$(TRACE)@cd ../libffi && \
 		$(USE_CORRECT_CYGWIN) $(MAKE) install
 
@@ -886,6 +943,9 @@ reduce_CPPFLAGS += $(SOFTFLOATINC)
 bootstrapreduce_CPPFLAGS += $(SOFTFLOATINC)
 csl_CPPFLAGS    += $(SOFTFLOATINC)
 flatcsl_CPPFLAGS    += $(SOFTFLOATINC)
+if conservative
+alloctest_CPPFLAGS    += $(SOFTFLOATINC)
+endif conservative
 
 # The following ugly dependencies are here so that one can go, for
 # instance, "make csl.o" in a clean tree and softfloat building will get
@@ -896,13 +956,19 @@ csl_LDADD += ../lib/libsoftfloat.a
 flatcsl_LDADD += ../lib/libsoftfloat.a
 bootstrapreduce_LDADD += ../lib/libsoftfloat.a
 reduce_LDADD += ../lib/libsoftfloat.a
+if conservative
+alloctest_LDADD    += ../lib/libsoftfloat.a
+endif conservative
 
 csl_DEPENDENCIES += $(SOFTFLOATDEPS)
 bootstrapreduce_DEPENDENCIES += $(SOFTFLOATDEPS)
 reduce_DEPENDENCIES += $(SOFTFLOATDEPS)
+if conservative
+alloctest_DEPENDENCIES    += $(SOFTFLOATDEPS)
+endif conservative
 
 $(SOFTFLOATDEPS):	$(USE_CORRECT_CYGWIN)
-	printf "About to build softfloat for %s\n" `pwd`
+	@printf "About to build softfloat for %s\n" `pwd`
 	$(TRACE)@cd ../softfloat && \
 		$(USE_CORRECT_CYGWIN) $(MAKE) install
 
@@ -911,14 +977,39 @@ $(SOFTFLOATDEPS):	$(USE_CORRECT_CYGWIN)
 # taken as specifing conflicting actions.
 
 if arithlib
+csl-arith-setup.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
 csl-arith-plus.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
 csl-arith-times.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+csl-arith-float.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+csl-arith-gcdn.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+csl-arith-print.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+csl-arith-compare.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+csl-arith-logops.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+csl-arith-modular.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+csl-arith-float128.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
 
+bootstrapreduce-arith-setup.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
 bootstrapreduce-arith-plus.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
 bootstrapreduce-arith-times.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+bootstrapreduce-arith-float.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+bootstrapreduce-arith-gcdn.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+bootstrapreduce-arith-print.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+bootstrapreduce-arith-compare.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+bootstrapreduce-arith-logops.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+bootstrapreduce-arith-modular.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+bootstrapreduce-arith-float128.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
 
+reduce-arith-setup.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
 reduce-arith-plus.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
 reduce-arith-times.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-arith-float.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-arith-gcdn.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-arith-print.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-arith-compare.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-arith-logops.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-arith-modular.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-arith-float128.$(OBJEXT):	$(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+
 endif arithlib
 
 csl-allocate.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
@@ -1041,6 +1132,67 @@ reduce-restart.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) machineid.cpp $(USE
 reduce-stubs.$(OBJEXT):		$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
 reduce-sysfwin.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
 
+reduce-u01.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u02.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u03.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u04.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u05.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u06.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u07.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u08.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u09.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u10.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u11.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u12.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u13.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u14.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u15.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u16.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u17.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u18.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u19.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u20.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u21.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u22.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u23.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u24.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u25.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u26.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u27.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u28.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u29.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u30.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u31.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u32.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u33.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u34.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u35.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u36.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u37.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u38.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u39.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u40.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u41.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u42.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u43.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u44.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u45.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u46.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u47.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u48.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u49.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u50.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u51.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u52.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u53.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u54.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u55.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u56.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u57.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u58.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u59.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+reduce-u60.$(OBJEXT):	$(CRDEP) $(FFIDEP) $(SOFTFLOATDEP) $(USE_CORRECT_CYGWIN)
+
 # If one of the major foundations of this Makefile have a date later than that
 # on fxver.h then make does a futile recursion to try to fix it and in the
 # process it can do a LOT of work that I do not want done. I can at least
@@ -1076,7 +1228,7 @@ $(csl)/wxWidgets/wxWidgets_revision:	\
 WXDEPS=../bin/wx-config
 
 ../bin/wx-config:	$(csl)/wxWidgets/wxWidgets_revision $(USE_CORRECT_CYGWIN)
-	printf "About to build wxWidgets for %s\n" `pwd`
+	@printf "About to build wxWidgets for %s\n" `pwd`
 	$(TRACE)@cd ../wxWidgets && \
 		$(USE_CORRECT_CYGWIN) $(MAKE) install
 
@@ -1165,10 +1317,12 @@ else !gui
 	$(CP) $(cslbase)/csl-nogui .
 endif !gui
 if !cygwin
+if win32bit
 	if test x"$(with_cygbuild)" != "x" && test -d $(with_cygbuild); then \
 	printf "About to build %s for %s\n" $(with_cygbuild) `pwd`; \
 	cd $(with_cygbuild)/csl && $(CYG32) $(MAKE) csl.exe; fi
 	if test -x $(with_cygbuild)/csl/csl.exe; then $(CP) $(with_cygbuild)/csl/csl.exe cygwin-csl.exe; fi
+endif win32bit
 	if test x"$(with_cygbuild64)" != "x" && test -d $(with_cygbuild64); then \
 	printf "About to build %s for %s\n" $(with_cygbuild64) `pwd`; \
 	cd $(with_cygbuild64)/csl && $(CYG64) $(MAKE) csl.exe; fi
@@ -1213,10 +1367,12 @@ else !gui
 	$(CP) $(cslbase)/csl-nogui .
 endif !gui
 if !cygwin
+if win32bit
 	if test x"$(with_cygbuild)" != "x" && test -d $(with_cygbuild); then \
 	printf "About to build %s for %s\n" $(with_cygbuild) `pwd`; \
 	cd $(with_cygbuild)/csl && $(CYG32) $(MAKE) flatcsl.exe; fi
 	if test -x $(with_cygbuild)/csl/flatcsl.exe; then $(CP) $(with_cygbuild)/csl/flatcsl.exe cygwin-flatcsl.exe; fi
+endif
 	if test x"$(with_cygbuild64)" != "x" && test -d $(with_cygbuild64); then \
 	printf "About to build %s for %s\n" $(with_cygbuild64) `pwd`; \
 	cd $(with_cygbuild64)/csl && $(CYG64) $(MAKE) flatcsl.exe; fi
@@ -1252,6 +1408,10 @@ endif mac_framework
 
 endif !wx
 
+alloctest$(EXEEXT): $(alloctest_OBJECTS) $(alloctest_DEPENDENCIES)
+	-$(RM) -f alloctest$(EXEEXT)
+	$(CXXLINKTO) $(DEST)alloctest$(EXEEXT) $(alloctest_OBJECTS) $(alloctest_LDADD) $(AM_LIBS) $(LIBS) $(WINAP)
+
 reduce$(EXEEXT): $(reduce_OBJECTS) $(reduce_DEPENDENCIES) $(FOXDEPS) \
 			$(WXDEPS) $(generated_lisp) $(WINHELPERS)
 	-$(RM) -f reduce$(EXEEXT)
@@ -1263,10 +1423,12 @@ else !gui
 	$(CP) $(cslbase)/reduce-nogui .
 endif !gui
 if !cygwin
+if win32bit
 	if test x"$(with_cygbuild)" != "x" && test -d $(with_cygbuild); then \
 	printf "About to build %s for %s\n" $(with_cygbuild) `pwd`; \
 	cd $(with_cygbuild)/csl && $(CYG32) $(MAKE) reduce.exe; fi
 	if test -x $(with_cygbuild)/csl/reduce.exe; then $(CP) $(with_cygbuild)/csl/reduce.exe cygwin-reduce.exe; fi
+endif
 	if test "x$(with_cygbuild64)" != "x" && test -d $(with_cygbuild64); then \
 	printf "About to build %s for %s\n" $(with_cygbuild64) `pwd`; \
 	cd $(with_cygbuild64)/csl && $(CYG64) $(MAKE) reduce.exe; fi
@@ -1323,10 +1485,12 @@ if windows
 # See "gui-or-not.txt" for an explanation of what this is about...
 	$(CP) $(cslbase)/bootstrapreduce .
 if !cygwin
+if win32bit
 	if test x"$(with_cygbuild)" != "x" && test -d $(with_cygbuild); then \
 	printf "About to build %s for %s\n" $(with_cygbuild) `pwd`; \
 	cd $(with_cygbuild)/csl && $(CYG32) $(MAKE) bootstrapreduce.exe; fi
 	if test -x $(with_cygbuild)/csl/bootstrapreduce.exe; then $(CP) $(with_cygbuild)/csl/bootstrapreduce.exe cygwin-bootstrapreduce.exe; fi
+endif
 	if test x"$(with_cygbuild64)" != "x" && test -d $(with_cygbuild64); then \
 	printf "About to build %s for %s\n" $(with_cygbuild64) `pwd`; \
 	cd $(with_cygbuild64)/csl && $(CYG64) $(MAKE) bootstrapreduce.exe; fi
@@ -1361,10 +1525,12 @@ else !gui
 	$(CP) $(cslbase)/fwindemo-nogui .
 endif !gui
 if !cygwin
+if win32bit
 	if test x"$(with_cygbuild)" != "x" && test -d $(with_cygbuild); then \
 	printf "About to build %s for %s\n" $(with_cygbuild) `pwd`; \
 	cd $(with_cygbuild)/csl && $(CYG32) $(MAKE) fwindemo.exe; fi
 	if test -x $(with_cygbuild)/csl/fwindemo.exe; then $(CP) $(with_cygbuild)/csl/fwindemo.exe cygwin-fwindemo.exe; fi
+endif win32bit
 	if test x"$(with_cygbuild64)" != "x" && test -d $(with_cygbuild64); then \
 	printf "About to build %s for %s\n" $(with_cygbuild64) `pwd`; \
 	cd $(with_cygbuild64)/csl && $(CYG64) $(MAKE) fwindemo.exe; fi
@@ -1656,6 +1822,12 @@ $(plain_dyndemo):	dyndemo.exe
 $(plain_zlibdemo):	zlibdemo.exe
 	echo "$(MAKE) zlibdemo.exe is preferred"
 
+$(plain_gctest):	gctest.exe
+	echo "$(MAKE) gctest.exe is preferred"
+
+$(plain_alloctest):	alloctest.exe
+	echo "$(MAKE) alloctest.exe is preferred"
+
 endif exeext
 
 termdemo$(EXEEXT): $(termdemo_OBJECTS) $(termdemo_DEPENDENCIES)
@@ -1702,9 +1874,17 @@ endif !gui
 
 local_image_files = bootstrapreduce.img noinlines.img
 
+if win32bit
 win_specials = cygwin-reduce.exe cygwin-csl.exe cygwin-fwindemo.exe \
+	cygwin64-reduce cygwin64-csl \
 	not-under-cygwin.exe cygwin-isatty.exe cygwin64-isatty.exe csl \
 	reduce fwindemo
+else !win32bit
+win_specials = \
+	cygwin64-reduce cygwin64-csl \
+	not-under-cygwin.exe cygwin64-isatty.exe csl \
+	reduce fwindemo
+endif !win32bit
 
 generatedfiles=$(console_binaries) $(noinstall_console_binaries) \
 	$(image_files) $(local_image_files) $(win_specials) \
@@ -2540,7 +2720,7 @@ $(reduce)/bin/rfcsl$(EXEEXT): \
 		$(generic)/newfront/redsig.c \
 		$(generic)/newfront/redstrings.c \
 		$(USE_CORRECT_CYGWIN)
-	printf "About to build redfront for %s\n" `pwd`; \
+	@printf "About to build redfront for %s\n" `pwd`; \
 	cd ../redfront && $(USE_CORRECT_CYGWIN) $(MAKE)
 
 endif redfront
@@ -2658,5 +2838,7 @@ endif !cygwin
 
 install-data-local:
 	echo " "
+
+am__v_CXX_0 = @echo "[$(BUILTFOR)] CXX   " $@; 
 
 # end of Makefile

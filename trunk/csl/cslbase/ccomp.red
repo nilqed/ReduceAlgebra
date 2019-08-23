@@ -35,7 +35,7 @@
 %% DAMAGE.                                                                *
 %%
 
-% $Id: ccomp.red 4975 2019-05-01 20:54:45Z arthurcnorman $
+% $Id: ccomp.red 5096 2019-08-21 10:57:31Z arthurcnorman $
 
 symbolic;
 
@@ -1277,7 +1277,7 @@ symbolic procedure c!:print_exit_condition1(why, where_to, next);
                c!:printf("        LispObject %s = %v;\n", g, a);
                args := g . args >>
             else args := a . args;
-          c!:printf("        fn = basic_elt(env, %s); %<// %c\n",
+          c!:printf("        LispObject fn = basic_elt(env, %s); %<// %c\n",
                     c!:find_literal cadar why, cadar why);
           if nargs = 0 then c!:printf("        return (*qfn0(fn))(fn")
           else if nargs = 1 then c!:printf("        return (*qfn1(fn))(fn")
@@ -1343,12 +1343,12 @@ symbolic procedure c!:pldrglob(op, r1, r2, r3);
 put('ldrglob, 'c!:opcode_printer, function c!:pldrglob);
 
 symbolic procedure c!:pstrglob(op, r1, r2, r3);
-   c!:printf("    qvalue(basic_elt(env, %s)) = %v; %<// %c\n", r3, r1, r2);
+   c!:printf("    setvalue(basic_elt(env, %s), %v); %<// %c\n", r3, r1, r2);
 
 put('strglob, 'c!:opcode_printer, function c!:pstrglob);
 
 symbolic procedure c!:pnilglob(op, r1, r2, r3);
-   c!:printf("    qvalue(basic_elt(env, %s)) = nil; %<// %c\n", r3, r2);
+   c!:printf("    setvalue(basic_elt(env, %s), nil); %<// %c\n", r3, r2);
 
 put('nilglob, 'c!:opcode_printer, function c!:pnilglob);
 flag('(nilglob), 'c!:uses_nil);
@@ -1406,7 +1406,7 @@ symbolic procedure c!:pcar(op, r1, r2, r3);
     if not !*unsafecar then
         c!:printf("    if (!car_legal(%v)) %v = carerror(%v); else\n",
                   r3, r1, r3);
-    c!:printf("    %v = qcar(%v);\n", r1, r3)
+    c!:printf("    %v = car(%v);\n", r1, r3)
   end;
 
 put('car, 'c!:opcode_printer, function c!:pcar);
@@ -1416,7 +1416,7 @@ symbolic procedure c!:pcdr(op, r1, r2, r3);
     if not !*unsafecar then
         c!:printf("    if (!car_legal(%v)) %v = cdrerror(%v); else\n",
                   r3, r1, r3);
-    c!:printf("    %v = qcdr(%v);\n", r1, r3)
+    c!:printf("    %v = cdr(%v);\n", r1, r3)
   end;
 
 put('cdr, 'c!:opcode_printer, function c!:pcdr);
@@ -1424,12 +1424,12 @@ put('cdr, 'c!:opcode_printer, function c!:pcdr);
 % These are explicitly non-checking versions!
 
 symbolic procedure c!:pqcar(op, r1, r2, r3);
-    c!:printf("    %v = qcar(%v);\n", r1, r3);
+    c!:printf("    %v = car(%v);\n", r1, r3);
 
 put('qcar, 'c!:opcode_printer, function c!:pqcar);
 
 symbolic procedure c!:pqcdr(op, r1, r2, r3);
-    c!:printf("    %v = qcdr(%v);\n", r1, r3);
+    c!:printf("    %v = cdr(%v);\n", r1, r3);
 
 put('qcdr, 'c!:opcode_printer, function c!:pqcdr);
 
@@ -1592,14 +1592,14 @@ put('qputv, 'c!:opcode_printer, function c!:pqputv);
 symbolic procedure c!:prplaca(op, r1, r2, r3);
  <<
   c!:printf("    if (!car_legal(%v)) rplaca_fails(%v);\n", r2, r2);
-  c!:printf("    qcar(%v) = %v;\n", r2, r3) >>;
+  c!:printf("    setcar(%v, %v);\n", r2, r3) >>;
 
 put('rplaca, 'c!:opcode_printer, function c!:prplaca);
 
 symbolic procedure c!:prplacd(op, r1, r2, r3);
  <<
   c!:printf("    if (!car_legal(%v)) rplacd_fails(%v);\n", r2, r2);
-  c!:printf("    qcdr(%v) = %v;\n", r2, r3) >>;
+  c!:printf("    setcdr(%v, %v);\n", r2, r3) >>;
 
 put('rplacd, 'c!:opcode_printer, function c!:prplacd);
 
@@ -1666,7 +1666,7 @@ symbolic procedure c!:pcall(op, r1, r2, r3);
     else begin
        scalar nargs;
        nargs := length r2;
-       c!:printf("    fn = basic_elt(env, %s); %<// %c\n",
+       c!:printf("    {   LispObject fn = basic_elt(env, %s); %<// %c\n",
               c!:find_literal car r3, car r3);
        if nargs = 0 then c!:printf("    %v = (*qfn0(fn))(fn", r1)
        else if nargs = 1 then c!:printf("    %v = (*qfn1(fn))(fn", r1)
@@ -1674,7 +1674,7 @@ symbolic procedure c!:pcall(op, r1, r2, r3);
        else if nargs = 3 then c!:printf("    %v = (*qfn3(fn))(fn", r1)
        else c!:printf("    %v = (*qfn4up(fn))(fn", r1);
        for each a in r2 do c!:printf(", %v", a);
-       c!:printf(");\n") end;
+       c!:printf(");\n    }\n") end;
     if boolfn then c!:printf("    %v = %v ? lisp_true : nil;\n", r1, r1);
   end;
 
@@ -1832,8 +1832,6 @@ flag('(call qputv rplaca rplacd fluidbind
        fluidunbind), 'c!:side_effect);
 
 
-fluid '(fn_used);
-
 symbolic procedure c!:live_variable_analysis c!:all_blocks;
   begin
     scalar changed, z;
@@ -1854,7 +1852,7 @@ symbolic procedure c!:live_variable_analysis c!:all_blocks;
 %               not (cadar w = c!:current_procedure) and
                 not get(cadar w, 'c!:direct_entrypoint) and
                 not get(cadar w, 'c!:c_entrypoint) then <<
-                    fn_used := t; live := union('(env), live) >> >>;
+                    live := union('(env), live) >> >>;
           for each s in get(b, 'c!:contents) do
             begin % backwards over contents
               scalar op, r1, r2, r3;
@@ -1872,9 +1870,6 @@ symbolic procedure c!:live_variable_analysis c!:all_blocks;
               if flagp(op, 'c!:read_r3) then live := union(live, list r3);
               if op = 'call then <<
                  does_call := t;
-                 if not get(car r3, 'c!:direct_entrypoint) and
-%                   not eqcar(r3, c!:current_procedure) and
-                    not get(car r3, 'c!:c_entrypoint) then fn_used := t;
 % c!:no_gc is used to indicate that the function concerned can never
 % trigger garbage collection and so lisp values are safe across the call.
 % These functions are however allowed to throw errors or exceptions.
@@ -2165,7 +2160,7 @@ symbolic procedure c!:flatten b;
 symbolic procedure c!:optimise_flowgraph(c!:startpoint, c!:all_blocks,
                                           env, argch, args, varargs);
   begin
-    scalar w, n, locs, stacks, fn_used;
+    scalar w, n, locs, stacks;
     printc "#if 0 // Start of trace output";
     c!:all_blocks := c!:flatten reverse c!:all_blocks;
 %
@@ -2226,9 +2221,6 @@ symbolic procedure c!:optimise_flowgraph(c!:startpoint, c!:all_blocks,
       c!:printf("    LispObject %s", car locs);
       for each v in cdr locs do c!:printf(", %s", v);
       c!:printf ";\n" >>;
-% If there is a general function call anywhere in the generated code I will
-% use a variable called "fn", so declare that here too.
-    if fn_used then c!:printf "    LispObject fn;\n";
 % If I wanted the stack fully popped even in throw and error cases I could
 % activate this:
 %   if stacks or reloadenv then
@@ -2245,7 +2237,7 @@ symbolic procedure c!:optimise_flowgraph(c!:startpoint, c!:all_blocks,
       c!:printf(";\n");
       for each v in cdddr args do <<
         c!:printf("    if (_a4up_ == nil)\n        aerror1(\qnot enough arguments provided\q, basic_elt(env, 0));\n");
-        c!:printf("    %s = qcar(_a4up_); _a4up_ = qcdr(_a4up_);\n", v) >>;
+        c!:printf("    %s = car(_a4up_); _a4up_ = cdr(_a4up_);\n", v) >>;
       c!:printf("    if (_a4up_ != nil)\n        aerror1(\qtoo many arguments provided\q, basic_elt(env, 0));\n") >>;
 % There is some silly code enclosed in #ifdef stuff that is useful
 % while debugging, maybe.

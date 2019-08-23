@@ -13,7 +13,7 @@ fi
 
 AC_COPYRIGHT([The REDUCE project])
 
-# $Id: configure.ac 4975 2019-05-01 20:54:45Z arthurcnorman $
+# $Id: configure.ac 5096 2019-08-21 10:57:31Z arthurcnorman $
 
 # If necessary you can fetch source versions of autoconf and automake and
 # install private versions for use here. Following discussions with other
@@ -416,6 +416,7 @@ fi
 # being able to run everywhere. Specifically I will want that toolchain
 # installed even if you specify --without-w32.
 
+
 with_w32="yes"
 with_w64="yes"
 with_c32="yes"
@@ -423,23 +424,44 @@ with_c64="yes"
 
 AC_ARG_WITH(w32,
   AC_HELP_STRING([--with-w32], [Build 32-bit Windows version]),
-  []
+  [],
   [with_w32="yes"])
 
 AC_ARG_WITH(w64,
   AC_HELP_STRING([--with-w64], [Build 64-bit Windows version]),
-  []
+  [],
   [with_w64="yes"])
 
 AC_ARG_WITH(c32,
   AC_HELP_STRING([--with-c32], [Build 32-bit Cygwin version]),
-  []
+  [],
   [with_c32="default"])
+
+AC_MSG_NOTICE(with_c32 = $with_c32)
 
 AC_ARG_WITH(c64,
   AC_HELP_STRING([--with-c64], [Build 64-bit Cygwin version]),
-  []
+  [],
   [with_c64="default"])
+
+# As of July 2019 I will only build the 32-bit variants if "--with-win32bit"
+# is specified.
+
+AC_MSG_NOTICE([check for win32bit])
+
+AC_ARG_WITH(win32bit,
+  AC_HELP_STRING([--with-win32bit], [Build 32-bit Windows version alongside 64]),
+  [],
+  [with_win32bit="no"])
+
+
+AC_MSG_NOTICE([with_win32bit = $with_win32bit])
+
+if test "x$with_win32bit" = "xno"
+then
+  with_w32="no"
+  with_c32="no"
+fi
 
 uname_m=`uname -m`
 uname_s=`uname -s`
@@ -470,26 +492,32 @@ then
 # cygwin installations. When run it generates output "32", "64" or "32 64"
 # depending on which variants it finds.
 
-i686-w64-mingw32-g++ -O3 $srcdir/csl/cslbase/other-cygwin.cpp -static -o ./other-cygwin
-i686-w64-mingw32-strip ./other-cygwin
-CYGAVAIL=`./other-cygwin`
+  if test "x$with_win32bit" = "xno"
+  then
+    CYGAVAIL="64"
+  else
+    i686-w64-mingw32-g++ -O3 $srcdir/csl/cslbase/other-cygwin.cpp -static -o ./other-cygwin
+    i686-w64-mingw32-strip ./other-cygwin
+    CYGAVAIL=`./other-cygwin`
+  fi
 
-case $CYGAVAIL in
-*32*)
-  cyg32_available="yes"
-  ;;
-*)
-  cyg32_available="no"
-  ;;
-esac
-case $CYGAVAIL in
-*64*)
-  cyg64_available="yes"
-  ;;
-*)
-  cyg64_available="no"
-  ;;
-esac
+  case $CYGAVAIL in
+  *32*)
+    cyg32_available="yes"
+    ;;
+  *)
+    cyg32_available="no"
+    ;;
+  esac
+  case $CYGAVAIL in
+  *64*)
+    cyg64_available="yes"
+    ;;
+  *)
+    cyg64_available="no"
+    ;;
+  esac
+
 # If I am either running under 64-bit cygwin or are on 32-bit cygwin but on
 # a 64-bit operating system I might be able to build 64-bit cygwin stuff.
   if test "$uname_m" = "x86_64" ||
@@ -499,9 +527,12 @@ esac
   else
     sixtyfour_feasible="no"
   fi
+
+  AC_MSG_NOTICE(cyg32_available = $cyg32_available)
+
 # If 32-bit cygwin is available then by default build for it. If it is
 # not then refuse to even if the user asked for it.
-  if test "$cyg32_available" = "yes"
+  if test "$cyg32_available" = "yes" && test "x$with_win32bit" != "no"
   then
     if test "$with_c32" = "default"
     then
@@ -514,6 +545,8 @@ esac
     fi
     with_c32="no"
   fi
+
+AC_MSG_NOTICE(with_c32 = $with_c32)
 
   if test "$sixtyfour_feasible" = "yes" && test "$cyg64_available" = "yes"
   then
@@ -688,7 +721,7 @@ AC_ARG_ENABLE(debug,
 
 AC_ARG_ENABLE(conservative,
   AC_HELP_STRING([--enable-conservative],
-                 [garbage collect option: testing andf development use (CSL only)]),
+                 [garbage collect option: testing and development use (CSL only)]),
   [],
   [enable_conservative="no"])
 
@@ -708,6 +741,12 @@ if test "x$enable_experiment" = "xyes"
 then
   enable_test="yes"
 fi
+
+AC_ARG_WITH(arithlib,
+  AC_HELP_STRING([--with-arithlib],
+                 [development of arithlib.hpp support (CSL only)]),
+  [],
+  [with_arithlib="no"])
 
 AC_ARG_ENABLE(jit,
   AC_HELP_STRING([--enable-jit],
@@ -732,7 +771,8 @@ AC_ARG_WITH(smallpage,
 # Note that on Windows under cygwin i686-w64-mingw32 and x86_64-w64-mingw32
 # compilers MUST be installed, and there should be a 32-bit
 # cygwin installation in c:\cygwin and a 64-bit one in c:\cygwin64.
-#
+# Well as of July 2019 I will insist on x86_64-w32-mingw32 and often drop
+# i686*
 
 # Now I want to know if the current directory is the same as $srcdir. At
 # one stage I checked that by looking to see if $srcdir was ".". That was OK
@@ -776,7 +816,7 @@ then
   *windows | *cygwin)
 # building PSL on Windows - need to decide whether to build for 32 or 64bit.
 # Hah - I use "--with-m32" for selection of a PSL 32-bit option.
-# Do not select 32bit when I am in a 32-bit shell running on a 64-bit operating
+# Do not select win32bit when I am in a 32-bit shell running on a 64-bit operating
 # system.
     if test "$uname_m" = "i686" -a "$wow" != "yes" ||
        test "x$with_m32" = "xyes"
@@ -1220,7 +1260,7 @@ then
 
   case $host in
   *darwin* | *Darwin*)
-    CPPFLAGS="$CPPFLAGS -mmacosx-version-min=10.9 -I/opt/local/include"
+    CPPFLAGS="$CPPFLAGS -mmacosx-version-min=10.11 -I/opt/local/include"
     LDFLAGS="$LDFLAGS -L/opt/local/lib"
     ;;
   esac
@@ -1327,7 +1367,7 @@ then
       MACARCH="--enable-macosx_arch=x86_64" 
       extras="--with-xft --with-xim"
       wx="--with-cocoa \
-          --with-macosx-version-min=10.10 \
+          --with-macosx-version-min=10.11 \
           $MACARCH "
       ;;
     *)
@@ -1621,6 +1661,7 @@ AC_MSG_NOTICE([All sub-packages have had their configure script launched])
 
 ###############################################################################
 
+AM_CONDITIONAL(win32bit, test "x$with_win32bit" != "xno")
 AM_CONDITIONAL(csl, test "x$with_csl" != "xno")
 AM_CONDITIONAL(psl, test "x$with_psl" != "xno")
 AM_CONDITIONAL(cslpsl, test "x$with_csl" != "xno" && test "x$with_psl" != "xno")

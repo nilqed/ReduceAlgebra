@@ -1,4 +1,4 @@
-//  arith05.cpp                            Copyright (C) 1990-2017 Codemist    
+//  arith05.cpp                            Copyright (C) 1990-2019 Codemist    
 
 //
 // Arithmetic functions.
@@ -6,7 +6,7 @@
 //
 
 /**************************************************************************
- * Copyright (C) 2017, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -35,7 +35,7 @@
  *************************************************************************/
 
 
-// $Id: arith05.cpp 4975 2019-05-01 20:54:45Z arthurcnorman $
+// $Id: arith05.cpp 5067 2019-08-02 21:31:46Z arthurcnorman $
 
 #include "headers.h"
 
@@ -61,7 +61,7 @@ void print_bignum(LispObject u, bool blankp, int nobreak)
                            active_stream);
     unsigned int column =
         other_write_action(WRITE_GET_INFO+WRITE_GET_COLUMN, active_stream);
-#ifdef NEED_TO_CHECK_BIGNUM_FORMAT
+#ifdef DEBUG
 // The next few lines are to help me track down bugs...
     {   int32_t d1 = bignum_digits(u)[(len-4)/4];
         if (!SIXTY_FOUR_BIT && len == 4)
@@ -73,8 +73,8 @@ void print_bignum(LispObject u, bool blankp, int nobreak)
         else if (SIXTY_FOUR_BIT && len == 4)
             printf("[%.8lx should be a fixnum]", (long)bignum_digits(u)[0]);
         if (SIXTY_FOUR_BIT && len == 8)
-        {   int64_t v = bignum_digits64(u, 1)<<31 +
-                        bignum_digits(u)[0]);
+        {   int64_t v = (bignum_digits64(u, 1)<<31) +
+                        bignum_digits(u)[0];
             if (valid_as_fixnum(v))
                 printf("[%.8lx should be fixnum]", (long)d1);
             if (signed_overflow(bignum_digits(u)[1]))
@@ -135,8 +135,8 @@ void print_bignum(LispObject u, bool blankp, int nobreak)
             int i, j;
             if (((int32_t)d1) < 0)
             {   negativep = true;
-                d0 = clear_top_bit(-(int32_t)d0);
-                if (d0 == 0) d1 = -(int32_t)d1;
+                d0 = clear_top_bit(-(uint32_t)d0);
+                if (d0 == 0) d1 = -(uint32_t)d1;
                 else d1 = ~d1;
             }
             d0high = ((uint32_t)d0)>>16;
@@ -217,13 +217,14 @@ void print_bignum(LispObject u, bool blankp, int nobreak)
     len = len/4;
     len1 = (len1-CELL)/4;
     if (((int32_t)bignum_digits(u)[len-1]) >= 0)
-        for (i=0; i<len; i++) bignum_digits(w)[i] = bignum_digits(u)[i];
+        for (i=0; i<len; i++) bignum_digits(w)[i] = vbignum_digits(u)[i];
     else
     {   int32_t carry = -1;
         sign = true;
         for (i=0; i<len; i++)
         // negate the number so I am working with a +ve value
-        {   carry = clear_top_bit(~bignum_digits(u)[i]) + top_bit(carry);
+        {   carry = ADD32(clear_top_bit(~bignum_digits(u)[i]),
+                          top_bit(carry));
             bignum_digits(w)[i] = clear_top_bit(carry);
         }
     }

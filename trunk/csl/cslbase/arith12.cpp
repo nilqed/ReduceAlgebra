@@ -36,7 +36,7 @@
  *************************************************************************/
 
 
-// $Id: arith12.cpp 4983 2019-05-07 14:57:04Z arthurcnorman $
+// $Id: arith12.cpp 5074 2019-08-10 16:49:01Z arthurcnorman $
 
 
 #include "headers.h"
@@ -45,16 +45,34 @@
 #define FP_EVALUATE   1
 
 LispObject Lfrexp(LispObject env, LispObject a)
-{   double d;
-    int x;
-    d = float_of_number(a);
-    d = frexp(d, &x);
-    if (d == 1.0) d = 0.5, x++;
-    a = make_boxfloat(d, TYPE_DOUBLE_FLOAT);
-    return Lcons(nil, fixnum_of_int((int32_t)x), a);
+{
+    if (is_long_float(a))
+    {   float128_t d;
+        int x;
+        f128M_frexp((float128_t *)long_float_addr(a), &d, &x);
+        return cons(fixnum_of_int(x), make_boxfloat128(d));
+    }
+    else if (is_single_float(a))
+    {   int x;
+        float d = std::frexp(single_float_val(a), &x);
+        return cons(fixnum_of_int(x), pack_single_float(d));
+    }
+    else if (is_short_float(a))
+    {   int x;
+// I can afford to do the frexp on a double here.
+        double d = std::frexp(value_of_immediate_float(a), &x);
+        return cons(fixnum_of_int(x), pack_short_float(d));
+    }
+    else
+    {   int x;
+        double d = std::frexp(float_of_number(a), &x);
+// I clearly once encountered a C library that failed on this edge case!
+        if (d == 1.0) d = 0.5, x++;
+        return cons(fixnum_of_int(x),make_boxfloat(d));
+    }
 }
 
-// N.B. that the moduklar arithmetic functions must cope with any small
+// N.B. that the modular arithmetic functions must cope with any small
 // modulus that could fit in a fixnum.
 
 LispObject Lmodular_difference(LispObject env, LispObject a, LispObject b)
@@ -281,7 +299,8 @@ LispObject large_modular_expt(LispObject a, int x)
 inline intptr_t muldivptr(uintptr_t a, uintptr_t b, uintptr_t c)
 {   if (!SIXTY_FOUR_BIT || c <= 0xffffffffU)
         return ((uint64_t)a*(uint64_t)b)%(uintptr_t)c;
-    else return (intptr_t)NARROW128((uint128(a)*uint128(a))%(uintptr_t)c);
+    else return (intptr_t)NARROW128((uint128((uint64_t)a)*
+                                     uint128((uint64_t)a))%(uintptr_t)c);
 }
 
 LispObject Lmodular_expt(LispObject env, LispObject a, LispObject b)
@@ -443,8 +462,8 @@ static LispObject Lilogand_4up(LispObject env, LispObject a1, LispObject a2,
          aerror3("ilogand", a2, a2, a3);
     a1 = a1 & a2 & a3;
     while (a4up != nil)
-    {   a2 = qcar(a4up);
-        a4up = qcdr(a4up);
+    {   a2 = car(a4up);
+        a4up = cdr(a4up);
         if (!is_fixnum(a2)) aerror1("ilogand", a2);
         a1 = a1 & a2;
     }
@@ -457,8 +476,8 @@ static LispObject Lilogor_4up(LispObject env, LispObject a1, LispObject a2,
          aerror3("ilogor", a2, a2, a3);
     a1 = a1 | a2 | a3;
     while (a4up != nil)
-    {   a2 = qcar(a4up);
-        a4up = qcdr(a4up);
+    {   a2 = car(a4up);
+        a4up = cdr(a4up);
         if (!is_fixnum(a2)) aerror1("ilogor", a2);
         a1 = a1 | a2;
     }
@@ -471,8 +490,8 @@ static LispObject Lilogxor_4up(LispObject env, LispObject a1, LispObject a2,
          aerror3("ilogxor", a2, a2, a3);
     a1 = a1 ^ a2 ^ a3;
     while (a4up != nil)
-    {   a2 = qcar(a4up);
-        a4up = qcdr(a4up);
+    {   a2 = car(a4up);
+        a4up = cdr(a4up);
         if (!is_fixnum(a2)) aerror1("ilogxor", a2);
         a1 = a1 ^ a2;
     }
@@ -526,8 +545,8 @@ static LispObject Liplus_4up(LispObject, LispObject a1, LispObject a2,
         aerror3("iplus", a1, a2, a3);
     a1 = (intptr_t)a1 + (intptr_t)a2 - 2*TAG_FIXNUM + (intptr_t)a3;
     while (a4up != nil)
-    {   a2 = qcar(a4up);
-        a4up = qcdr(a4up);
+    {   a2 = car(a4up);
+        a4up = cdr(a4up);
         if (!is_fixnum(a2)) aerror1("iplus", a2);
         a1 = a1 + (intptr_t)a2 - TAG_FIXNUM;
     }
@@ -601,8 +620,8 @@ static LispObject Litimes_4up(LispObject env, LispObject a1, LispObject a2,
         aerror3("iplus", a1, a2, a3);
     intptr_t r = int_of_fixnum(a1) * int_of_fixnum(a2) * int_of_fixnum(a3);
     while (a4up != nil)
-    {   a2 = qcar(a4up);
-        a4up = qcdr(a4up);
+    {   a2 = car(a4up);
+        a4up = cdr(a4up);
         if (!is_fixnum(a2)) aerror1("itimes", a2);
         r = r * int_of_fixnum(a2);
     }
@@ -652,11 +671,11 @@ static LispObject Lfp_eval(LispObject env, LispObject code,
     unsigned char *p;
     if (!is_vector(code)) aerror("fp-evaluate");
     while (consp(args))
-    {   fp_args[n++] = float_of_number(qcar(args));
-        args = qcdr(args);
+    {   fp_args[n++] = float_of_number(car(args));
+        args = cdr(args);
     }
     n = 0;
-    p = &ucelt(code, 0);
+    p = (unsigned char *)&ucelt(code, 0);
     for (;;)
     {   int op = *p++;
 //

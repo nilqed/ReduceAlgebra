@@ -1,4 +1,4 @@
-// arith01.cpp                             Copyright (C) 1990-2018 Codemist
+// arith01.cpp                             Copyright (C) 1990-2019 Codemist
 
 //
 // Arithmetic functions.
@@ -8,7 +8,7 @@
 //
 
 /**************************************************************************
- * Copyright (C) 2018, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -36,7 +36,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: arith01.cpp 4983 2019-05-07 14:57:04Z arthurcnorman $
+// $Id: arith01.cpp 5074 2019-08-10 16:49:01Z arthurcnorman $
 
 #include "headers.h"
 
@@ -67,7 +67,8 @@ LispObject validate_number(const char *s, LispObject a,
     if (!is_numbers(a) || !is_bignum(a)) return a;
     la = (length_of_header(numhdr(a))-CELL-4)/4;
     if (la < 0)
-    {   trace_printf("%s: number with no digits (%.8x)\n", s, numhdr(a));
+    {   trace_printf("%s: number with no digits (%.16" PRIx16 ")\n",
+                     s, (uint64_t)numhdr(a));
         prin_to_trace(b), trace_printf("\n");
         prin_to_trace(c), trace_printf("\n");
 #ifdef VALIDATE_STOPS
@@ -437,7 +438,7 @@ LispObject make_boxfloat128(float128_t a)
     if (!SIXTY_FOUR_BIT) long_float_pad(r) = 0;
     long_float_val(r) = a;
     if (trap_floating_overflow &&
-        floating_edge_case128(&long_float_val(r)))
+        floating_edge_case128((float128_t *)&long_float_val(r)))
         aerror("exception with long float");
     return r;
 }
@@ -660,7 +661,7 @@ intptr_t double_to_3_digits(double d, int32_t &a2, uint32_t &a1, uint32_t &a0)
     }
 // I now shift the 3-digit value left by r bits. It will not overflow.
     if (r != 0)
-    {   a2 = (int32_t)(((uint32_t)a2<<r) | a1>>(31-r));
+    {   a2 = ((uint32_t)a2<<r) | a1>>(31-r);
         a1 = ((a1<<r) & 0x7fffffffU) | a0>>(31-r);
         a0 = (a0<<r) & 0x7fffffffU;
     }
@@ -1024,23 +1025,22 @@ LispObject make_complex(LispObject r, LispObject i)
 // are OK.
 //
     pop(i, r);
-    real_part(v) = r;
-    imag_part(v) = i;
+    setreal_part(v, r);
+    setimag_part(v, i);
     return v;
 }
 
 LispObject make_ratio(LispObject p, LispObject q)
-//
 // By the time this is called (p/q) must be in its lowest terms, q>0
-//
+// If q=1 then this just returns p, so the rational reverts to an integer.
 {   LispObject v;
     if (q == fixnum_of_int(1)) return p;
     stackcheck(p, q);
     push(p, q);
     v = get_basic_vector(TAG_NUMBERS, TYPE_RATNUM, sizeof(Rational_Number));
     pop(q, p);
-    numerator(v) = p;
-    denominator(v) = q;
+    setnumerator(v, p);
+    setdenominator(v, q);
     return v;
 }
 
@@ -1307,20 +1307,23 @@ inline LispObject plus_i_b(LispObject a1, LispObject a2)
     pop(a2);
 // Add in the lowest digit by hand because at this stage s1 can have
 // more than 31 bits and so intrudes beyond there.
-    uint32_t d0 = bignum_digits(a2)[0] + clear_top_bit(s1);
+    uint32_t d0 = bignum_digits(a2)[0] + (uint32_t)clear_top_bit(s1);
     bignum_digits(c)[0] = clear_top_bit(d0);
     s1 = ASR((int64_t)s1, 31);
     if (top_bit_set(d0)) s1 = s1 + 1;
 // Now s1 is at most 29 bits... I can treat it as a carry from the
 // previous digit. Note that it may be either positive or negative
     for (i=1; i<len-1; i++)
-    {   uint32_t s = bignum_digits(a2)[i] + (s1 & 0x7fffffff);
+    {   uint32_t s = bignum_digits(a2)[i] + (uint32_t)(s1 & 0x7fffffff);
         s1 = ASR((int64_t)s1, 31); // Note that s1 was signed so this is -1, 0 or 1
         bignum_digits(c)[i] = s & 0x7fffffff;
-        s1 += top_bit(s);
+        s1 = s1 + top_bit(s);
     }
-    s1 = s1 + (int32_t)bignum_digits(a2)[i];
-    if (!signed_overflow(s1))         // did it overflow?
+    s1 = (int32_t)ADD32(s1, bignum_digits(a2)[i]);
+// A trap I fell into here is that ADD32 returns an unsigned result and when
+// that expands to an uniptr_t on a 64-bit machine it gets zero bits stuck
+// on the front. Then when I compare against -1 it says "no".
+    if (!signed_overflow((int32_t)s1))         // did it overflow?
     {
 // Here the most significant digit did not produce an overflow, but maybe
 // what we actually had was some cancellation and the MSD is now zero
@@ -1328,7 +1331,7 @@ inline LispObject plus_i_b(LispObject a1, LispObject a2)
         if ((s1 == 0 && (bignum_digits(c)[i-1] & 0x40000000) == 0) ||
             (s1 == -1 && (bignum_digits(c)[i-1] & 0x40000000) != 0))
         {   // shrink the number
-            numhdr(c) -= pack_hdrlength(1L);
+            setnumhdr(c, numhdr(c) - pack_hdrlength(1L));
             if (s1 == -1) bignum_digits(c)[i-1] |= 0x80000000;
 // Now sometimes the shrinkage will leave a padding word, sometimes it
 // will really allow me to save space. As a jolly joke with a 64-bit
@@ -1370,14 +1373,14 @@ inline LispObject plus_i_b(LispObject a1, LispObject a2)
         (!SIXTY_FOUR_BIT && ((i & 1) == 1)))
     {   bignum_digits(c)[i++] = clear_top_bit(s1);
         bignum_digits(c)[i] = top_bit_set(s1) ? -1 : 0;
-        numhdr(c) += pack_hdrlength(1L);
+        setnumhdr(c, numhdr(c) + pack_hdrlength(1L));
         return c;
     }
     push(c);
     a2 = get_basic_vector(TAG_NUMBERS, TYPE_BIGNUM, CELL+4+4*len);
     pop(c);
     for (size_t i=0; i<len-1; i++)
-        bignum_digits(a2)[i] = bignum_digits(c)[i];
+        bignum_digits(a2)[i] = vbignum_digits(c)[i];
 //
 // I move the top digit across by hand since if the number is negative
 // I must lose its top bit
@@ -1438,7 +1441,7 @@ inline LispObject plus_i_d(LispObject a1, LispObject a2)
 inline LispObject plus_i_l(LispObject a1, LispObject a2)
 {   float128_t x, z;
     i64_to_f128M((int64_t)int_of_fixnum(a1), &x);
-    f128M_add(&x, long_float_addr(a2), &z);
+    f128M_add(&x, (float128_t *)long_float_addr(a2), &z);
     return make_boxfloat128(z);
 }
 #endif // HAVE_SOFTFLOAT
@@ -1471,7 +1474,7 @@ LispObject lengthen_by_one_bit(LispObject a, int32_t msd)
     }
     else
 // .. whereas sometimes I have a spare word already available.
-    {   numhdr(a) += pack_hdrlength(1L);
+    {   setnumhdr(a, numhdr(a) + pack_hdrlength(1L));
         len = (len-CELL)/4;
         bignum_digits(a)[len-1] = clear_top_bit(bignum_digits(a)[len-1]);
         bignum_digits(a)[len] = top_bit_set(msd) ? -1 : 0;
@@ -1522,18 +1525,18 @@ inline LispObject plus_b_b(LispObject a, LispObject b)
 // copies of 0 or -1 as needbe to get up to the length of a.
 // Note that the index "i" is left over from the previous loop...
     {   s = (int32_t)bignum_digits(b)[i];
-        carry =  bignum_digits(a)[i] + clear_top_bit(s) +
+        carry =  bignum_digits(a)[i] + (uint32_t)clear_top_bit(s) +
                  (uint32_t)top_bit(carry);
         bignum_digits(c)[i] = clear_top_bit(carry);
         if (s < 0) s = -1;
         else s = 0;
         for (i++; i<la; i++)
-        {   carry = bignum_digits(a)[i] + clear_top_bit(s) +
+        {   carry = bignum_digits(a)[i] + (uint32_t)clear_top_bit(s) +
                     (uint32_t)top_bit(carry);
             bignum_digits(c)[i] = clear_top_bit(carry);
         }
     }
-    carry = (int32_t)bignum_digits(a)[i] + s +
+    carry = (int32_t)bignum_digits(a)[i] + (uint32_t)s +
             (uint32_t)top_bit(carry);
 // I need to know if the top digit leads to 31-bit signed overflow.
     if (!signed_overflow(carry))
@@ -1567,11 +1570,11 @@ inline LispObject plus_b_b(LispObject a, LispObject b)
 // fix up its header-word.
             if ((SIXTY_FOUR_BIT && (j == i-1) && ((i & 1) != 0)) ||
                 (!SIXTY_FOUR_BIT && (j == i-1) && ((i & 1) == 0)))
-            {   numhdr(c) -= pack_hdrlength(1L);
+            {   setnumhdr(c, numhdr(c) - pack_hdrlength(1L));
                 return c;
             }
 // A more complicated truncation case.
-            numhdr(c) -= pack_hdrlength(i - j);
+            setnumhdr(c, numhdr(c) - pack_hdrlength(i - j));
             if (SIXTY_FOUR_BIT)
             {   i = (i+2) & ~1;
                 j = (j+2) & ~1;     // Round up to odd index
@@ -1608,10 +1611,10 @@ inline LispObject plus_b_b(LispObject a, LispObject b)
                 (!SIXTY_FOUR_BIT && (j == i-1) && ((i & 1) == 0)))
             {   bignum_digits(c)[i] = 0;
                 bignum_digits(c)[i-1] |= ~0x7fffffff;
-                numhdr(c) -= pack_hdrlength(1);
+                setnumhdr(c, numhdr(c) - pack_hdrlength(1));
                 return c;
             }
-            numhdr(c) -= pack_hdrlength(i - j);
+            setnumhdr(c, numhdr(c) - pack_hdrlength(i - j));
             bignum_digits(c)[j+1] = 0;
             bignum_digits(c)[j] |= ~0x7fffffff;
             if (SIXTY_FOUR_BIT)
@@ -1660,7 +1663,7 @@ inline LispObject plus_b_d(LispObject a1, LispObject a2)
 inline LispObject plus_b_l(LispObject a1, LispObject a2)
 {   float128_t x, z;
     x = float128_of_number(a1);
-    f128M_add(&x, long_float_addr(a2), &z);
+    f128M_add(&x, (float128_t *)long_float_addr(a2), &z);
     return make_boxfloat128(z);
 }
 #endif // HAVE_SOFTFLOAT
@@ -1815,7 +1818,7 @@ inline LispObject plus_s_l(LispObject a1, LispObject a2)
     Double_union xf;
     xf.f = value_of_immediate_float(a1);
     f64_to_f128M(xf.f64, &x);
-    f128M_add(&x, long_float_addr(a2), &z);
+    f128M_add(&x, (float128_t *)long_float_addr(a2), &z);
     return make_boxfloat128(z);
 }
 #endif // HAVE_SOFTFLOAT
@@ -1856,7 +1859,7 @@ inline LispObject plus_f_l(LispObject a1, LispObject a2)
     Double_union xf;
     xf.f = single_float_val(a1);
     f64_to_f128M(xf.f64, &x);
-    f128M_add(&x, long_float_addr(a2), &z);
+    f128M_add(&x, (float128_t *)long_float_addr(a2), &z);
     return make_boxfloat128(z);
 }
 #endif // HAVE_SOFTFLOAT
@@ -1866,7 +1869,7 @@ inline LispObject plus_d_i(LispObject a1, LispObject a2)
 }
 
 inline LispObject plus_d_b(LispObject a1, LispObject a2)
-{   return plus_b_d(a1, a1);
+{   return plus_b_d(a2, a1);
 }
 
 inline LispObject plus_d_r(LispObject a1, LispObject a2)
@@ -1894,9 +1897,9 @@ inline LispObject plus_d_d(LispObject a1, LispObject a2)
 inline LispObject plus_d_l(LispObject a1, LispObject a2)
 {   float128_t x, z;
     Double_union xf;
-    xf.f = double_float_val(a1);
+    xf.f = (double)double_float_val(a1);
     f64_to_f128M(xf.f64, &x);
-    f128M_add(&x, long_float_addr(a2), &z);
+    f128M_add(&x, (float128_t *)long_float_addr(a2), &z);
     return make_boxfloat128(z);
 }
 
@@ -1930,7 +1933,8 @@ inline LispObject plus_l_d(LispObject a1, LispObject a2)
 
 inline LispObject plus_l_l(LispObject a1, LispObject a2)
 {   float128_t z;
-    f128M_add(long_float_addr(a1), long_float_addr(a2), &z);
+    f128M_add((float128_t *)long_float_addr(a1),
+              (float128_t *)long_float_addr(a2), &z);
     return make_boxfloat128(z);
 }
 #endif // HAVE_SOFTFLOAT
@@ -1939,7 +1943,7 @@ arith_dispatch_2(inline, LispObject, plus)
 
 LispObject plus2(LispObject a, LispObject b)
 {
-#ifdef EXPERIMENT
+#ifdef DEBUG
     validate_number("Arg1 for plus", a, a, b);
     validate_number("Arg2 for plus", b, a, b);
     LispObject r = plus(a, b);
@@ -2292,7 +2296,7 @@ inline LispObject difference_d_b(LispObject a1, LispObject a2)
 {   int x;
     double a2d = bignum_to_float(a2, length_of_header(numhdr(a2)), &x);
     double d = double_float_val(a1) - ldexp(a2d, x);
-    return make_boxfloat(d, TYPE_SINGLE_FLOAT);
+    return make_boxfloat(d, TYPE_DOUBLE_FLOAT);
 }
 
 inline LispObject difference_d_r(LispObject a1, LispObject a2)
@@ -2335,14 +2339,14 @@ inline LispObject difference_d_l(LispObject a1, LispObject a2)
 inline LispObject difference_l_i(LispObject a1, LispObject a2)
 {   float128_t x, z;
     i64_to_f128M((int64_t)int_of_fixnum(a2), &x);
-    f128M_sub(long_float_addr(a1), &x, &z);
+    f128M_sub((float128_t *)long_float_addr(a1), &x, &z);
     return make_boxfloat128(z);
 }
 
 inline LispObject difference_l_b(LispObject a1, LispObject a2)
 {   float128_t x, z;
     x = float128_of_number(a2);
-    f128M_sub(long_float_addr(a2), &x, &z);
+    f128M_sub((float128_t *)long_float_addr(a2), &x, &z);
     return make_boxfloat128(z);
 }
 
@@ -2397,7 +2401,7 @@ arith_dispatch_2(inline, LispObject, difference)
 
 LispObject difference2(LispObject a, LispObject b)
 {
-#ifdef EXPERIMENT
+#ifdef DEBUG
     validate_number("Arg1 for difference", a, a, b);
     validate_number("Arg2 for difference", b, a, b);
     LispObject r = difference(a, b);

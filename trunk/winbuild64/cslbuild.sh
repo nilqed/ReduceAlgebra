@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/bash -v
 
 # This must be run from a cygwin64 shell.
 

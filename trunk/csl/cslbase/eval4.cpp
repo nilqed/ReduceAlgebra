@@ -33,7 +33,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: eval4.cpp 4975 2019-05-01 20:54:45Z arthurcnorman $
+// $Id: eval4.cpp 5074 2019-08-10 16:49:01Z arthurcnorman $
 
 
 #include "headers.h"
@@ -194,7 +194,7 @@ inline int countargs(LispObject a4up)
 {    int r = 3;
      while (a4up != nil)
      {   r++;
-         a4up = qcdr(a4up);
+         a4up = cdr(a4up);
      }
      return r;
 }
@@ -203,15 +203,15 @@ LispObject bytecoded_4up(LispObject def, LispObject a1, LispObject a2,
         LispObject a3, LispObject a4up)
 {   SAVE_CODEVEC;
     int nargs = countargs(a4up);
-    LispObject r = qcar(qenv(def));   // the vector of bytecodes
+    LispObject r = car(qenv(def));   // the vector of bytecodes
     if (nargs != ((unsigned char *)data_of_bps(r))[0])
         error(2, err_wrong_no_args, def, fixnum_of_int(nargs));
 // I now know that there will be the right number of arguments.
     push(def);
     push(a1, a2, a3);
     for (int i=4; i<=nargs; i++)
-    {   push(qcar(a4up));
-        a4up = qcdr(a4up);
+    {   push(car(a4up));
+        a4up = cdr(a4up);
     }
     try
     {   START_TRY_BLOCK;
@@ -234,8 +234,9 @@ LispObject bytecoded_4up(LispObject def, LispObject a1, LispObject a2,
 LispObject nreverse2(LispObject a, LispObject b)
 {   while (consp(a))
     {   LispObject c = a;
-        a = qcdr(a);
-        qcdr(c) = b;
+        a = cdr(a);
+        setcdr(c, b);
+        write_barrier(cdraddr(c));
         b = c;
     }
     return b;
@@ -263,7 +264,7 @@ static LispObject byteopt(LispObject def, LispObject a1, LispObject a2,
     else nargs = countargs(a4up);
 // In this case the first 2 bytes of the bytecode stream give and upper and
 // lower bound for arguments ahead of any &REST ones.
-    r = qcar(qenv(def));
+    r = car(qenv(def));
     wantargs = ((unsigned char *)data_of_bps(r))[0];
     wantopts = ((unsigned char *)data_of_bps(r))[1];
     if (nargs < wantargs || (!restp && nargs > wantargs+wantopts))
@@ -323,8 +324,8 @@ static LispObject byteopt(LispObject def, LispObject a1, LispObject a2,
 // length. So I can pick off nargs-(wantargs+optargs) items to make
 // a &REST argument...
         while (nargs > wantargs+wantopts)
-        {   push(def, qcdr(a4up));
-            ra = cons(qcar(a4up), ra);
+        {   push(def, cdr(a4up));
+            ra = cons(car(a4up), ra);
             pop(a4up, def);
         }
 // Here I have (eg) a4up = (a3 a2 a1) and ra = (a4 a5 ...).
@@ -339,8 +340,8 @@ static LispObject byteopt(LispObject def, LispObject a1, LispObject a2,
 // I have now handled &OPTIONAL and &REST issues, and a4up is now a list of
 // length nargs.
     for (int i=0; i<nargs; i++)
-    {   push(qcar(a4up));
-        a4up = qcdr(a4up);
+    {   push(car(a4up));
+        a4up = cdr(a4up);
     }
     try
     {   START_TRY_BLOCK;

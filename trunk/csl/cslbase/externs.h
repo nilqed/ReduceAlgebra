@@ -1,4 +1,4 @@
-// externs.h                               Copyright (C) Codemist 1989-2018
+// externs.h                               Copyright (C) Codemist 1989-2019
 
 //
 //   Main batch of extern declarations.
@@ -6,7 +6,7 @@
 //
 
 /**************************************************************************
- * Copyright (C) 2018, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -35,7 +35,7 @@
  *************************************************************************/
 
 
-// $Id: externs.h 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: externs.h 5074 2019-08-10 16:49:01Z arthurcnorman $
 
 #ifndef header_externs_h
 #define header_externs_h 1
@@ -64,6 +64,7 @@ extern size_t new_heap_pages_count, new_vheap_pages_count;
 
 extern LispObject *list_bases[];
 extern LispObject *nilsegment, *stacksegment;
+extern LispObject *nilsegmentbase, *stacksegmentbase;
 extern LispObject *stackbase;
 extern int32_t stack_segsize;  // measured in units of one CSL page
 extern double max_store_size;
@@ -76,76 +77,17 @@ extern uintptr_t *C_stackbase, C_stacklimit;
 
 extern LispObject multiplication_buffer;
 
-// An "my_assert" scheme that lets me write in my own code to print the
-// diagnostics.
+#ifdef CONSERVATIVE
+extern void write_barrier(std::atomic<LispObject> *p);
+extern void write_barrier(LispObject *p);
+#else // !CONSERVATIVE
+inline void write_barrier(std::atomic<LispObject> *p)
+{}
+inline void write_barrier(LispObject *p)
+{}
+#endif // !CONSERVATIVE
 
-[[noreturn]] extern void my_abort();
-extern void trace_printf(const char *fmt, ...);
-
-template <typename F>
-inline void my_assert(bool ok, F&& action)
-{
-#ifndef NDEBUG
-// Use this as in
-//     my_assert(predicate, [&]{...});
-// where the "..." is an arbitrary sequence of actions to be taken
-// if the assertion fails.
-    if (!ok) { action(); my_abort(); }
-#endif //NDEBUG
-}
-
-//
-// I have a bunch of macros that I use for desparation-mode debugging,
-// and in particular when I have bugs that wriggle back into their lairs
-// when I try running under "gdb" or whatever. These print dull messages
-// to stderr. The "do..while" idiom is to keep C syntax safe with regard to
-// semicolons.
-//
-
-#define D do { \
-          const char *_f_ = strrchr(__FILE__, '/'); \
-          if (_f_ == NULL) _f_ = strrchr(__FILE__, '\\'); \
-          if (_f_ == NULL) _f_ = __FILE__; else _f_++; \
-          fprintf(stderr, "Line %d File %s\n", __LINE__, _f_); \
-          fflush(stderr); \
-          } while (0)
-
-#define DS(s) do { \
-          const char *_f_ = strrchr(__FILE__, '/'); \
-          if (_f_ == NULL) _f_ = strrchr(__FILE__, '\\'); \
-          if (_f_ == NULL) _f_ = __FILE__; else _f_++; \
-          fprintf(stderr, "Line %d File %s: %s\n", __LINE__, _f_, (s)); \
-          fflush(stderr); \
-          } while (0)
-
-#define DX(s) do { \
-          const char *_f_ = strrchr(__FILE__, '/'); \
-          if (_f_ == NULL) _f_ = strrchr(__FILE__, '\\'); \
-          if (_f_ == NULL) _f_ = __FILE__; else _f_++; \
-          fprintf(stderr, "Line %d File %s: %llx\n", __LINE__, _f_, \
-                          (long long unsigned)(s)); \
-          fflush(stderr); \
-          } while (0)
-
-#define DF(f,...) do { \
-          const char *_f_ = strrchr(__FILE__, '/'); \
-          if (_f_ == NULL) _f_ = strrchr(__FILE__, '\\'); \
-          if (_f_ == NULL) _f_ = __FILE__; else _f_++; \
-          fprintf(stderr, "Line %d File %s: ", __LINE__, _f_); \
-          fprintf(stderr, f, __VA_ARGS__); \
-          fprintf(stderr, "\n"); \
-          fflush(stderr); \
-          } while (0)
-
-#define DF(f,...) do { \
-          const char *_f_ = strrchr(__FILE__, '/'); \
-          if (_f_ == NULL) _f_ = strrchr(__FILE__, '\\'); \
-          if (_f_ == NULL) _f_ = __FILE__; else _f_++; \
-          fprintf(stderr, "Line %d File %s: ", __LINE__, _f_); \
-          fprintf(stderr, f, __VA_ARGS__); \
-          fprintf(stderr, "\n"); \
-          fflush(stderr); \
-          } while (0)
+// This tiny function exists just so that I can set a breakpoint on it.
 
 extern std::mutex debug_lock;
 extern const char *debug_file;
@@ -156,7 +98,7 @@ extern void DebugTrace(int i);
 extern void DebugTrace(const char *msg);
 extern void DebugTrace(const char *fmt, int i);
 
-// This is a macro that sets some global variables bacause I want Tr()
+// This is a macro that sets some global variables because I want Tr()
 // without arguments to be valid, and until C++2a it seems impossible to
 // combine __VA_ARGS__ with anything else because of fussiness about commas.
 
@@ -209,7 +151,7 @@ extern void debug_show_trail_raw(const char *msg, const char *file, int line);
 
 #define debug_record(data) debug_record_raw(data, __FILE__, __LINE__)
 #define debug_record_int(s, n) debug_record_int_raw(s, n, __FILE__, __LINE__)
-#define debug_record_string(s) debug_record(&celt(s, 0))
+#define debug_record_string(s) debug_record((const char *)&celt(s, 0))
 #define debug_record_symbol(x) debug_record_string(qpname(x))
 #define debug_show_trail(data) debug_show_trail_raw(data, __FILE__, __LINE__)
 
@@ -291,16 +233,15 @@ extern uintptr_t vheaplimit;
 extern uintptr_t vlen;
 extern uintptr_t vxor_chain;
 
-
-extern uintptr_t stacklimit;
-#else
+extern LispObject *stacklimit;
+#else // !CONSERVATIVE
 extern LispObject fringe, next_fringe;
 extern LispObject heaplimit;
 extern LispObject vfringe, next_vfringe;
 extern LispObject vheaplimit;
 
 extern LispObject *stacklimit;
-#endif
+#endif // !CONSERVATIVE
 
 extern volatile std::atomic<uintptr_t> event_flag;
 
@@ -680,6 +621,7 @@ extern int window_heading;
 [[noreturn]] extern void my_exit(int n);
 
 extern uint64_t base_time;
+extern std::chrono::high_resolution_clock::time_point base_walltime;
 extern uint64_t gc_time;
 extern bool trap_floating_overflow;
 extern const volatile char *errorset_msg;
@@ -799,6 +741,9 @@ extern FILE        *open_file(char *filename, const char *original_name,
 extern LispObject  plus2(LispObject a, LispObject b);
 extern void        preserve(const char *msg, size_t len);
 extern LispObject prin(LispObject u);
+extern void debugprint(LispObject a, int depth=10);
+extern void debugprint(const char *s, LispObject a);
+extern void debugprint(const char *s);
 extern const char *get_string_data(LispObject a, const char *why, size_t &len);
 extern void prin_to_stdout(LispObject u);
 extern void prin_to_terminal(LispObject u);
@@ -820,6 +765,9 @@ extern LispObject  printc(LispObject u);
 extern void        print_bignum(LispObject u, bool blankp, int nobreak);
 extern void        print_bighexoctbin(LispObject u,
                                       int radix, int width, bool blankp, int nobreak);
+extern void        print_newbignum(LispObject u, bool blankp, int nobreak);
+extern void        print_newbighexoctbin(LispObject u,
+                                         int radix, int width, bool blankp, int nobreak);
 extern LispObject  putprop(LispObject a, LispObject b,
                            LispObject c);
 extern LispObject  quot2(LispObject a, LispObject b);
@@ -945,6 +893,9 @@ extern setup_type const
     eval3_setup[], funcs1_setup[], funcs2_setup[], funcs3_setup[],
     lisphash_setup[], print_setup[], read_setup[],
     restart_setup[], mpi_setup[];
+#ifdef ARITHLIB
+extern setup_type const arith_setup[];
+#endif
 
 extern setup_type const
     u01_setup[], u02_setup[], u03_setup[], u04_setup[],

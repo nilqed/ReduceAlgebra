@@ -1,9 +1,9 @@
-// dispatch.h                              Copyright (C) 1990-2019 Codemist
+// dispatch.h                                   Copyright (C) 2019 Codemist
 
 #ifndef header_dispatch_h
 #define header_dispatch_h 1
 
-// $Id: version.h 4783 2018-09-25 20:26:06Z arthurcnorman $
+// $Id: dispatch.h 5035 2019-06-17 17:47:25Z arthurcnorman $
 
 
 /**************************************************************************
@@ -46,7 +46,6 @@
 //                     be either 32 or 64 bits depending on the platform.
 //                     (and machines with pointers that are neither 32 nor
 //                     64 bits are not supported!)
-//                     supported!
 // (big) integers.     Passed as (uint64_t *), ie pointers to arrays of
 //                     digits.
 // Rationals.          Uses a class Rat that has a single field in it that
@@ -80,7 +79,18 @@
 // where a1.v and a2.v are of type LispObject and are whatever internal
 // representation the Lisp uses for the sort of data involved.
 
+#include "softfloat.h"
 #define softfloat_h 1
+
+// arithlib.hpp needs to know that it will be being used in a way that
+// interfaces with a Lisp system rather than being used as a free-standing
+// C++ library.
+
+#define LISP 1
+
+#ifndef CSL
+#define CSL 1
+#endif // CSL
 
 #include "arithlib.hpp"
 
@@ -117,6 +127,33 @@ public:
     {   return int_of_fixnum(v);
     }
 };
+
+// I should probably transition to wrapping bignums up in a class!
+// Until I do here are two free-standing functions.
+
+inline LispObject bignum_value(uint64_t *a)
+{   return TAG_NUMBERS + (uintptr_t)a - 8;
+}
+
+inline uint64_t *bignum_intval(LispObject a)
+{    return (uint64_t *)(a - TAG_NUMBERS + 8);
+}
+
+class Bignum // for big integers
+{
+public:
+    LispObject v;
+    Bignum(LispObject a)
+    {   v = a;
+    }
+    LispObject value()
+    {   return v;
+    }
+    uint64_t *intval()
+    {   return (uint64_t *)(v - TAG_NUMBERS + 8);
+    }
+};
+
 class Rat // for rational numbers
 {
 public:
@@ -240,7 +277,7 @@ inline R binaryL(const char *fname, V lhsVal, LispObject b)
     case TAG_NUMBERS: case TAG_NUMBERS+TAG_XBIT:
         switch (type_of_header(numhdr(b)))
         {
-        case TYPE_BIGNUM:
+        case TYPE_NEW_BIGNUM:
             return T::op(lhsVal, (uint64_t *)((char *)b + 8 - TAG_NUMBERS));
         case TYPE_RATNUM:
             return T::op(lhsVal, Rat(b));
@@ -250,7 +287,7 @@ inline R binaryL(const char *fname, V lhsVal, LispObject b)
             aerror2("Non-numeric argument", fname, b);
         }
     case TAG_FIXNUM:
-        return T::op(lhsVal, Fixnum(int_of_fixnum(b)));
+        return T::op(lhsVal, Fixnum(b));
     case XTAG_SFLOAT:
         return T::op(lhsVal, SFlt(b));
     }
@@ -279,7 +316,7 @@ inline R binaryR(const char *fname, LispObject a, V rhsval)
     case TAG_NUMBERS: case TAG_NUMBERS+TAG_XBIT:
         switch (type_of_header(numhdr(a)))
         {
-        case TYPE_BIGNUM:
+        case TYPE_NEW_BIGNUM:
             return T::op((uint64_t *)((char *)a + 8 - TAG_NUMBERS), rhsval);
         case TYPE_RATNUM:
             return T::op(Rat(a), rhsval);
@@ -289,7 +326,7 @@ inline R binaryR(const char *fname, LispObject a, V rhsval)
             aerror2("Non-numeric argument", fname, a);
         }
     case TAG_FIXNUM:
-        return T::op(Fixnum(int_of_fixnum(a)), rhsval);
+        return T::op(Fixnum(a), rhsval);
     case XTAG_SFLOAT:
         return T::op(SFlt(a), rhsval);
     }
@@ -308,7 +345,7 @@ inline R binary(const char *fname, LispObject a, LispObject b)
     default:
         aerror2("Non-numeric argument", fname, a);
     case TAG_BOXFLOAT: case TAG_BOXFLOAT+TAG_XBIT:
-        switch (type_of_header(numhdr(a)))
+        switch (type_of_header(flthdr(a)))
         {
         case TYPE_SINGLE_FLOAT:
             return binaryL<R,T,Flt>(fname, Flt(a), b);
@@ -319,10 +356,10 @@ inline R binary(const char *fname, LispObject a, LispObject b)
         default:
             aerror2("Non-numeric argument", fname, a);
         }
-    case TAG_NUMBERS:
+    case TAG_NUMBERS: case TAG_NUMBERS+TAG_XBIT:
         switch (type_of_header(numhdr(a)))
         {
-        case TYPE_BIGNUM:
+        case TYPE_NEW_BIGNUM:
             return binaryL<R,T,uint64_t *>(fname,
                 (uint64_t *)((char *)a + 8 - TAG_NUMBERS), b);
         case TYPE_RATNUM:
@@ -333,7 +370,7 @@ inline R binary(const char *fname, LispObject a, LispObject b)
             aerror2("Non-numeric argument", fname, a);
         }
     case TAG_FIXNUM:
-        return binaryL<R,T,Fixnum>(fname, Fixnum(int_of_fixnum(a)), b);
+        return binaryL<R,T,Fixnum>(fname, Fixnum(a), b);
     case XTAG_SFLOAT:
         return binaryL<R,T,SFlt>(fname, SFlt(a), b);
     }
@@ -352,13 +389,13 @@ inline R ibinaryL(const char *fname, V lhsVal, LispObject b)
     case TAG_NUMBERS: case TAG_NUMBERS+TAG_XBIT:
         switch (type_of_header(numhdr(b)))
         {
-        case TYPE_BIGNUM:
+        case TYPE_NEW_BIGNUM:
             return T::op(lhsVal, (uint64_t *)((char *)b + 8 - TAG_NUMBERS));
         default:
             aerror2("Non-integer argument", fname, b);
         }
     case TAG_FIXNUM:
-        return T::op(lhsVal, Fixnum(int_of_fixnum(b)));
+        return T::op(lhsVal, Fixnum(b));
     }
 }
 
@@ -372,13 +409,13 @@ inline R ibinaryR(const char *fname, LispObject a, V rhsval)
     case TAG_NUMBERS: case TAG_NUMBERS+TAG_XBIT:
         switch (type_of_header(numhdr(a)))
         {
-        case TYPE_BIGNUM:
+        case TYPE_NEW_BIGNUM:
             return T::op((uint64_t *)((char *)a + 8 - TAG_NUMBERS), rhsval);
         default:
             aerror2("Non-integer argument", fname, a);
         }
     case TAG_FIXNUM:
-        return T::op(Fixnum(int_of_fixnum(a)), rhsval);
+        return T::op(Fixnum(a), rhsval);
     }
 }
 
@@ -389,17 +426,17 @@ inline R ibinary(const char *fname, LispObject a, LispObject b)
     {
     default:
         aerror2("Non-integer argument", fname, a);
-    case TAG_NUMBERS:
+    case TAG_NUMBERS: case TAG_NUMBERS+TAG_XBIT:
         switch (type_of_header(numhdr(a)))
         {
-        case TYPE_BIGNUM:
+        case TYPE_NEW_BIGNUM:
             return ibinaryL<R,T,uint64_t *>(fname,
                 (uint64_t *)((char *)a + 8 - TAG_NUMBERS), b);
         default:
             aerror2("Non-integer argument", fname, a);
         }
     case TAG_FIXNUM:
-        return ibinaryL<R,T,Fixnum>(fname, Fixnum(int_of_fixnum(a)), b);
+        return ibinaryL<R,T,Fixnum>(fname, Fixnum(a), b);
     }
 }
 
@@ -415,7 +452,7 @@ inline R unary(const char *fname, LispObject a)
     default:
         aerror2("Non-numeric argument", fname, a);
     case TAG_BOXFLOAT: case TAG_BOXFLOAT+TAG_XBIT:
-        switch (type_of_header(numhdr(a)))
+        switch (type_of_header(flthdr(a)))
         {
         case TYPE_SINGLE_FLOAT:
             return T::op(Flt(a));
@@ -426,10 +463,10 @@ inline R unary(const char *fname, LispObject a)
         default:
             aerror2("Non-numeric argument", fname, a);
         }
-    case TAG_NUMBERS:
+    case TAG_NUMBERS: case TAG_NUMBERS+TAG_XBIT:
         switch (type_of_header(numhdr(a)))
         {
-        case TYPE_BIGNUM:
+        case TYPE_NEW_BIGNUM:
             return T::op((uint64_t *)((char *)a + 8 - TAG_NUMBERS));
         case TYPE_RATNUM:
             return T::op(Rat(a));
@@ -439,7 +476,7 @@ inline R unary(const char *fname, LispObject a)
             aerror2("Non-numeric argument", fname, a);
         }
     case TAG_FIXNUM:
-        return T::op((intptr_t)int_of_fixnum(a));
+        return T::op(Fixnum(a));
     case XTAG_SFLOAT:
         return T::op(SFlt(a));
     }
@@ -456,42 +493,54 @@ inline R iunary(const char *fname, LispObject a)
     {
     default:
         aerror2("Non-integer argument", fname, a);
-    case TAG_NUMBERS:
+    case TAG_NUMBERS: case TAG_NUMBERS+TAG_XBIT:
         switch (type_of_header(numhdr(a)))
         {
-        case TYPE_BIGNUM:
+        case TYPE_NEW_BIGNUM:
             return T::op((uint64_t *)((char *)a + 8 - TAG_NUMBERS));
         default:
             aerror2("Non-integer argument", fname, a);
         }
     case TAG_FIXNUM:
-        return T::op((intptr_t)int_of_fixnum(a));
+        return T::op(Fixnum(a));
     }
 }
 
-// Things like "leftshift" that take and integer and a fixnum.
-
-
 template <class R, class T>
-inline R shiftlike(const char *fname, LispObject a, LispObject n)
+inline R unary(const char *fname, LispObject a, int64_t &xx)
 {   using namespace number_dispatcher;
-    if ((n & XTAG_BITS) != TAG_FIXNUM)
-        aerror2("Non-integer argument", fname, n);
-    intptr_t nv = int_of_fixnum(n);
     switch (a & XTAG_BITS)
     {
     default:
-        aerror2("Non-integer argument", fname, a);
-    case TAG_NUMBERS:
+        aerror2("Non-numeric argument", fname, a);
+    case TAG_BOXFLOAT: case TAG_BOXFLOAT+TAG_XBIT:
+        switch (type_of_header(flthdr(a)))
+        {
+        case TYPE_SINGLE_FLOAT:
+            return T::op(Flt(a), xx);
+        case TYPE_DOUBLE_FLOAT:
+            return T::op(double_float_val(a), xx);
+        case TYPE_LONG_FLOAT:
+            return T::op(LFlt(a), xx);
+        default:
+            aerror2("Non-numeric argument", fname, a);
+        }
+    case TAG_NUMBERS: case TAG_NUMBERS+TAG_XBIT:
         switch (type_of_header(numhdr(a)))
         {
-        case TYPE_BIGNUM:
-            return T::op((uint64_t *)((char *)a + 8 - TAG_NUMBERS), nv);
+        case TYPE_NEW_BIGNUM:
+            return T::op((uint64_t *)((char *)a + 8 - TAG_NUMBERS), xx);
+        case TYPE_RATNUM:
+            return T::op(Rat(a), xx);
+        case TYPE_COMPLEX_NUM:
+            return T::op(Cpx(a), xx);
         default:
-            aerror2("Non-integer argument", fname, a);
+            aerror2("Non-numeric argument", fname, a);
         }
     case TAG_FIXNUM:
-        return T::op((intptr_t)int_of_fixnum(a), nv);
+        return T::op(Fixnum(a), xx);
+    case XTAG_SFLOAT:
+        return T::op(SFlt(a), xx);
     }
 }
 
@@ -928,6 +977,108 @@ public:
 #endif // softfloat_h
 };
 
+// CLquotient is for (/ 3 6) => 1/2 with a rational number result.
+
+class CLQuotient
+{
+public:
+    static LispObject op(LispObject a, LispObject b);
+
+    static LispObject op(LispObject a, Fixnum b);
+    static LispObject op(LispObject a, uint64_t *b);
+    static LispObject op(LispObject a, Rat b);
+    static LispObject op(LispObject a, Cpx b);
+    static LispObject op(LispObject a, SFlt b);
+    static LispObject op(LispObject a, Flt b);
+    static LispObject op(LispObject a, double b);
+
+    static LispObject op(Fixnum a, LispObject b);
+    static LispObject op(uint64_t *a, LispObject b);
+    static LispObject op(Rat a, LispObject b);
+    static LispObject op(Cpx a, LispObject b);
+    static LispObject op(SFlt a, LispObject b);
+    static LispObject op(Flt a, LispObject b);
+    static LispObject op(double a, LispObject b);
+
+    static LispObject op(Fixnum a, Fixnum b);
+    static LispObject op(uint64_t *a, Fixnum b);
+    static LispObject op(Rat a, Fixnum b);
+    static LispObject op(Cpx a, Fixnum b);
+    static LispObject op(SFlt a, Fixnum b);
+    static LispObject op(Flt a, Fixnum b);
+    static LispObject op(double a, Fixnum b);
+
+    static LispObject op(Fixnum a, uint64_t *b);
+    static LispObject op(uint64_t *a, uint64_t *b);
+    static LispObject op(Rat a, uint64_t *b);
+    static LispObject op(Cpx a, uint64_t *b);
+    static LispObject op(SFlt a, uint64_t *b);
+    static LispObject op(Flt a, uint64_t *b);
+    static LispObject op(double a, uint64_t *b);
+
+    static LispObject op(Fixnum a, Rat b);
+    static LispObject op(uint64_t *a, Rat b);
+    static LispObject op(Rat a, Rat b);
+    static LispObject op(Cpx a, Rat b);
+    static LispObject op(SFlt a, Rat b);
+    static LispObject op(Flt a, Rat b);
+    static LispObject op(double a, Rat b);
+
+    static LispObject op(Fixnum a, Cpx b);
+    static LispObject op(uint64_t *a, Cpx b);
+    static LispObject op(Rat a, Cpx b);
+    static LispObject op(Cpx a, Cpx b);
+    static LispObject op(SFlt a, Cpx b);
+    static LispObject op(Flt a, Cpx b);
+    static LispObject op(double a, Cpx b);
+
+    static LispObject op(Fixnum a, SFlt b);
+    static LispObject op(uint64_t *a, SFlt b);
+    static LispObject op(Rat a, SFlt b);
+    static LispObject op(Cpx a, SFlt b);
+    static LispObject op(SFlt a, SFlt b);
+    static LispObject op(Flt a, SFlt b);
+    static LispObject op(double a, SFlt b);
+
+    static LispObject op(Fixnum a, Flt b);
+    static LispObject op(uint64_t *a, Flt b);
+    static LispObject op(Rat a, Flt b);
+    static LispObject op(Cpx a, Flt b);
+    static LispObject op(SFlt a, Flt b);
+    static LispObject op(Flt a, Flt b);
+    static LispObject op(double a, Flt b);
+
+    static LispObject op(Fixnum a, double b);
+    static LispObject op(uint64_t *a, double b);
+    static LispObject op(Rat a, double b);
+    static LispObject op(Cpx a, double b);
+    static LispObject op(SFlt a, double b);
+    static LispObject op(Flt a, double b);
+    static LispObject op(double a, double b);
+
+#ifdef softfloat_h
+    static LispObject op(LispObject a, LFlt b);
+    static LispObject op(LFlt a, LispObject b);
+
+    static LispObject op(LFlt a, Fixnum b);
+    static LispObject op(LFlt a, uint64_t *b);
+    static LispObject op(LFlt a, Rat b);
+    static LispObject op(LFlt a, Cpx b);
+    static LispObject op(LFlt a, SFlt b);
+    static LispObject op(LFlt a, Flt b);
+    static LispObject op(LFlt a, double b);
+    static LispObject op(LFlt a, LFlt b);
+
+    static LispObject op(Fixnum a, LFlt b);
+    static LispObject op(uint64_t *a, LFlt b);
+    static LispObject op(Rat a, LFlt b);
+    static LispObject op(Cpx a, LFlt b);
+    static LispObject op(SFlt a, LFlt b);
+    static LispObject op(Flt a, LFlt b);
+    static LispObject op(double a, LFlt b);
+#endif // softfloat_h
+};
+
 // I provide Remainder for all combinations of type, taking the view that
 // remainder(a, b) = a - b*quotient(a, b).
 
@@ -1237,6 +1388,108 @@ public:
 // a LispObject.
 
 class Eqn
+{
+public:
+    static bool op(LispObject a, LispObject b);
+
+    static bool op(LispObject a, Fixnum b);
+    static bool op(LispObject a, uint64_t *b);
+    static bool op(LispObject a, Rat b);
+    static bool op(LispObject a, Cpx b);
+    static bool op(LispObject a, SFlt b);
+    static bool op(LispObject a, Flt b);
+    static bool op(LispObject a, double b);
+
+    static bool op(Fixnum a, LispObject b);
+    static bool op(uint64_t *a, LispObject b);
+    static bool op(Rat a, LispObject b);
+    static bool op(Cpx a, LispObject b);
+    static bool op(SFlt a, LispObject b);
+    static bool op(Flt a, LispObject b);
+    static bool op(double a, LispObject b);
+
+    static bool op(Fixnum a, Fixnum b);
+    static bool op(uint64_t *a, Fixnum b);
+    static bool op(Rat a, Fixnum b);
+    static bool op(Cpx a, Fixnum b);
+    static bool op(SFlt a, Fixnum b);
+    static bool op(Flt a, Fixnum b);
+    static bool op(double a, Fixnum b);
+
+    static bool op(Fixnum a, uint64_t *b);
+    static bool op(uint64_t *a, uint64_t *b);
+    static bool op(Rat a, uint64_t *b);
+    static bool op(Cpx a, uint64_t *b);
+    static bool op(SFlt a, uint64_t *b);
+    static bool op(Flt a, uint64_t *b);
+    static bool op(double a, uint64_t *b);
+
+    static bool op(Fixnum a, Rat b);
+    static bool op(uint64_t *a, Rat b);
+    static bool op(Rat a, Rat b);
+    static bool op(Cpx a, Rat b);
+    static bool op(SFlt a, Rat b);
+    static bool op(Flt a, Rat b);
+    static bool op(double a, Rat b);
+
+    static bool op(Fixnum a, Cpx b);
+    static bool op(uint64_t *a, Cpx b);
+    static bool op(Rat a, Cpx b);
+    static bool op(Cpx a, Cpx b);
+    static bool op(SFlt a, Cpx b);
+    static bool op(Flt a, Cpx b);
+    static bool op(double a, Cpx b);
+
+    static bool op(Fixnum a, SFlt b);
+    static bool op(uint64_t *a, SFlt b);
+    static bool op(Rat a, SFlt b);
+    static bool op(Cpx a, SFlt b);
+    static bool op(SFlt a, SFlt b);
+    static bool op(Flt a, SFlt b);
+    static bool op(double a, SFlt b);
+
+    static bool op(Fixnum a, Flt b);
+    static bool op(uint64_t *a, Flt b);
+    static bool op(Rat a, Flt b);
+    static bool op(Cpx a, Flt b);
+    static bool op(SFlt a, Flt b);
+    static bool op(Flt a, Flt b);
+    static bool op(double a, Flt b);
+
+    static bool op(Fixnum a, double b);
+    static bool op(uint64_t *a, double b);
+    static bool op(Rat a, double b);
+    static bool op(Cpx a, double b);
+    static bool op(SFlt a, double b);
+    static bool op(Flt a, double b);
+    static bool op(double a, double b);
+
+#ifdef softfloat_h
+    static bool op(LispObject a, LFlt b);
+    static bool op(LFlt a, LispObject b);
+
+    static bool op(LFlt a, Fixnum b);
+    static bool op(LFlt a, uint64_t *b);
+    static bool op(LFlt a, Rat b);
+    static bool op(LFlt a, Cpx b);
+    static bool op(LFlt a, SFlt b);
+    static bool op(LFlt a, Flt b);
+    static bool op(LFlt a, double b);
+    static bool op(LFlt a, LFlt b);
+
+    static bool op(Fixnum a, LFlt b);
+    static bool op(uint64_t *a, LFlt b);
+    static bool op(Rat a, LFlt b);
+    static bool op(Cpx a, LFlt b);
+    static bool op(SFlt a, LFlt b);
+    static bool op(Flt a, LFlt b);
+    static bool op(double a, LFlt b);
+#endif // softfloat_h
+};
+
+// CLEqn is for Common Lisp style (= a b) where eg (= 1 1.0) => true
+
+class CLEqn
 {
 public:
     static bool op(LispObject a, LispObject b);
@@ -1918,40 +2171,41 @@ public:
     static LispObject op(uint64_t *a, uint64_t *b);
 };
 
-class Lshift
+class Lognot
 {
 public:
-    static LispObject op(LispObject a, LispObject b);
+    static LispObject op(LispObject a);
 
-    static LispObject op(LispObject a, Fixnum b);
-    static LispObject op(LispObject a, uint64_t *b);
-
-    static LispObject op(Fixnum a, LispObject b);
-    static LispObject op(uint64_t *a, LispObject b);
-
-    static LispObject op(Fixnum a, Fixnum b);
-    static LispObject op(uint64_t *a, Fixnum b);
-
-    static LispObject op(Fixnum a, uint64_t *b);
-    static LispObject op(uint64_t *a, uint64_t *b);
+    static LispObject op(Fixnum a);
+    static LispObject op(uint64_t *a);
 };
 
-class Rshift
+class LeftShift
 {
 public:
     static LispObject op(LispObject a, LispObject b);
-
     static LispObject op(LispObject a, Fixnum b);
     static LispObject op(LispObject a, uint64_t *b);
+    static LispObject op(Fixnum a,     LispObject b);
+    static LispObject op(uint64_t *a,  LispObject b);
+    static LispObject op(Fixnum a,     Fixnum b);
+    static LispObject op(uint64_t *a,  Fixnum b);
+    static LispObject op(Fixnum a,     uint64_t *b);
+    static LispObject op(uint64_t *a,  uint64_t *b);
+};
 
-    static LispObject op(Fixnum a, LispObject b);
-    static LispObject op(uint64_t *a, LispObject b);
-
-    static LispObject op(Fixnum a, Fixnum b);
-    static LispObject op(uint64_t *a, Fixnum b);
-
-    static LispObject op(Fixnum a, uint64_t *b);
-    static LispObject op(uint64_t *a, uint64_t *b);
+class RightShift
+{
+public:
+    static LispObject op(LispObject a, LispObject b);
+    static LispObject op(LispObject a, Fixnum b);
+    static LispObject op(LispObject a, uint64_t *b);
+    static LispObject op(Fixnum a,     LispObject b);
+    static LispObject op(uint64_t *a,  LispObject b);
+    static LispObject op(Fixnum a,     Fixnum b);
+    static LispObject op(uint64_t *a,  Fixnum b);
+    static LispObject op(Fixnum a,     uint64_t *b);
+    static LispObject op(uint64_t *a,  uint64_t *b);
 };
 
 class Gcdn
@@ -1990,7 +2244,7 @@ public:
     static LispObject op(uint64_t *a, uint64_t *b);
 };
 
-class Modular_plus
+class ModularPlus
 {
 public:
     static LispObject op(LispObject a, LispObject b);
@@ -2008,7 +2262,7 @@ public:
     static LispObject op(uint64_t *a, uint64_t *b);
 };
 
-class Modular_difference
+class ModularDifference
 {
 public:
     static LispObject op(LispObject a, LispObject b);
@@ -2026,7 +2280,7 @@ public:
     static LispObject op(uint64_t *a, uint64_t *b);
 };
 
-class Modular_times
+class ModularTimes
 {
 public:
     static LispObject op(LispObject a, LispObject b);
@@ -2044,7 +2298,21 @@ public:
     static LispObject op(uint64_t *a, uint64_t *b);
 };
 
-class Modular_quotient
+class ModularExpt
+{
+public:
+    static LispObject op(LispObject a, LispObject b);
+    static LispObject op(LispObject a, Fixnum b);
+    static LispObject op(LispObject a, uint64_t *b);
+    static LispObject op(Fixnum a,     LispObject b);
+    static LispObject op(uint64_t *a,  LispObject b);
+    static LispObject op(Fixnum a,     Fixnum b);
+    static LispObject op(uint64_t *a,  Fixnum b);
+    static LispObject op(Fixnum a,     uint64_t *b);
+    static LispObject op(uint64_t *a,  uint64_t *b);
+};
+
+class ModularQuotient
 {
 public:
     static LispObject op(LispObject a, LispObject b);
@@ -2100,6 +2368,40 @@ public:
 #endif // softfloat_h
 };
 
+class Abs
+{
+public:
+    static LispObject op(LispObject a);
+
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
+    static LispObject op(Rat b);
+    static LispObject op(Cpx b);
+    static LispObject op(SFlt b);
+    static LispObject op(Flt b);
+    static LispObject op(double b);
+#ifdef softfloat_h
+    static LispObject op(LFlt b);
+#endif // softfloat_h
+};
+
+class Square
+{
+public:
+    static LispObject op(LispObject a);
+
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
+    static LispObject op(Rat b);
+    static LispObject op(Cpx b);
+    static LispObject op(SFlt b);
+    static LispObject op(Flt b);
+    static LispObject op(double b);
+#ifdef softfloat_h
+    static LispObject op(LFlt b);
+#endif // softfloat_h
+};
+
 class Reciprocal
 {
 public:
@@ -2151,6 +2453,23 @@ public:
 #endif // softfloat_h
 };
 
+class MinusOnep
+{
+public:
+    static bool op(LispObject a);
+
+    static bool op(Fixnum b);
+    static bool op(uint64_t *b);
+    static bool op(Rat b);
+    static bool op(Cpx b);
+    static bool op(SFlt b);
+    static bool op(Flt b);
+    static bool op(double b);
+#ifdef softfloat_h
+    static bool op(LFlt b);
+#endif // softfloat_h
+};
+
 class Oddp
 {
 public:
@@ -2178,34 +2497,176 @@ public:
     static LispObject op(uint64_t *b);
 };
 
-class Set_Modulus
+class SetModulus
 {
 public:
-    static bool op(LispObject a);
+    static LispObject op(LispObject a);
 
-    static bool op(Fixnum b);
-    static bool op(uint64_t *b);
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
 };
 
-class Modular_number
+class ModularNumber
 {
 public:
-    static bool op(LispObject a);
+    static LispObject op(LispObject a);
 
-    static bool op(Fixnum b);
-    static bool op(uint64_t *b);
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
 };
 
-class Modular_minus
+class ModularMinus
 {
 public:
-    static bool op(LispObject a);
+    static LispObject op(LispObject a);
 
-    static bool op(Fixnum b);
-    static bool op(uint64_t *b);
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
+};
+
+class ModularReciprocal
+{
+public:
+    static LispObject op(LispObject a);
+
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
 };
 
 class Float
+{
+public:
+    static LispObject op(LispObject a);
+
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
+    static LispObject op(Rat b);
+    static LispObject op(Cpx b);
+    static LispObject op(SFlt b);
+    static LispObject op(Flt b);
+    static LispObject op(double b);
+#ifdef softfloat_h
+    static LispObject op(LFlt b);
+#endif // softfloat_h
+
+// Fload can also be used with 2 arguments - the second being an instance
+// of SFlt, Flt, double or LFlt that indicates the sort of floating point
+// value destired as a result.
+    static LispObject op(LispObject a, LispObject b);
+    static LispObject op(LispObject a, Fixnum b);
+    static LispObject op(LispObject a, uint64_t *b);
+    static LispObject op(LispObject a, Rat b);
+    static LispObject op(LispObject a, Cpx b);
+    static LispObject op(LispObject a, SFlt b);
+    static LispObject op(LispObject a, Flt b);
+    static LispObject op(LispObject a, double b);
+
+    static LispObject op(Fixnum a, LispObject b);
+    static LispObject op(uint64_t *a, LispObject b);
+    static LispObject op(Rat a, LispObject b);
+    static LispObject op(Cpx a, LispObject b);
+    static LispObject op(SFlt a, LispObject b);
+    static LispObject op(Flt a, LispObject b);
+    static LispObject op(double a, LispObject b);
+
+    static LispObject op(Fixnum a, Fixnum b);
+    static LispObject op(uint64_t *a, Fixnum b);
+    static LispObject op(Rat a, Fixnum b);
+    static LispObject op(Cpx a, Fixnum b);
+    static LispObject op(SFlt a, Fixnum b);
+    static LispObject op(Flt a, Fixnum b);
+    static LispObject op(double a, Fixnum b);
+
+    static LispObject op(Fixnum a, uint64_t *b);
+    static LispObject op(uint64_t *a, uint64_t *b);
+    static LispObject op(Rat a, uint64_t *b);
+    static LispObject op(Cpx a, uint64_t *b);
+    static LispObject op(SFlt a, uint64_t *b);
+    static LispObject op(Flt a, uint64_t *b);
+    static LispObject op(double a, uint64_t *b);
+
+    static LispObject op(Fixnum a, Rat b);
+    static LispObject op(uint64_t *a, Rat b);
+    static LispObject op(Rat a, Rat b);
+    static LispObject op(Cpx a, Rat b);
+    static LispObject op(SFlt a, Rat b);
+    static LispObject op(Flt a, Rat b);
+    static LispObject op(double a, Rat b);
+
+    static LispObject op(Fixnum a, Cpx b);
+    static LispObject op(uint64_t *a, Cpx b);
+    static LispObject op(Rat a, Cpx b);
+    static LispObject op(Cpx a, Cpx b);
+    static LispObject op(SFlt a, Cpx b);
+    static LispObject op(Flt a, Cpx b);
+    static LispObject op(double a, Cpx b);
+
+    static LispObject op(Fixnum a, SFlt b);
+    static LispObject op(uint64_t *a, SFlt b);
+    static LispObject op(Rat a, SFlt b);
+    static LispObject op(Cpx a, SFlt b);
+    static LispObject op(SFlt a, SFlt b);
+    static LispObject op(Flt a, SFlt b);
+    static LispObject op(double a, SFlt b);
+
+    static LispObject op(Fixnum a, Flt b);
+    static LispObject op(uint64_t *a, Flt b);
+    static LispObject op(Rat a, Flt b);
+    static LispObject op(Cpx a, Flt b);
+    static LispObject op(SFlt a, Flt b);
+    static LispObject op(Flt a, Flt b);
+    static LispObject op(double a, Flt b);
+
+    static LispObject op(Fixnum a, double b);
+    static LispObject op(uint64_t *a, double b);
+    static LispObject op(Rat a, double b);
+    static LispObject op(Cpx a, double b);
+    static LispObject op(SFlt a, double b);
+    static LispObject op(Flt a, double b);
+    static LispObject op(double a, double b);
+
+#ifdef softfloat_h
+    static LispObject op(LispObject a, LFlt b);
+    static LispObject op(LFlt a, LispObject b);
+
+    static LispObject op(LFlt a, Fixnum b);
+    static LispObject op(LFlt a, uint64_t *b);
+    static LispObject op(LFlt a, Rat b);
+    static LispObject op(LFlt a, Cpx b);
+    static LispObject op(LFlt a, SFlt b);
+    static LispObject op(LFlt a, Flt b);
+    static LispObject op(LFlt a, double b);
+    static LispObject op(LFlt a, LFlt b);
+
+    static LispObject op(Fixnum a, LFlt b);
+    static LispObject op(uint64_t *a, LFlt b);
+    static LispObject op(Rat a, LFlt b);
+    static LispObject op(Cpx a, LFlt b);
+    static LispObject op(SFlt a, LFlt b);
+    static LispObject op(Flt a, LFlt b);
+    static LispObject op(double a, LFlt b);
+#endif // softfloat_h
+
+};
+
+class Float128
+{
+public:
+    static LispObject op(LispObject a);
+
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
+    static LispObject op(Rat b);
+    static LispObject op(Cpx b);
+    static LispObject op(SFlt b);
+    static LispObject op(Flt b);
+    static LispObject op(double b);
+#ifdef softfloat_h
+    static LispObject op(LFlt b);
+#endif // softfloat_h
+};
+
+class RawFloat
 {
 public:
     static double op(LispObject a);
@@ -2222,7 +2683,7 @@ public:
 #endif // softfloat_h
 };
 
-class Float128
+class RawFloat128
 {
 public:
     static float128_t op(LispObject a);
@@ -2256,6 +2717,106 @@ public:
 #endif // softfloat_h
 };
 
+class Truncate
+{
+public:
+    static LispObject op(LispObject a);
+
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
+    static LispObject op(Rat b);
+    static LispObject op(Cpx b);
+    static LispObject op(SFlt b);
+    static LispObject op(Flt b);
+    static LispObject op(double b);
+#ifdef softfloat_h
+    static LispObject op(LFlt b);
+#endif // softfloat_h
+    static LispObject op(LispObject a, LispObject b);
+    static LispObject op(LispObject a, Fixnum b);
+    static LispObject op(LispObject a, uint64_t *b);
+    static LispObject op(LispObject a, Rat b);
+    static LispObject op(LispObject a, Cpx b);
+    static LispObject op(LispObject a, SFlt b);
+    static LispObject op(LispObject a, Flt b);
+    static LispObject op(LispObject a, double b);
+    static LispObject op(Fixnum a, LispObject b);
+    static LispObject op(uint64_t *a, LispObject b);
+    static LispObject op(Rat a, LispObject b);
+    static LispObject op(Cpx a, LispObject b);
+    static LispObject op(SFlt a, LispObject b);
+    static LispObject op(Flt a, LispObject b);
+    static LispObject op(double a, LispObject b);
+    static LispObject op(Fixnum a, Fixnum b);
+    static LispObject op(uint64_t *a, Fixnum b);
+    static LispObject op(Rat a, Fixnum b);
+    static LispObject op(Cpx a, Fixnum b);
+    static LispObject op(SFlt a, Fixnum b);
+    static LispObject op(Flt a, Fixnum b);
+    static LispObject op(double a, Fixnum b);
+    static LispObject op(Fixnum a, uint64_t *b);
+    static LispObject op(uint64_t *a, uint64_t *b);
+    static LispObject op(Rat a, uint64_t *b);
+    static LispObject op(Cpx a, uint64_t *b);
+    static LispObject op(SFlt a, uint64_t *b);
+    static LispObject op(Flt a, uint64_t *b);
+    static LispObject op(double a, uint64_t *b);
+    static LispObject op(Fixnum a, Rat b);
+    static LispObject op(uint64_t *a, Rat b);
+    static LispObject op(Rat a, Rat b);
+    static LispObject op(Cpx a, Rat b);
+    static LispObject op(SFlt a, Rat b);
+    static LispObject op(Flt a, Rat b);
+    static LispObject op(double a, Rat b);
+    static LispObject op(Fixnum a, Cpx b);
+    static LispObject op(uint64_t *a, Cpx b);
+    static LispObject op(Rat a, Cpx b);
+    static LispObject op(Cpx a, Cpx b);
+    static LispObject op(SFlt a, Cpx b);
+    static LispObject op(Flt a, Cpx b);
+    static LispObject op(double a, Cpx b);
+    static LispObject op(Fixnum a, SFlt b);
+    static LispObject op(uint64_t *a, SFlt b);
+    static LispObject op(Rat a, SFlt b);
+    static LispObject op(Cpx a, SFlt b);
+    static LispObject op(SFlt a, SFlt b);
+    static LispObject op(Flt a, SFlt b);
+    static LispObject op(double a, SFlt b);
+    static LispObject op(Fixnum a, Flt b);
+    static LispObject op(uint64_t *a, Flt b);
+    static LispObject op(Rat a, Flt b);
+    static LispObject op(Cpx a, Flt b);
+    static LispObject op(SFlt a, Flt b);
+    static LispObject op(Flt a, Flt b);
+    static LispObject op(double a, Flt b);
+    static LispObject op(Fixnum a, double b);
+    static LispObject op(uint64_t *a, double b);
+    static LispObject op(Rat a, double b);
+    static LispObject op(Cpx a, double b);
+    static LispObject op(SFlt a, double b);
+    static LispObject op(Flt a, double b);
+    static LispObject op(double a, double b);
+#ifdef softfloat_h
+    static LispObject op(LispObject a, LFlt b);
+    static LispObject op(LFlt a, LispObject b);
+    static LispObject op(LFlt a, Fixnum b);
+    static LispObject op(LFlt a, uint64_t *b);
+    static LispObject op(LFlt a, Rat b);
+    static LispObject op(LFlt a, Cpx b);
+    static LispObject op(LFlt a, SFlt b);
+    static LispObject op(LFlt a, Flt b);
+    static LispObject op(LFlt a, double b);
+    static LispObject op(LFlt a, LFlt b);
+    static LispObject op(Fixnum a, LFlt b);
+    static LispObject op(uint64_t *a, LFlt b);
+    static LispObject op(Rat a, LFlt b);
+    static LispObject op(Cpx a, LFlt b);
+    static LispObject op(SFlt a, LFlt b);
+    static LispObject op(Flt a, LFlt b);
+    static LispObject op(double a, LFlt b);
+#endif // softfloat_h
+};
+
 class Floor
 {
 public:
@@ -2270,6 +2831,89 @@ public:
     static LispObject op(double b);
 #ifdef softfloat_h
     static LispObject op(LFlt b);
+#endif // softfloat_h
+    static LispObject op(LispObject a, LispObject b);
+    static LispObject op(LispObject a, Fixnum b);
+    static LispObject op(LispObject a, uint64_t *b);
+    static LispObject op(LispObject a, Rat b);
+    static LispObject op(LispObject a, Cpx b);
+    static LispObject op(LispObject a, SFlt b);
+    static LispObject op(LispObject a, Flt b);
+    static LispObject op(LispObject a, double b);
+    static LispObject op(Fixnum a, LispObject b);
+    static LispObject op(uint64_t *a, LispObject b);
+    static LispObject op(Rat a, LispObject b);
+    static LispObject op(Cpx a, LispObject b);
+    static LispObject op(SFlt a, LispObject b);
+    static LispObject op(Flt a, LispObject b);
+    static LispObject op(double a, LispObject b);
+    static LispObject op(Fixnum a, Fixnum b);
+    static LispObject op(uint64_t *a, Fixnum b);
+    static LispObject op(Rat a, Fixnum b);
+    static LispObject op(Cpx a, Fixnum b);
+    static LispObject op(SFlt a, Fixnum b);
+    static LispObject op(Flt a, Fixnum b);
+    static LispObject op(double a, Fixnum b);
+    static LispObject op(Fixnum a, uint64_t *b);
+    static LispObject op(uint64_t *a, uint64_t *b);
+    static LispObject op(Rat a, uint64_t *b);
+    static LispObject op(Cpx a, uint64_t *b);
+    static LispObject op(SFlt a, uint64_t *b);
+    static LispObject op(Flt a, uint64_t *b);
+    static LispObject op(double a, uint64_t *b);
+    static LispObject op(Fixnum a, Rat b);
+    static LispObject op(uint64_t *a, Rat b);
+    static LispObject op(Rat a, Rat b);
+    static LispObject op(Cpx a, Rat b);
+    static LispObject op(SFlt a, Rat b);
+    static LispObject op(Flt a, Rat b);
+    static LispObject op(double a, Rat b);
+    static LispObject op(Fixnum a, Cpx b);
+    static LispObject op(uint64_t *a, Cpx b);
+    static LispObject op(Rat a, Cpx b);
+    static LispObject op(Cpx a, Cpx b);
+    static LispObject op(SFlt a, Cpx b);
+    static LispObject op(Flt a, Cpx b);
+    static LispObject op(double a, Cpx b);
+    static LispObject op(Fixnum a, SFlt b);
+    static LispObject op(uint64_t *a, SFlt b);
+    static LispObject op(Rat a, SFlt b);
+    static LispObject op(Cpx a, SFlt b);
+    static LispObject op(SFlt a, SFlt b);
+    static LispObject op(Flt a, SFlt b);
+    static LispObject op(double a, SFlt b);
+    static LispObject op(Fixnum a, Flt b);
+    static LispObject op(uint64_t *a, Flt b);
+    static LispObject op(Rat a, Flt b);
+    static LispObject op(Cpx a, Flt b);
+    static LispObject op(SFlt a, Flt b);
+    static LispObject op(Flt a, Flt b);
+    static LispObject op(double a, Flt b);
+    static LispObject op(Fixnum a, double b);
+    static LispObject op(uint64_t *a, double b);
+    static LispObject op(Rat a, double b);
+    static LispObject op(Cpx a, double b);
+    static LispObject op(SFlt a, double b);
+    static LispObject op(Flt a, double b);
+    static LispObject op(double a, double b);
+#ifdef softfloat_h
+    static LispObject op(LispObject a, LFlt b);
+    static LispObject op(LFlt a, LispObject b);
+    static LispObject op(LFlt a, Fixnum b);
+    static LispObject op(LFlt a, uint64_t *b);
+    static LispObject op(LFlt a, Rat b);
+    static LispObject op(LFlt a, Cpx b);
+    static LispObject op(LFlt a, SFlt b);
+    static LispObject op(LFlt a, Flt b);
+    static LispObject op(LFlt a, double b);
+    static LispObject op(LFlt a, LFlt b);
+    static LispObject op(Fixnum a, LFlt b);
+    static LispObject op(uint64_t *a, LFlt b);
+    static LispObject op(Rat a, LFlt b);
+    static LispObject op(Cpx a, LFlt b);
+    static LispObject op(SFlt a, LFlt b);
+    static LispObject op(Flt a, LFlt b);
+    static LispObject op(double a, LFlt b);
 #endif // softfloat_h
 };
 
@@ -2288,6 +2932,389 @@ public:
 #ifdef softfloat_h
     static LispObject op(LFlt b);
 #endif // softfloat_h
+    static LispObject op(LispObject a, LispObject b);
+    static LispObject op(LispObject a, Fixnum b);
+    static LispObject op(LispObject a, uint64_t *b);
+    static LispObject op(LispObject a, Rat b);
+    static LispObject op(LispObject a, Cpx b);
+    static LispObject op(LispObject a, SFlt b);
+    static LispObject op(LispObject a, Flt b);
+    static LispObject op(LispObject a, double b);
+    static LispObject op(Fixnum a, LispObject b);
+    static LispObject op(uint64_t *a, LispObject b);
+    static LispObject op(Rat a, LispObject b);
+    static LispObject op(Cpx a, LispObject b);
+    static LispObject op(SFlt a, LispObject b);
+    static LispObject op(Flt a, LispObject b);
+    static LispObject op(double a, LispObject b);
+    static LispObject op(Fixnum a, Fixnum b);
+    static LispObject op(uint64_t *a, Fixnum b);
+    static LispObject op(Rat a, Fixnum b);
+    static LispObject op(Cpx a, Fixnum b);
+    static LispObject op(SFlt a, Fixnum b);
+    static LispObject op(Flt a, Fixnum b);
+    static LispObject op(double a, Fixnum b);
+    static LispObject op(Fixnum a, uint64_t *b);
+    static LispObject op(uint64_t *a, uint64_t *b);
+    static LispObject op(Rat a, uint64_t *b);
+    static LispObject op(Cpx a, uint64_t *b);
+    static LispObject op(SFlt a, uint64_t *b);
+    static LispObject op(Flt a, uint64_t *b);
+    static LispObject op(double a, uint64_t *b);
+    static LispObject op(Fixnum a, Rat b);
+    static LispObject op(uint64_t *a, Rat b);
+    static LispObject op(Rat a, Rat b);
+    static LispObject op(Cpx a, Rat b);
+    static LispObject op(SFlt a, Rat b);
+    static LispObject op(Flt a, Rat b);
+    static LispObject op(double a, Rat b);
+    static LispObject op(Fixnum a, Cpx b);
+    static LispObject op(uint64_t *a, Cpx b);
+    static LispObject op(Rat a, Cpx b);
+    static LispObject op(Cpx a, Cpx b);
+    static LispObject op(SFlt a, Cpx b);
+    static LispObject op(Flt a, Cpx b);
+    static LispObject op(double a, Cpx b);
+    static LispObject op(Fixnum a, SFlt b);
+    static LispObject op(uint64_t *a, SFlt b);
+    static LispObject op(Rat a, SFlt b);
+    static LispObject op(Cpx a, SFlt b);
+    static LispObject op(SFlt a, SFlt b);
+    static LispObject op(Flt a, SFlt b);
+    static LispObject op(double a, SFlt b);
+    static LispObject op(Fixnum a, Flt b);
+    static LispObject op(uint64_t *a, Flt b);
+    static LispObject op(Rat a, Flt b);
+    static LispObject op(Cpx a, Flt b);
+    static LispObject op(SFlt a, Flt b);
+    static LispObject op(Flt a, Flt b);
+    static LispObject op(double a, Flt b);
+    static LispObject op(Fixnum a, double b);
+    static LispObject op(uint64_t *a, double b);
+    static LispObject op(Rat a, double b);
+    static LispObject op(Cpx a, double b);
+    static LispObject op(SFlt a, double b);
+    static LispObject op(Flt a, double b);
+    static LispObject op(double a, double b);
+#ifdef softfloat_h
+    static LispObject op(LispObject a, LFlt b);
+    static LispObject op(LFlt a, LispObject b);
+    static LispObject op(LFlt a, Fixnum b);
+    static LispObject op(LFlt a, uint64_t *b);
+    static LispObject op(LFlt a, Rat b);
+    static LispObject op(LFlt a, Cpx b);
+    static LispObject op(LFlt a, SFlt b);
+    static LispObject op(LFlt a, Flt b);
+    static LispObject op(LFlt a, double b);
+    static LispObject op(LFlt a, LFlt b);
+    static LispObject op(Fixnum a, LFlt b);
+    static LispObject op(uint64_t *a, LFlt b);
+    static LispObject op(Rat a, LFlt b);
+    static LispObject op(Cpx a, LFlt b);
+    static LispObject op(SFlt a, LFlt b);
+    static LispObject op(Flt a, LFlt b);
+    static LispObject op(double a, LFlt b);
+#endif // softfloat_h
+};
+
+class Ftruncate
+{
+public:
+    static LispObject op(LispObject a);
+
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
+    static LispObject op(Rat b);
+    static LispObject op(Cpx b);
+    static LispObject op(SFlt b);
+    static LispObject op(Flt b);
+    static LispObject op(double b);
+#ifdef softfloat_h
+    static LispObject op(LFlt b);
+#endif // softfloat_h
+    static LispObject op(LispObject a, LispObject b);
+    static LispObject op(LispObject a, Fixnum b);
+    static LispObject op(LispObject a, uint64_t *b);
+    static LispObject op(LispObject a, Rat b);
+    static LispObject op(LispObject a, Cpx b);
+    static LispObject op(LispObject a, SFlt b);
+    static LispObject op(LispObject a, Flt b);
+    static LispObject op(LispObject a, double b);
+    static LispObject op(Fixnum a, LispObject b);
+    static LispObject op(uint64_t *a, LispObject b);
+    static LispObject op(Rat a, LispObject b);
+    static LispObject op(Cpx a, LispObject b);
+    static LispObject op(SFlt a, LispObject b);
+    static LispObject op(Flt a, LispObject b);
+    static LispObject op(double a, LispObject b);
+    static LispObject op(Fixnum a, Fixnum b);
+    static LispObject op(uint64_t *a, Fixnum b);
+    static LispObject op(Rat a, Fixnum b);
+    static LispObject op(Cpx a, Fixnum b);
+    static LispObject op(SFlt a, Fixnum b);
+    static LispObject op(Flt a, Fixnum b);
+    static LispObject op(double a, Fixnum b);
+    static LispObject op(Fixnum a, uint64_t *b);
+    static LispObject op(uint64_t *a, uint64_t *b);
+    static LispObject op(Rat a, uint64_t *b);
+    static LispObject op(Cpx a, uint64_t *b);
+    static LispObject op(SFlt a, uint64_t *b);
+    static LispObject op(Flt a, uint64_t *b);
+    static LispObject op(double a, uint64_t *b);
+    static LispObject op(Fixnum a, Rat b);
+    static LispObject op(uint64_t *a, Rat b);
+    static LispObject op(Rat a, Rat b);
+    static LispObject op(Cpx a, Rat b);
+    static LispObject op(SFlt a, Rat b);
+    static LispObject op(Flt a, Rat b);
+    static LispObject op(double a, Rat b);
+    static LispObject op(Fixnum a, Cpx b);
+    static LispObject op(uint64_t *a, Cpx b);
+    static LispObject op(Rat a, Cpx b);
+    static LispObject op(Cpx a, Cpx b);
+    static LispObject op(SFlt a, Cpx b);
+    static LispObject op(Flt a, Cpx b);
+    static LispObject op(double a, Cpx b);
+    static LispObject op(Fixnum a, SFlt b);
+    static LispObject op(uint64_t *a, SFlt b);
+    static LispObject op(Rat a, SFlt b);
+    static LispObject op(Cpx a, SFlt b);
+    static LispObject op(SFlt a, SFlt b);
+    static LispObject op(Flt a, SFlt b);
+    static LispObject op(double a, SFlt b);
+    static LispObject op(Fixnum a, Flt b);
+    static LispObject op(uint64_t *a, Flt b);
+    static LispObject op(Rat a, Flt b);
+    static LispObject op(Cpx a, Flt b);
+    static LispObject op(SFlt a, Flt b);
+    static LispObject op(Flt a, Flt b);
+    static LispObject op(double a, Flt b);
+    static LispObject op(Fixnum a, double b);
+    static LispObject op(uint64_t *a, double b);
+    static LispObject op(Rat a, double b);
+    static LispObject op(Cpx a, double b);
+    static LispObject op(SFlt a, double b);
+    static LispObject op(Flt a, double b);
+    static LispObject op(double a, double b);
+#ifdef softfloat_h
+    static LispObject op(LispObject a, LFlt b);
+    static LispObject op(LFlt a, LispObject b);
+    static LispObject op(LFlt a, Fixnum b);
+    static LispObject op(LFlt a, uint64_t *b);
+    static LispObject op(LFlt a, Rat b);
+    static LispObject op(LFlt a, Cpx b);
+    static LispObject op(LFlt a, SFlt b);
+    static LispObject op(LFlt a, Flt b);
+    static LispObject op(LFlt a, double b);
+    static LispObject op(LFlt a, LFlt b);
+    static LispObject op(Fixnum a, LFlt b);
+    static LispObject op(uint64_t *a, LFlt b);
+    static LispObject op(Rat a, LFlt b);
+    static LispObject op(Cpx a, LFlt b);
+    static LispObject op(SFlt a, LFlt b);
+    static LispObject op(Flt a, LFlt b);
+    static LispObject op(double a, LFlt b);
+#endif // softfloat_h
+};
+
+class Ffloor
+{
+public:
+    static LispObject op(LispObject a);
+
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
+    static LispObject op(Rat b);
+    static LispObject op(Cpx b);
+    static LispObject op(SFlt b);
+    static LispObject op(Flt b);
+    static LispObject op(double b);
+#ifdef softfloat_h
+    static LispObject op(LFlt b);
+#endif // softfloat_h
+    static LispObject op(LispObject a, LispObject b);
+    static LispObject op(LispObject a, Fixnum b);
+    static LispObject op(LispObject a, uint64_t *b);
+    static LispObject op(LispObject a, Rat b);
+    static LispObject op(LispObject a, Cpx b);
+    static LispObject op(LispObject a, SFlt b);
+    static LispObject op(LispObject a, Flt b);
+    static LispObject op(LispObject a, double b);
+    static LispObject op(Fixnum a, LispObject b);
+    static LispObject op(uint64_t *a, LispObject b);
+    static LispObject op(Rat a, LispObject b);
+    static LispObject op(Cpx a, LispObject b);
+    static LispObject op(SFlt a, LispObject b);
+    static LispObject op(Flt a, LispObject b);
+    static LispObject op(double a, LispObject b);
+    static LispObject op(Fixnum a, Fixnum b);
+    static LispObject op(uint64_t *a, Fixnum b);
+    static LispObject op(Rat a, Fixnum b);
+    static LispObject op(Cpx a, Fixnum b);
+    static LispObject op(SFlt a, Fixnum b);
+    static LispObject op(Flt a, Fixnum b);
+    static LispObject op(double a, Fixnum b);
+    static LispObject op(Fixnum a, uint64_t *b);
+    static LispObject op(uint64_t *a, uint64_t *b);
+    static LispObject op(Rat a, uint64_t *b);
+    static LispObject op(Cpx a, uint64_t *b);
+    static LispObject op(SFlt a, uint64_t *b);
+    static LispObject op(Flt a, uint64_t *b);
+    static LispObject op(double a, uint64_t *b);
+    static LispObject op(Fixnum a, Rat b);
+    static LispObject op(uint64_t *a, Rat b);
+    static LispObject op(Rat a, Rat b);
+    static LispObject op(Cpx a, Rat b);
+    static LispObject op(SFlt a, Rat b);
+    static LispObject op(Flt a, Rat b);
+    static LispObject op(double a, Rat b);
+    static LispObject op(Fixnum a, Cpx b);
+    static LispObject op(uint64_t *a, Cpx b);
+    static LispObject op(Rat a, Cpx b);
+    static LispObject op(Cpx a, Cpx b);
+    static LispObject op(SFlt a, Cpx b);
+    static LispObject op(Flt a, Cpx b);
+    static LispObject op(double a, Cpx b);
+    static LispObject op(Fixnum a, SFlt b);
+    static LispObject op(uint64_t *a, SFlt b);
+    static LispObject op(Rat a, SFlt b);
+    static LispObject op(Cpx a, SFlt b);
+    static LispObject op(SFlt a, SFlt b);
+    static LispObject op(Flt a, SFlt b);
+    static LispObject op(double a, SFlt b);
+    static LispObject op(Fixnum a, Flt b);
+    static LispObject op(uint64_t *a, Flt b);
+    static LispObject op(Rat a, Flt b);
+    static LispObject op(Cpx a, Flt b);
+    static LispObject op(SFlt a, Flt b);
+    static LispObject op(Flt a, Flt b);
+    static LispObject op(double a, Flt b);
+    static LispObject op(Fixnum a, double b);
+    static LispObject op(uint64_t *a, double b);
+    static LispObject op(Rat a, double b);
+    static LispObject op(Cpx a, double b);
+    static LispObject op(SFlt a, double b);
+    static LispObject op(Flt a, double b);
+    static LispObject op(double a, double b);
+#ifdef softfloat_h
+    static LispObject op(LispObject a, LFlt b);
+    static LispObject op(LFlt a, LispObject b);
+    static LispObject op(LFlt a, Fixnum b);
+    static LispObject op(LFlt a, uint64_t *b);
+    static LispObject op(LFlt a, Rat b);
+    static LispObject op(LFlt a, Cpx b);
+    static LispObject op(LFlt a, SFlt b);
+    static LispObject op(LFlt a, Flt b);
+    static LispObject op(LFlt a, double b);
+    static LispObject op(LFlt a, LFlt b);
+    static LispObject op(Fixnum a, LFlt b);
+    static LispObject op(uint64_t *a, LFlt b);
+    static LispObject op(Rat a, LFlt b);
+    static LispObject op(Cpx a, LFlt b);
+    static LispObject op(SFlt a, LFlt b);
+    static LispObject op(Flt a, LFlt b);
+    static LispObject op(double a, LFlt b);
+#endif // softfloat_h
+};
+
+class Fceiling
+{
+public:
+    static LispObject op(LispObject a);
+
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
+    static LispObject op(Rat b);
+    static LispObject op(Cpx b);
+    static LispObject op(SFlt b);
+    static LispObject op(Flt b);
+    static LispObject op(double b);
+#ifdef softfloat_h
+    static LispObject op(LFlt b);
+#endif // softfloat_h
+    static LispObject op(LispObject a, LispObject b);
+    static LispObject op(LispObject a, Fixnum b);
+    static LispObject op(LispObject a, uint64_t *b);
+    static LispObject op(LispObject a, Rat b);
+    static LispObject op(LispObject a, Cpx b);
+    static LispObject op(LispObject a, SFlt b);
+    static LispObject op(LispObject a, Flt b);
+    static LispObject op(LispObject a, double b);
+    static LispObject op(Fixnum a, LispObject b);
+    static LispObject op(uint64_t *a, LispObject b);
+    static LispObject op(Rat a, LispObject b);
+    static LispObject op(Cpx a, LispObject b);
+    static LispObject op(SFlt a, LispObject b);
+    static LispObject op(Flt a, LispObject b);
+    static LispObject op(double a, LispObject b);
+    static LispObject op(Fixnum a, Fixnum b);
+    static LispObject op(uint64_t *a, Fixnum b);
+    static LispObject op(Rat a, Fixnum b);
+    static LispObject op(Cpx a, Fixnum b);
+    static LispObject op(SFlt a, Fixnum b);
+    static LispObject op(Flt a, Fixnum b);
+    static LispObject op(double a, Fixnum b);
+    static LispObject op(Fixnum a, uint64_t *b);
+    static LispObject op(uint64_t *a, uint64_t *b);
+    static LispObject op(Rat a, uint64_t *b);
+    static LispObject op(Cpx a, uint64_t *b);
+    static LispObject op(SFlt a, uint64_t *b);
+    static LispObject op(Flt a, uint64_t *b);
+    static LispObject op(double a, uint64_t *b);
+    static LispObject op(Fixnum a, Rat b);
+    static LispObject op(uint64_t *a, Rat b);
+    static LispObject op(Rat a, Rat b);
+    static LispObject op(Cpx a, Rat b);
+    static LispObject op(SFlt a, Rat b);
+    static LispObject op(Flt a, Rat b);
+    static LispObject op(double a, Rat b);
+    static LispObject op(Fixnum a, Cpx b);
+    static LispObject op(uint64_t *a, Cpx b);
+    static LispObject op(Rat a, Cpx b);
+    static LispObject op(Cpx a, Cpx b);
+    static LispObject op(SFlt a, Cpx b);
+    static LispObject op(Flt a, Cpx b);
+    static LispObject op(double a, Cpx b);
+    static LispObject op(Fixnum a, SFlt b);
+    static LispObject op(uint64_t *a, SFlt b);
+    static LispObject op(Rat a, SFlt b);
+    static LispObject op(Cpx a, SFlt b);
+    static LispObject op(SFlt a, SFlt b);
+    static LispObject op(Flt a, SFlt b);
+    static LispObject op(double a, SFlt b);
+    static LispObject op(Fixnum a, Flt b);
+    static LispObject op(uint64_t *a, Flt b);
+    static LispObject op(Rat a, Flt b);
+    static LispObject op(Cpx a, Flt b);
+    static LispObject op(SFlt a, Flt b);
+    static LispObject op(Flt a, Flt b);
+    static LispObject op(double a, Flt b);
+    static LispObject op(Fixnum a, double b);
+    static LispObject op(uint64_t *a, double b);
+    static LispObject op(Rat a, double b);
+    static LispObject op(Cpx a, double b);
+    static LispObject op(SFlt a, double b);
+    static LispObject op(Flt a, double b);
+    static LispObject op(double a, double b);
+#ifdef softfloat_h
+    static LispObject op(LispObject a, LFlt b);
+    static LispObject op(LFlt a, LispObject b);
+    static LispObject op(LFlt a, Fixnum b);
+    static LispObject op(LFlt a, uint64_t *b);
+    static LispObject op(LFlt a, Rat b);
+    static LispObject op(LFlt a, Cpx b);
+    static LispObject op(LFlt a, SFlt b);
+    static LispObject op(LFlt a, Flt b);
+    static LispObject op(LFlt a, double b);
+    static LispObject op(LFlt a, LFlt b);
+    static LispObject op(Fixnum a, LFlt b);
+    static LispObject op(uint64_t *a, LFlt b);
+    static LispObject op(Rat a, LFlt b);
+    static LispObject op(Cpx a, LFlt b);
+    static LispObject op(SFlt a, LFlt b);
+    static LispObject op(Flt a, LFlt b);
+    static LispObject op(double a, LFlt b);
+#endif // softfloat_h
 };
 
 class Frexp
@@ -2305,22 +3332,109 @@ public:
 #ifdef softfloat_h
     static LispObject op(LFlt b);
 #endif // softfloat_h
+
+    static double op(LispObject a, int64_t &x);
+
+    static double op(Fixnum b, int64_t &x);
+    static double op(uint64_t *b, int64_t &x);
+    static double op(Rat b, int64_t &x);
+    static double op(Cpx b, int64_t &x);
+    static double op(SFlt b, int64_t &x);
+    static double op(Flt b, int64_t &x);
+    static double op(double b, int64_t &x);
+#ifdef softfloat_h
+    static double op(LFlt b, int64_t &x);
+#endif // softfloat_h
+};
+
+class Frexp128
+{
+public:
+    static LispObject op(LispObject a);
+
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
+    static LispObject op(Rat b);
+    static LispObject op(Cpx b);
+    static LispObject op(SFlt b);
+    static LispObject op(Flt b);
+    static LispObject op(double b);
+#ifdef softfloat_h
+    static LispObject op(LFlt b);
+#endif // softfloat_h
+
+    static float128_t op(LispObject a, int64_t &x);
+
+    static float128_t op(Fixnum b, int64_t &x);
+    static float128_t op(uint64_t *b, int64_t &x);
+    static float128_t op(Rat b, int64_t &x);
+    static float128_t op(Cpx b, int64_t &x);
+    static float128_t op(SFlt b, int64_t &x);
+    static float128_t op(Flt b, int64_t &x);
+    static float128_t op(double b, int64_t &x);
+#ifdef softfloat_h
+    static float128_t op(LFlt b, int64_t &x);
+#endif // softfloat_h
 };
 
 class Ldexp
 {
 public:
-    static LispObject op(LispObject a, int n);
+    static LispObject op(LispObject a, LispObject n);
 
-    static LispObject op(Fixnum b, int n);
-    static LispObject op(uint64_t *b, int n);
-    static LispObject op(Rat b, int n);
-    static LispObject op(Cpx b, int n);
-    static LispObject op(SFlt b, int n);
-    static LispObject op(Flt b, int n);
-    static LispObject op(double b, int n);
+    static LispObject op(Fixnum b, Fixnum n);
+    static LispObject op(uint64_t *b, Fixnum n);
+    static LispObject op(Rat b, Fixnum n);
+    static LispObject op(Cpx b, Fixnum n);
+    static LispObject op(SFlt b, Fixnum n);
+    static LispObject op(Flt b, Fixnum n);
+    static LispObject op(double b, Fixnum n);
 #ifdef softfloat_h
-    static LispObject op(LFlt b, int n);
+    static LispObject op(LFlt b, Fixnum n);
+#endif // softfloat_h
+    static LispObject op(Fixnum b, uint64_t *n);
+    static LispObject op(uint64_t *b, uint64_t *n);
+    static LispObject op(Rat b, uint64_t *n);
+    static LispObject op(Cpx b, uint64_t *n);
+    static LispObject op(SFlt b, uint64_t *n);
+    static LispObject op(Flt b, uint64_t *n);
+    static LispObject op(double b, uint64_t *n);
+#ifdef softfloat_h
+    static LispObject op(LFlt b, uint64_t *n);
+#endif // softfloat_h
+};
+
+class Sqrt
+{
+public:
+    static LispObject op(LispObject a);
+
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
+    static LispObject op(Rat b);
+    static LispObject op(Cpx b);
+    static LispObject op(SFlt b);
+    static LispObject op(Flt b);
+    static LispObject op(double b);
+#ifdef softfloat_h
+    static LispObject op(LFlt b);
+#endif // softfloat_h
+};
+
+class Isqrt
+{
+public:
+    static LispObject op(LispObject a);
+
+    static LispObject op(Fixnum b);
+    static LispObject op(uint64_t *b);
+    static LispObject op(Rat b);
+    static LispObject op(Cpx b);
+    static LispObject op(SFlt b);
+    static LispObject op(Flt b);
+    static LispObject op(double b);
+#ifdef softfloat_h
+    static LispObject op(LFlt b);
 #endif // softfloat_h
 };
 

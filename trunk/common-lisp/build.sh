@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 # Build REDUCE on Common Lisp.
 # Based on "psl/bootstrap.sh" and "psl/build.sh".
@@ -13,26 +13,20 @@
 # Option -c ensures a clean build by deleting any previous build.
 # Option -f forces recompilation of all packages.
 
-while getopts l:cf option
-do
-    if   [ $option = l ]; then lisp=$OPTARG;
-    elif [ $option = c ]; then rm -rf fasl log;
-    elif [ $option = f ]; then force='!*forcecompile := t;';
-    fi
-done
+if getopts l: option; then lisp=$OPTARG; fi
 
 if [ "$lisp" = 'sbcl' ]; then
     runlisp='sbcl'
-    runbootstrap='sbcl --noinform --core fasl/bootstrap.img'
-    runreduce='sbcl --noinform --core fasl/reduce.img'
+    runbootstrap='sbcl --noinform --core fasl.sbcl/bootstrap.img'
+    runreduce='sbcl --noinform --core fasl.sbcl/reduce.img'
     saveext='img'
     faslext='fasl'
     if_sbcl=''
     if_clisp='%'
 elif [ "$lisp" = 'clisp' ]; then
-    runlisp='clisp -ansi'
-    runbootstrap='clisp -q -M fasl/bootstrap.mem'
-    runreduce='clisp -q -M fasl/reduce.mem'
+    runlisp='clisp -ansi -norc'
+    runbootstrap='clisp -q -norc -M fasl.clisp/bootstrap.mem'
+    runreduce='clisp -q -norc -M fasl.clisp/reduce.mem'
     saveext='mem'
     faslext='fas'
     if_sbcl='%'
@@ -42,23 +36,35 @@ else
     exit
 fi
 
-if [ ! "$reduce" ]; then export reduce=.; fi
+while getopts cf option
+do
+    if [ $option = c ]; then rm -rf fasl.$lisp log.$lisp;
+    elif [ $option = f ]; then force='!*forcecompile := t;';
+    fi
+done
+
+if [ ! -v reduce ]; then
+    if [ -e './packages' ]; then export reduce=.
+    elif [ -e '../packages' ]; then export reduce=..
+    else echo 'Error: cannot find packages directory.  Please set $reduce.'; exit
+    fi
+fi
 
 # Build an initial bootstrap REDUCE image if necessary:
-if [ ! -e fasl/bootstrap.$saveext ]; then ./bootstrap.sh -l $lisp; fi
+if [ ! -e fasl.$lisp/bootstrap.$saveext ]; then ./bootstrap.sh -l $lisp; fi
 
-mkdir -p log                 # -p avoids complaint if directory exists
+mkdir -p log.$lisp           # -p avoids complaint if directory exists
 
 shopt -s expand_aliases
 
 alias grep_errors=\
-"grep --ignore-case '\*\{5\} \| \<error\>\|COMMON-LISP:ERROR' log/\$p.blg | uniq"
+"grep --ignore-case '\*\{5\} \| \<error\>\|COMMON-LISP:ERROR' log.$lisp/\$p.blg | uniq"
 
 # First, compile fasl files for non-package source files:
-$runbootstrap << XXX &> log/build.blg
-(standard-lisp)
-(begin)
+$runbootstrap << XXX &> log.$lisp/build.blg
 symbolic; $force
+
+off redefmsg;
 
 package!-remake2('clprolo, nil);
 package!-remake2('revision, 'support);
@@ -79,12 +85,12 @@ begin
      if member('csl, x) and member('psl, x) then <<
         if member('core, x) then core := x . core
         else noncore := x . noncore >>;
-  i := open("fasl/core-packages.dat", 'output);
+  i := open("fasl.$lisp/core-packages.dat", 'output);
   s := wrs i;
   for each x in reverse core do print car x;
   wrs s;
   close i;
-  i := open("fasl/noncore-packages.dat", 'output);
+  i := open("fasl.$lisp/noncore-packages.dat", 'output);
   s := wrs i;
   for each x in reverse noncore do print car x;
   wrs s;
@@ -97,14 +103,14 @@ XXX
 # Compile the "core" packages, each in a separate invocation of
 # bootstrap REDUCE to avoid adverse interactions:
 
-for p in $(< fasl/core-packages.dat)
+time for p in $(< fasl.$lisp/core-packages.dat)
 do
 echo +++++ Remaking core package $p
 
-$runbootstrap << XXX &> log/$p.blg
-(standard-lisp)
-(begin)
+$runbootstrap << XXX &> log.$lisp/$p.blg
 symbolic; $force
+
+off redefmsg;
 
 begin
   scalar w, i, s;
@@ -128,19 +134,19 @@ done
 if [ "sl-on-cl.lisp" -nt "sl-on-cl.$faslext" ]
 then
 echo +++++ Compiling sl-on-cl
-$runlisp << XXX &> log/sl-on-cl.blg
-(compile-file "sl-on-cl")
+$runlisp << XXX &> log.$lisp/sl-on-cl.blg
+(or (compile-file "sl-on-cl") (exit #+SBCL :code 1))
 XXX
-fi
+fi || { echo '***** Compilation failed'; exit; }
 
 if [ "trace.lisp" -nt "trace.$faslext" ]
 then
 echo +++++ Compiling trace
-$runlisp << XXX &> log/trace.blg
+$runlisp << XXX &> log.$lisp/trace.blg
 (load "sl-on-cl")
-(compile-file "trace")
+(or (compile-file "trace") (exit 1))
 XXX
-fi
+fi || { echo '***** Compilation failed'; exit; }
 
 echo +++++ Creating the REDUCE image file
 
@@ -148,10 +154,7 @@ echo +++++ Creating the REDUCE image file
 # above.  Then save a final REDUCE image that will be used below to
 # compile the non-core modules.
 
-$runlisp << XXX &> log/reduce.blg
-;(declaim (optimize debug)              ; same as (debug 3)
-;        (sb-ext:muffle-conditions sb-ext:compiler-note style-warning))
-
+time $runlisp << XXX &> log.$lisp/reduce.blg
 (load "sl-on-cl") (load "trace") ; temporary -- until I can arrange autoloading!
 (standard-lisp)
 
@@ -160,8 +163,6 @@ $runlisp << XXX &> log/reduce.blg
 (setq !*verboseload t)
 (setq !*redefmsg nil)
 (cl:defvar !*argnochk t)        % check argument count
-
-% Load is expected to be a macro but isn't; does that matter?
 
 (load "module")                 % for definition of load-package
 (load "clprolo")                % initial CL specific code
@@ -204,25 +205,18 @@ $if_sbcl (setq sb-ext:*muffled-warnings* 'warning)
    (prin2t " bytes")
    (cl:makunbound '!*init!-stats!*))
 
-% (savesystem "REDUCE" "$fasl/reduce" (quote ((read-init-file "reduce"))))
-% SBCL (see SBCL User Manual / Stopping SBCL / Saving a Core Image):
-% (save!-lisp!-and!-die "fasl/reduce" !:executable t !:toplevel (lambda () (standard-lisp) (begin)))
-% For better debugging...
-$if_sbcl (save!-lisp!-and!-die "fasl/reduce.img"))
-$if_clisp (saveinitmem "fasl/reduce.mem"))
+(save!-reduce!-image "reduce")
 
 XXX
 
 # Finally, compile the "noncore" packages using reduce.img rather than
 # bootstrap.img.
 
-for p in $(< fasl/noncore-packages.dat)
+time for p in $(< fasl.$lisp/noncore-packages.dat)
 do
 echo +++++ Remaking noncore package $p
 
-$runreduce << XXX &> log/$p.blg
-(standard-lisp)
-(begin)
+$runreduce << XXX &> log.$lisp/$p.blg
 symbolic; $force
 
 %load compiler;
@@ -230,12 +224,11 @@ on verboseload;
 
 if '$p eq 'fps then load_package limits,factor,specfn,sfgamma
 else if '$p eq 'mrvlimit then load_package taylor
-% Temporary hack to avoid build errors:
+% Temporary hacks to avoid build errors:
+else if '$p eq 'rubi_red then flag('(flush),'rlisp)
 else if '$p eq 'tmprint then <<
    lispsystem!* := 'psl . lispsystem!*;
-   switch usermode >>
-% Temporary hack to partially fix a letter-case issue:
-else if '$p eq 'sstools then put('d,'prifn,'bigdpri); % 'd was '!d
+   switch usermode >>;
 
 load remake;
 
@@ -253,7 +246,7 @@ end;
 
 package!-remake '$p;
 
-% Hack to make gnuplot work:
+% Temporary hack to make gnuplot package work on Common Lisp:
 if '$p eq 'gnuplot then
    begin scalar !*int, !*forcecompile; !*forcecompile := t;
       update!-fasl2('gnuintfc, nil);

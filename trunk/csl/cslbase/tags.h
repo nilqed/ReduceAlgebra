@@ -1,4 +1,4 @@
-// tags.h                                  Copyright (C) Codemist 1990-2018
+// tags.h                                  Copyright (C) Codemist 1990-2019
 
 //
 //   Data-structure and tag bit definitions, also common C macros
@@ -7,7 +7,7 @@
 //
 
 /**************************************************************************
- * Copyright (C) 2018, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -35,7 +35,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: tags.h 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: tags.h 5096 2019-08-21 10:57:31Z arthurcnorman $
 
 
 #ifndef header_tags_h
@@ -122,22 +122,22 @@ inline void CSL_IGNORE(LispObject x)
 // this idea works provided all memory addresses needed can be kept
 // doubleword aligned.  The main tag allocation is documented here.
 
-#define TAG_BITS        0x7
-#define XTAG_BITS       0xf
+static const int TAG_BITS      = 0x7;
+static const int XTAG_BITS     = 0xf;
 
-//                                                       bit-mask in (1<<tag)
+//                                                               bit-mask in (1<<tag)
 
-#define TAG_CONS        0   // Cons cells                                01
-#define TAG_VECTOR      1   // Regular Lisp vectors                      02
-#define TAG_HDR_IMMED   2   // Char constants, vechdrs etc               04
-#define TAG_FORWARD     3   // For the Garbage Collector                 08
-#define TAG_SYMBOL      4   // Symbols                                   10
+static const int TAG_CONS      = 0;   // Cons cells                                01
+static const int TAG_VECTOR    = 1;   // Regular Lisp vectors                      02
+static const int TAG_HDR_IMMED = 2;   // Char constants, vechdrs etc               04
+static const int TAG_FORWARD   = 3;   // For the Garbage Collector                 08
+static const int TAG_SYMBOL    = 4;   // Symbols                                   10
 // Note that tags from 5 up are all for numeric date
-#define TAG_NUMBERS     5   // Bignum, Rational, Complex                 20
-#define TAG_BOXFLOAT    6   // Boxed floats                              40
-#define TAG_FIXNUM      7   // 28/60-bit integers                        80
-#define TAG_XBIT        8   // extra bit!
-#define XTAG_SFLOAT     15  // Short float, 28+ bits of immediate data   80
+static const int TAG_NUMBERS   = 5;   // Bignum, Rational, Complex                 20
+static const int TAG_BOXFLOAT  = 6;   // Boxed floats                              40
+static const int TAG_FIXNUM    = 7;   // 28/60-bit integers                        80
+static const int TAG_XBIT      = 8;   // extra bit!
+static const int XTAG_SFLOAT   = 15;  // Short float, 28+ bits of immediate data   80
 
 // On a 32-bit machine I can pack a 28-bit float (implemented as a 32-bit
 // one with the low 4 bits crudely masked off) by putting XTAG_FLOAT as the
@@ -146,7 +146,7 @@ inline void CSL_IGNORE(LispObject x)
 // a 28 or a 32-bit value and the high 28 or 32-bits can be that value.
 // Thus on a 64-bit machine single floats as well as short floats have
 // an immediate representation. 
-#define XTAG_FLOAT32    16
+static const int XTAG_FLOAT32  = 16;
 
 inline bool is_forward(LispObject p)
 {   return (p & TAG_BITS) == TAG_FORWARD;
@@ -184,12 +184,14 @@ inline bool need_more_than_eq(LispObject p)
 // when I cast back to a signed value I am in "implementation defined"
 // territory.
 
-inline LispObject fixnum_of_int(intptr_t x)
+inline constexpr LispObject fixnum_of_int(intptr_t x)
 {   return  (LispObject)((((uintptr_t)x)<<4) + TAG_FIXNUM);
 }
 
-// There are places where I want to use this as a case=constant and then I
+// There are places where I want to use this as a case-constant and then I
 // may not use the inline procedure...
+// Well maybe these days I could make it constexpr and that would do the
+// trick?
 
 #define FIXNUM_OF_INT(n) (16*(n)+TAG_FIXNUM)
 
@@ -200,7 +202,7 @@ inline LispObject fixnum_of_int(intptr_t x)
 // low bits and then doing a signed division should achieve this affect in a
 // portable manner. 
 
-inline intptr_t int_of_fixnum(LispObject x)
+inline constexpr intptr_t int_of_fixnum(LispObject x)
 {   return ((intptr_t)x & ~(intptr_t)15)/16;
 }
 
@@ -307,25 +309,113 @@ inline bool car_legal(LispObject p)
 {   return is_cons(p);
 }
 
+// I have many uses of std::atomic<T> here. The intent of these is to
+// arrange that the heap is treated as made up of atomic data - certainly as
+// far as all the LispObject and other sharable or mutable values in it are
+// concerned.
+
+// The C++ type std::atomic<T> has two aspects. The first is that even in
+// an extreme case where the compiler/computer performs all memory references
+// byte at a time both reads and writes will process whole values. This
+// is strongly desirable in any multi-thread world, but apart from the
+// special case of float128_t it will happen anyway on all reasonable
+// computers.
+// The second involves potential re-ordering of memory reads and writes
+// either by software or by hardware. There are a range of options with
+// "relaxed" essentially not applying any constraints. For lock-free multi-
+// thread work the issues there really matter, but are "delicate". I am
+// looking ahead to a multi-processing world, but trying to delay working
+// out exactly what I need to do until later!
+//
+// What I do is I store LispObject values in the heap in the form
+// std::atomic<LispObject> and provide pairs of accessor/mutator functions,
+// eg CAR and SETCAR. These both have optional extra arguments that can
+// specify a memory ordering requirement. I make the default setting
+// std::memory_order_relaxed, which I believe does not apply any extra
+// constraints, and so where that is used I will need mutexes or memory fences
+// when multiple threads access the same value.
+
+// Note that going beyond "relaxed" can sometimes have substantial cost
+// implications (more so than I had been expecting!).
+
+// I will protect the CAR and CDR field of every CONS cell this way,
+// the header word of every symbol or vector-like object, and the
+// value, env, pname, plist, fastgets and count fields with symbols.
+// I do NOT protect the function-pointers within symbols.
+// For vectors that contain pointers to other lisp objects I use
+// atomic<T>, while for binary data (floating point numbers, character
+// strings and so on) I do not.
+
+// The reasoning here is that there will be times when multiple threads
+// might all access the same list, vector or symbol and potentially update
+// it. In particular I hope in due course to use several threads for
+// garbage collection and that will involve some lock-free traversal
+// of data. But binary data within Lisp objects will (generally) be read-
+// only once it has been created, and so the worst issues of inter-thread
+// synchronization will not arise.
+
+// There are some uglinesses here. So for instance a comparison between
+// a std::atomic<int> and an int (using ++ or !=) is liable to be reported
+// as ambigious, and so in a dozen cases where that (or addition) happens
+// I have put in explicit casts to unpack from the atomic value.
+
 typedef struct Cons_Cell_
-{   LispObject car;
-    LispObject cdr;
+{   std::atomic<LispObject> car;
+    std::atomic<LispObject> cdr;
 } Cons_Cell;
 
-inline LispObject& qcar(LispObject p)
-{   return ((Cons_Cell *)p)->car;
+
+extern bool valid_address(void *pointer);
+[[noreturn]] extern void my_abort();
+
+// Going forward I may want to be able to control where I have memory
+// fences and what sort get used, so these access functions have (optional)
+// arguments relating to that. The default relaxed behaviour should be best
+// for performance if not multi-thread consistency.
+
+inline LispObject car(LispObject p, std::memory_order mo=std::memory_order_relaxed)
+{   //if (!is_cons(p) || !valid_address((void *)p)) my_abort();
+    return ((Cons_Cell *)p)->car.load(mo);
 }
 
-inline LispObject& qcdr(LispObject p)
-{   return ((Cons_Cell *)p)->cdr;
+inline LispObject cdr(LispObject p, std::memory_order mo=std::memory_order_relaxed)
+{   //if (!is_cons(p) || !valid_address((void *)p)) my_abort();
+    return ((Cons_Cell *)p)->cdr.load(mo);
 }
 
-inline LispObject& qcar(char * p)
-{   return ((Cons_Cell *)p)->car;
+inline void setcar(LispObject p, LispObject q, std::memory_order mo=std::memory_order_relaxed)
+{   //if (!is_cons(p) || !valid_address((void *)p)) my_abort();
+    ((Cons_Cell *)p)->car.store(q, mo);
 }
 
-inline LispObject& qcdr(char * p)
-{   return ((Cons_Cell *)p)->cdr;
+inline void setcdr(LispObject p, LispObject q, std::memory_order mo=std::memory_order_relaxed)
+{   //if (!is_cons(p) || !valid_address((void *)p)) my_abort();
+    ((Cons_Cell *)p)->cdr.store(q, mo);
+}
+
+inline std::atomic<LispObject> *caraddr(LispObject p)
+{   //if (!is_cons(p) || !valid_address((void *)p)) my_abort();
+    return &(((Cons_Cell *)p)->car);
+}
+
+inline std::atomic<LispObject> *cdraddr(LispObject p)
+{   //if (!is_cons(p) || !valid_address((void *)p)) my_abort();
+    return &(((Cons_Cell *)p)->cdr);
+}
+
+// At present (boo hiss) the serialization code and the garbage collector
+// both expect to run with no other thread active, and they are coded using
+// simple non-atomic data. These two return addressed on the car and cdr
+// fields in a cons cell expecting atomic and non-atomic layouts to match.
+
+inline LispObject *vcaraddr(LispObject p)
+{   //if (!is_cons(p) || !valid_address((void *)p)) my_abort();
+    return (LispObject *)&(((Cons_Cell *)p)->car);
+}
+
+inline LispObject *vcdraddr(LispObject p)
+{   //if (!is_cons(p) || !valid_address((void *)p)) my_abort();
+    return (LispObject *)&(((Cons_Cell *)p)->cdr);
 }
 
 typedef LispObject Special_Form(LispObject, LispObject);
@@ -539,8 +629,12 @@ inline bool vector_holds_binary(Header h)
 #define SPID_NOPROP     (TAG_SPID+(0x0b<<(Tw+4)))  // fastget entry is empty
 #define SPID_LIBRARY    (TAG_SPID+(0x0c<<(Tw+4)))  // + 0xnnn00000 offset
 
-static Header& vechdr(LispObject v)
-{   return *(Header *)((char *)(v) - TAG_VECTOR);
+inline Header vechdr(LispObject v, std::memory_order mo=std::memory_order_relaxed)
+{   return ((std::atomic<Header> *)((char *)v - TAG_VECTOR))->load(mo);
+}
+
+inline void setvechdr(LispObject v, Header h, std::memory_order mo=std::memory_order_relaxed)
+{   ((std::atomic<Header> *)((char *)v - TAG_VECTOR))->store(h, mo);
 }
 
 inline unsigned int type_of_header(Header h)
@@ -768,8 +862,8 @@ inline bool vector_f128(Header h)
 {   return ((0x80400000u >> ((h >> (Tw+2)) & 0x1f)) & 1) != 0;
 }
 
-inline LispObject& basic_elt(LispObject v, size_t n)
-{   return *(LispObject *)((char *)v +
+inline std::atomic<LispObject>& basic_elt(LispObject v, size_t n)
+{   return *(std::atomic<LispObject> *)((char *)v +
                            (CELL-TAG_VECTOR) +
                            (n*sizeof(LispObject)));
 }
@@ -820,7 +914,9 @@ inline bool vector_f128(LispObject n)
 // numbers are (pairs of) Lisp objects, while bignums and boxed floats have
 // binary data. The case BIGNUMINDEX is for bignums that need more than
 // 4 Mbytes of memory and is an index vector containing a number of lower-
-// level vectors of binary information. That case is not supported yet.
+// level vectors of binary information. That case is not supported yet, and
+// there is a real prospect that I will rearrange storage layout strategies
+// so it never is!
 
 #define TYPE_BIGNUMINDEX    ( 0x1d <<Tw)
 #define TYPE_BIGNUM         ( 0x1f <<Tw)
@@ -829,14 +925,45 @@ inline bool vector_f128(LispObject n)
 #define TYPE_COMPLEX_NUM    ( 0x5d <<Tw)
 #define TYPE_DOUBLE_FLOAT   ( 0x5f <<Tw)
 //      unused              ( 0x7d <<Tw)
+// While gradually working on a new implementation of big-numbers I will
+// have a "TYPE_NEW_BIGNUM" for big integers represented using 64-bit
+// digits. These well not be fully integrated with everything else!
+#define TYPE_NEW_BIGNUM     ( 0x7d <<Tw)  // Temporary provision!
 #define TYPE_LONG_FLOAT     ( 0x7f <<Tw)
 
-inline Header& numhdr(LispObject v)
-{   return *(Header *)((char *)(v) - TAG_NUMBERS);
+inline Header numhdr(LispObject v, std::memory_order mo = std::memory_order_relaxed)
+{   return ((std::atomic<Header> *)((char *)(v) - TAG_NUMBERS))->load(mo);
 }
 
-inline Header& flthdr(LispObject v)
-{   return *(Header *)((char *)(v) - TAG_BOXFLOAT);
+inline Header flthdr(LispObject v, std::memory_order mo = std::memory_order_relaxed)
+{   return ((std::atomic<Header> *)((char *)(v) - TAG_BOXFLOAT))->load(mo);
+}
+
+inline void setnumhdr(LispObject v, Header h, std::memory_order mo = std::memory_order_relaxed)
+{   ((std::atomic<Header> *)((char *)(v) - TAG_NUMBERS))->store(h, mo);
+}
+
+inline void setflthdr(LispObject v, Header h, std::memory_order mo = std::memory_order_relaxed)
+{   ((std::atomic<Header> *)((char *)(v) - TAG_BOXFLOAT))->store(h, mo);
+}
+
+inline bool is_short_float(LispObject v)
+{   if (!is_sfloat(v)) return false;
+    if (SIXTY_FOUR_BIT && (v & XTAG_FLOAT32) != 0) return false;
+    return true;
+}
+
+inline bool is_single_float(LispObject v)
+{   if (SIXTY_FOUR_BIT && is_sfloat(v) && (v & XTAG_FLOAT32) != 0) return true;
+    return is_bfloat(v) && type_of_header(flthdr(v)) == TYPE_SINGLE_FLOAT;
+}
+
+inline bool is_double_float(LispObject v)
+{   return is_bfloat(v) && type_of_header(flthdr(v)) == TYPE_DOUBLE_FLOAT;
+}
+
+inline bool is_long_float(LispObject v)
+{   return is_bfloat(v) && type_of_header(flthdr(v)) == TYPE_LONG_FLOAT;
 }
 
 //
@@ -858,6 +985,15 @@ inline bool is_bignum_header(Header h)
 inline bool is_bignum(LispObject n)
 {   /*if (is_basic_vector(n) */return is_bignum_header(numhdr(n));
     /*else return is_bignum_header(numhdr(basic_elt(n, 0))); */
+}
+
+inline bool is_new_bignum_header(Header h)
+{   return type_of_header(h) == TYPE_NEW_BIGNUM;
+}
+
+inline bool is_new_bignum(LispObject n)
+{   /*if (is_basic_vector(n) */return is_new_bignum_header(numhdr(n));
+    /*else return is_new_bignum_header(numhdr(basic_elt(n, 0))); */
 }
 
 inline bool is_string_header(Header h)
@@ -1002,7 +1138,7 @@ inline double& basic_delt(LispObject v, size_t n)
 // machine will have around 0.5 million sub-vectors, each of size a megabyte.
 // that is 2^39 bytes, and so if this is used to store LispObjects there can
 // be up to 2^36 of them. That is 64G cells, consuming 512GBytes of memory.
-// At present (2018) that seems an acceptable limit. If at some stage (!) it
+// At present (2019) that seems an acceptable limit. If at some stage (!) it
 // became essential to go yet further the natural thing would be to increase
 // the basic memory allocation block size from 4 Mbytes upwards, and each
 // doubling of that could allow me to increase the largest vector size by
@@ -1132,9 +1268,9 @@ inline void discard_basic_vector(LispObject v)
 // regardless of what it used to be. If it has contained binary information
 // its contents will not be GC safe - but the GC should never encounter it
 // so that should not matter.
-            vechdr(v) = TYPE_SIMPLE_VEC +
+            setvechdr(v,TYPE_SIMPLE_VEC +
                         (size << (Tw+5)) +
-                        TAG_HDR_IMMED;
+                        TAG_HDR_IMMED);
             v = (v & ~(uintptr_t)TAG_BITS) | TAG_VECTOR;
             free_vectors[i] = v;
         }
@@ -1155,7 +1291,7 @@ inline void discard_vector(LispObject v)
 // I should probably consider using a template to generate the code
 // here.
 
-inline LispObject& elt(LispObject v, size_t n)
+inline std::atomic<LispObject>& elt(LispObject v, size_t n)
 {   if (is_basic_vector(v)) return basic_elt(v, n);
     return basic_elt(basic_elt(v, n/(VECTOR_CHUNK_BYTES/CELL)),
                      n%(VECTOR_CHUNK_BYTES/CELL));
@@ -1208,7 +1344,6 @@ inline double& delt(LispObject v, size_t n)
     return basic_delt(elt(v, n/(VECTOR_CHUNK_BYTES/sizeof(double))),
                       n%(VECTOR_CHUNK_BYTES/sizeof(double)));
 }
-
 
 inline bool is_header(LispObject x)
 {   return ((int)x & (0x3<<Tw)) != 0; // valid if TAG_HDR_IMMED
@@ -1376,32 +1511,84 @@ typedef struct Bytecoded_Function_Object_
 // macro) to stress that I view the store layout as fixed, and because
 // offsetof is badly supported by some C compilers I have come across.
 //
-inline Header& qheader(LispObject p)
-{   return *(Header *)((char *)p + (0*CELL-TAG_SYMBOL));
+inline Header qheader(LispObject p, std::memory_order mo=std::memory_order_relaxed)
+{   return ((std::atomic<Header> *)((char *)p + (0*CELL-TAG_SYMBOL)))->load(mo);
 }
 
-inline LispObject& qvalue(LispObject p)
-{   return *(LispObject *)((char *)p + (1*CELL-TAG_SYMBOL));
+inline LispObject qvalue(LispObject p, std::memory_order mo=std::memory_order_relaxed)
+{   return ((std::atomic<LispObject> *)((char *)p + (1*CELL-TAG_SYMBOL)))->load(mo);
 }
 
-inline LispObject& qenv(LispObject p)
-{   return *(LispObject *)((char *)p + (2*CELL-TAG_SYMBOL));
+inline LispObject qenv(LispObject p, std::memory_order mo=std::memory_order_relaxed)
+{   return ((std::atomic<LispObject> *)((char *)p + (2*CELL-TAG_SYMBOL)))->load(mo);
 }
 
-inline LispObject& qplist(LispObject p)
-{   return *(LispObject *)((char *)p + (3*CELL-TAG_SYMBOL));
+inline LispObject qplist(LispObject p, std::memory_order mo=std::memory_order_relaxed)
+{   return ((std::atomic<LispObject> *)((char *)p + (3*CELL-TAG_SYMBOL)))->load(mo);
 }
 
-inline LispObject& qfastgets(LispObject p)
-{   return *(LispObject *)((char *)p + (4*CELL-TAG_SYMBOL));
+inline LispObject qfastgets(LispObject p, std::memory_order mo=std::memory_order_relaxed)
+{   return ((std::atomic<LispObject> *)((char *)p + (4*CELL-TAG_SYMBOL)))->load(mo);
 }
 
-inline LispObject& qpackage(LispObject p)
-{   return *(LispObject *)((char *)p + (5*CELL-TAG_SYMBOL));
+inline LispObject qpackage(LispObject p, std::memory_order mo=std::memory_order_relaxed)
+{   return ((std::atomic<LispObject> *)((char *)p + (5*CELL-TAG_SYMBOL)))->load(mo);
 }
 
-inline LispObject& qpname(LispObject p)
-{   return *(LispObject *)((char *)p + (6*CELL-TAG_SYMBOL));
+inline LispObject qpname(LispObject p, std::memory_order mo=std::memory_order_relaxed)
+{   return ((std::atomic<LispObject> *)((char *)p + (6*CELL-TAG_SYMBOL)))->load(mo);
+}
+
+inline std::atomic<LispObject> *valueaddr(LispObject p)
+{   return (std::atomic<LispObject> *)((char *)p + (1*CELL-TAG_SYMBOL));
+}
+
+inline std::atomic<LispObject> *envaddr(LispObject p)
+{   return (std::atomic<LispObject> *)((char *)p + (2*CELL-TAG_SYMBOL));
+}
+
+inline std::atomic<LispObject> *plistaddr(LispObject p)
+{   return (std::atomic<LispObject> *)((char *)p + (3*CELL-TAG_SYMBOL));
+}
+
+inline std::atomic<LispObject> *fastgetsaddr(LispObject p)
+{   return (std::atomic<LispObject> *)((char *)p + (4*CELL-TAG_SYMBOL));
+}
+
+inline std::atomic<LispObject> *packageaddr(LispObject p)
+{   return (std::atomic<LispObject> *)((char *)p + (5*CELL-TAG_SYMBOL));
+}
+
+inline std::atomic<LispObject> *pnameaddr(LispObject p)
+{   return (std::atomic<LispObject> *)((char *)p + (6*CELL-TAG_SYMBOL));
+}
+
+inline void setheader(LispObject p, Header h, std::memory_order mo=std::memory_order_relaxed)
+{   ((std::atomic<Header> *)((char *)p + (0*CELL-TAG_SYMBOL)))->store(h, mo);
+}
+
+inline void setvalue(LispObject p, LispObject q, std::memory_order mo=std::memory_order_relaxed)
+{   ((std::atomic<LispObject> *)((char *)p + (1*CELL-TAG_SYMBOL)))->store(q, mo);   
+}
+
+inline void setenv(LispObject p, LispObject q, std::memory_order mo=std::memory_order_relaxed)
+{   ((std::atomic<LispObject> *)((char *)p + (2*CELL-TAG_SYMBOL)))->store(q, mo);
+}
+
+inline void setplist(LispObject p, LispObject q, std::memory_order mo=std::memory_order_relaxed)
+{   ((std::atomic<LispObject> *)((char *)p + (3*CELL-TAG_SYMBOL)))->store(q, mo);
+}
+
+inline void setfastgets(LispObject p, LispObject q, std::memory_order mo=std::memory_order_relaxed)
+{   ((std::atomic<LispObject> *)((char *)p + (4*CELL-TAG_SYMBOL)))->store(q, mo);
+}
+
+inline void setpackage(LispObject p, LispObject q, std::memory_order mo=std::memory_order_relaxed)
+{   ((std::atomic<LispObject> *)((char *)p + (5*CELL-TAG_SYMBOL)))->store(q, mo);
+}
+
+inline void setpname(LispObject p, LispObject q, std::memory_order mo=std::memory_order_relaxed)
+{   ((std::atomic<LispObject> *)((char *)p + (6*CELL-TAG_SYMBOL)))->store(q, mo);
 }
 
 // The ifn() selector gives access to the qfn() cell, but treating its
@@ -1436,7 +1623,7 @@ inline intptr_t& ifnn(LispObject p)
 }
 
 inline no_args*& qfn0(LispObject p)
-{   return *(no_args **)((char *)p + (7*CELL-TAG_SYMBOL));
+{   return *((no_args **)((char *)p + (7*CELL-TAG_SYMBOL)));
 }
 
 inline one_arg*& qfn1(LispObject p)
@@ -1461,31 +1648,31 @@ inline fourup_args*& qfn4up(LispObject p)
 // extract them..
 
 inline LispObject arg4(const char *name, LispObject a4up)
-{   if (qcdr(a4up) != nil) aerror1(name, a4up); // Too many args provided
-    return qcar(a4up);
+{   if (cdr(a4up) != nil) aerror1(name, a4up); // Too many args provided
+    return car(a4up);
 }
 
 inline void a4a5(const char *name, LispObject a4up,
                         LispObject& a4, LispObject& a5)
-{   a4 = qcar(a4up);
-    a4up = qcdr(a4up);
-    if (a4up==nil || qcdr(a4up) != nil) aerror1(name, a4up); // wrong number
-    a5 = qcar(a4up);
+{   a4 = car(a4up);
+    a4up = cdr(a4up);
+    if (a4up==nil || cdr(a4up) != nil) aerror1(name, a4up); // wrong number
+    a5 = car(a4up);
 }
 
 inline void a4a5a6(const char *name, LispObject a4up,
                           LispObject& a4, LispObject& a5, LispObject& a6)
-{   a4 = qcar(a4up);
-    a4up = qcdr(a4up);
+{   a4 = car(a4up);
+    a4up = cdr(a4up);
     if (a4up == nil) aerror1(name, a4up); // not enough args
-    a5 = qcar(a4up);
-    a4up = qcdr(a4up);
-    if (a4up==nil || qcdr(a4up) != nil) aerror1(name, a4up); // wrong number
-    a6 = qcar(a4up);
+    a5 = car(a4up);
+    a4up = cdr(a4up);
+    if (a4up==nil || cdr(a4up) != nil) aerror1(name, a4up); // wrong number
+    a6 = car(a4up);
 }
 
-inline uint64_t& qcount(LispObject p)
-{   return *(uint64_t *)((char *)p + (12*CELL-TAG_SYMBOL));
+inline std::atomic<uint64_t>& qcount(LispObject p)
+{   return *(std::atomic<uint64_t> *)((char *)p + (12*CELL-TAG_SYMBOL));
 }
 
 #ifndef HAVE_SOFTFLOAT
@@ -1533,6 +1720,10 @@ inline uint32_t* bignum_digits(LispObject b)
 {   return (uint32_t *)((char *)b  + (CELL-TAG_NUMBERS));
 }
 
+inline uint32_t* vbignum_digits(LispObject b)
+{   return (uint32_t *)((char *)b  + (CELL-TAG_NUMBERS));
+}
+
 // For work on bignums when I have a 64-bit machine I frequently need the
 // top word of a bignum as a 64-bit (signed) value...
 inline int64_t bignum_digits64(LispObject b, size_t n)
@@ -1545,6 +1736,16 @@ inline int64_t bignum_digits64(LispObject b, size_t n)
 // scheme so I just need to shift the count to where it has to live.
 inline Header make_bighdr(size_t n)
 {   return TAG_HDR_IMMED+TYPE_BIGNUM+(n<<(Tw+7));
+}
+
+// New bignums come in 64-bit units.
+
+inline Header make_new_bighdr(size_t n)
+{   return TAG_HDR_IMMED+TYPE_NEW_BIGNUM+(n<<(Tw+8));
+}
+
+inline uint64_t* new_bignum_digits(LispObject b)
+{   return (uint64_t *)((char *)b  + (8-TAG_NUMBERS));
 }
 
 // pack_hdrlength takes a length in 32-bit words (including the size of
@@ -1560,34 +1761,51 @@ inline Header make_bighdr(size_t n)
 //@#define pack_hdrlengthhwords(n) ((1+(intptr_t)(n))<<(Tw+4))
 
 typedef struct Rational_Number_
-{   Header header;
-    LispObject num;
-    LispObject den;
+{   std::atomic<Header> header;
+    std::atomic<LispObject> num;
+    std::atomic<LispObject> den;
 } Rational_Number;
 
-inline LispObject& numerator(LispObject r)
-{   return ((Rational_Number *)((char *)r-TAG_NUMBERS))->num;
+inline LispObject numerator(LispObject r, std::memory_order mo=std::memory_order_relaxed)
+{   return ((Rational_Number *)((char *)r-TAG_NUMBERS))->num.load(mo);
 }
 
-inline LispObject& denominator(LispObject r)
-{   return ((Rational_Number *)((char *)r-TAG_NUMBERS))->den;
+inline LispObject denominator(LispObject r, std::memory_order mo=std::memory_order_relaxed)
+{   return ((Rational_Number *)((char *)r-TAG_NUMBERS))->den.load(mo);
+}
+
+inline void setnumerator(LispObject r, LispObject v, std::memory_order mo=std::memory_order_relaxed)
+{   ((Rational_Number *)((char *)r-TAG_NUMBERS))->num.store(v, mo);
+}
+
+inline void setdenominator(LispObject r, LispObject v, std::memory_order mo=std::memory_order_relaxed)
+{   return ((Rational_Number *)((char *)r-TAG_NUMBERS))->den.store(v, mo);
 }
 
 typedef struct Complex_Number_
-{   Header header;
-    LispObject real;
-    LispObject imag;
+{   std::atomic<Header> header;
+    std::atomic<LispObject> real;
+    std::atomic<LispObject> imag;
 } Complex_Number;
 
-inline LispObject& real_part(LispObject r)
-{   return ((Complex_Number *)((char *)r-TAG_NUMBERS))->real;
+inline LispObject real_part(LispObject r, std::memory_order mo=std::memory_order_relaxed)
+{   return ((Complex_Number *)((char *)r-TAG_NUMBERS))->real.load(mo);
 }
 
-inline LispObject& imag_part(LispObject r)
-{   return ((Complex_Number *)((char *)r-TAG_NUMBERS))->imag;
+inline LispObject imag_part(LispObject r, std::memory_order mo=std::memory_order_relaxed)
+{   return ((Complex_Number *)((char *)r-TAG_NUMBERS))->imag.load(mo);
 }
+
+inline void setreal_part(LispObject r, LispObject v, std::memory_order mo=std::memory_order_relaxed)
+{   return ((Complex_Number *)((char *)r-TAG_NUMBERS))->real.store(v, mo);
+}
+
+inline void setimag_part(LispObject r, LispObject v, std::memory_order mo=std::memory_order_relaxed)
+{   return ((Complex_Number *)((char *)r-TAG_NUMBERS))->imag.store(v, mo);
+}
+
 typedef struct Single_Float_
-{   Header header;
+{   std::atomic<Header> header;
     union float_or_int
     {   float f;
         float32_t f32;

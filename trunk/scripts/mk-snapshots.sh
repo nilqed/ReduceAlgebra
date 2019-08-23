@@ -2,7 +2,14 @@
 
 # This script makes snapshots of Reduce. It should be capable of
 # building ones for Windows, Macintosh, Linux-i686, Linux-x86_64
-# and the Raspberry Pi.
+# and the Raspberry Pi. For reduce it can build for win32 (only),
+# win64 (only) or both win32 and win64. At present the Raspberry Pi
+# supports just a 32-bit but I could adapt this to support 64-bit
+# in the future when a suitable host emerges.
+#
+# The default as of July 2019 is
+#     win64 linux64 macintosh
+# so 32-bit variants are not included by default.
 #
 # Each snapshot needs to be built on a computer of the relevant type.
 # This can either be the current local host, a remote host that is
@@ -19,7 +26,7 @@
 # any extra interaction.
 #
 #                                                       ACN February 2018
-
+#                                                           July 2019
 
 
 
@@ -34,12 +41,14 @@ case $@ in
   printf "$0: This script is for making snapshots of Reduce\n"
   printf "Usage: $0 machine1 machine2 ...\n"
   printf "where the supported 'machines' are\n"
-  printf "    windows, macintosh, linux32, linux64 and rpi\n"
+  printf "    windows (win32, win64, winboth), macintosh, linux32,\n"
+  printf "linux64 and rpi.\n"
   printf "The two Linux variants refer to ones hosted on i686 and x86_64,\n"
   printf "and 'rpi' is a Raspberry Pi running raspbian.\n"
-  printf "If no machines are listed the script will attempt to build all\n"
-  printf "of them. The results will end up in a snapshots directory in the\n"
-  printf "Reduce tree. The hosts used during the build can be adapted to\n"
+  printf "[July 2019] rpi64 is an experiment re 64-bit Raspberry Pi\n"
+  printf "If no machines are listed the script will attempt to build a\n"
+  printf "fairly full set. The results will end up in a snapshots directory in\n"
+  printf "theReduce tree. The hosts used during the build can be adapted to\n"
   printf "local needs via a $HOME/.snapshots file, and scripts/dot-snapshots\n"
   printf "provides a prototype for such a file and some explanation of what\n"
   printf "needs to be present.\n"
@@ -186,8 +195,20 @@ prepare() {
   
 }
 
+hostname() {
+# I want win32, win64, winboth and windows all to be treated alike
+  case $1 in
+  windows | win32 | win64 | winboth)
+    echo "windows"
+    ;;
+  *)
+    echo "$1"
+    ;;
+  esac
+}
+
 add_target() {
-  if test "$1" = "$local"
+  if test `hostname "$1"` = `hostname "$local"`
   then
     targets="$targets $1"
   else
@@ -255,9 +276,13 @@ build() {
   do
     case "$a" in
     windows | \
+    win32   | \
+    win64   | \
+    winboth | \
     linux32 | \
     linux64 | \
     rpi     | \
+    rpi64   | \
     macintosh)
       full="no"
       ;;
@@ -274,7 +299,7 @@ build() {
 #
   if test "$full" = "yes"
   then
-    ARGS="macintosh windows linux32 linux64 rpi $*"
+    ARGS="macintosh win64 linux64 $*"
   else
 # Here (and in general through this script) I am going to assume that
 # file-paths, machine-name and script arguments do not contain embedded
@@ -291,16 +316,24 @@ build() {
   do
     case "$a" in
     windows | \
+    win32   | \
+    win64   | \
+    winboth | \
     linux32 | \
     linux64 | \
     rpi     | \
+    rpi64   | \
     macintosh)
       add_target "$a"
       ;;
     -windows | \
+    -win32   | \
+    -win64   | \
+    -winboth | \
     -linux32 | \
     -linux64 | \
     -rpi     | \
+    -rpi64   | \
     -macintosh)
       remove_target "${a#-}"
       ;;
@@ -343,6 +376,59 @@ build_windows() {
   stop_remote_host
 }
 
+build_win32() {
+  printf "\n+++ Only building a 32-bit Windows snapshot is not supported\n"
+  exit 1
+  machine_windows
+  if test "$MODE" = "none"
+  then
+    printf "Unable to build Windows snapshot here\n"
+    return 0
+  fi
+  start_remote_host
+  copy_files "$REDUCE_DISTRIBUTION/winbuild/"    "$REDUCE_BUILD/"  "--exclude=C"
+  copy_files "$REDUCE_DISTRIBUTION/"             "$REDUCE_BUILD/C/"
+  execute_in_dir "$REDUCE_BUILD/C"               "./autogen.sh"
+  execute_in_dir "$REDUCE_BUILD"                 "touch C.stamp"
+  execute_in_dir "$REDUCE_BUILD"                 "make REVISION=$REVISION"
+  fetch_files    "$REDUCE_BUILD/Output/*.*"      "$SNAPSHOTS/windows/" "$SNAPSHOTS/old/windows"
+  stop_remote_host
+}
+
+build_win64() {
+  machine_windows
+  if test "$MODE" = "none"
+  then
+    printf "Unable to build Windows snapshot here\n"
+    return 0
+  fi
+  start_remote_host
+  copy_files "$REDUCE_DISTRIBUTION/winbuild64/"  "$REDUCE_BUILD/"  "--exclude=C"
+  copy_files "$REDUCE_DISTRIBUTION/"             "$REDUCE_BUILD/C/"
+  execute_in_dir "$REDUCE_BUILD/C"               "./autogen.sh"
+  execute_in_dir "$REDUCE_BUILD"                 "touch C.stamp"
+  execute_in_dir "$REDUCE_BUILD"                 "make REVISION=$REVISION"
+  fetch_files    "$REDUCE_BUILD/Output/*.*"      "$SNAPSHOTS/windows/" "$SNAPSHOTS/old/win64"
+  stop_remote_host
+}
+
+build_winboth() {
+  machine_windows
+  if test "$MODE" = "none"
+  then
+    printf "Unable to build Windows snapshot here\n"
+    return 0
+  fi
+  start_remote_host
+  copy_files "$REDUCE_DISTRIBUTION/winbuild/"    "$REDUCE_BUILD/"  "--exclude=C"
+  copy_files "$REDUCE_DISTRIBUTION/"             "$REDUCE_BUILD/C/"
+  execute_in_dir "$REDUCE_BUILD/C"               "./autogen.sh"
+  execute_in_dir "$REDUCE_BUILD"                 "touch C.stamp"
+  execute_in_dir "$REDUCE_BUILD"                 "make REVISION=$REVISION"
+  fetch_files    "$REDUCE_BUILD/Output/*.*"      "$SNAPSHOTS/windows/" "$SNAPSHOTS/old/windows"
+  stop_remote_host
+}
+
 build_linux32() {
   machine_linux32
   build_debian linux32
@@ -354,6 +440,13 @@ build_linux64() {
 }
 
 build_rpi() {
+  machine_rpi
+  build_debian rpi
+}
+
+build_rpi64() {
+# Just the same as for 32-bit Raspberry pi but it will need a different
+# host.
   machine_rpi
   build_debian rpi
 }
@@ -518,6 +611,21 @@ machine_rpi() {
     case `uname -n` in
     *)
       printf "Do not know how to access a Raspberry Pi from `uname -n`\n"
+      MODE=none
+      ;;
+    esac
+  fi
+}
+
+
+machine_rpi64() {
+  MODE="none"
+  hosts_rpi64 2> /dev/null
+  if test "$MODE" = "none"
+  then
+    case `uname -n` in
+    *)
+      printf "Do not know how to access a 64-bit Raspberry Pi from `uname -n`\n"
       MODE=none
       ;;
     esac

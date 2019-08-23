@@ -1,4 +1,5 @@
-//  arith03.cpp                           Copyright (C) 1990-2017 Codemist
+//  arith03.cpp                           Copyright (C) 1990-2019 Codemist
+
 
 //
 // Arithmetic functions.
@@ -7,7 +8,7 @@
 //
 
 /**************************************************************************
- * Copyright (C) 2017, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -36,7 +37,7 @@
  *************************************************************************/
 
 
-// $Id: arith03.cpp 4983 2019-05-07 14:57:04Z arthurcnorman $
+// $Id: arith03.cpp 5074 2019-08-10 16:49:01Z arthurcnorman $
 
 #include "headers.h"
 
@@ -381,7 +382,7 @@ LispObject quotbn(LispObject a, int32_t n)
     }
     if (lenc != lenx) // space to discard?
         *(Header *)&bignum_digits(a)[lenc] = make_bighdr(lenx-lenc);
-    numhdr(a) = make_bighdr(lena+1+CELL/4);
+    setnumhdr(a,  make_bighdr(lena+1+CELL/4));
     return a;
 }
 
@@ -649,7 +650,7 @@ inline LispObject short_numerator(LispObject a, size_t lena,
 inline size_t copy_unsigned(LispObject r, LispObject a, size_t lena)
 {   if (bignum_digits(a)[lena] == 0) lena--;
     for (size_t i=0; i<=lena; i++)
-       bignum_digits(r)[i] = bignum_digits(a)[i];
+       bignum_digits(r)[i] = vbignum_digits(a)[i];
     return lena;
 }
 
@@ -890,7 +891,7 @@ inline LispObject pack_up_result(LispObject a, size_t lena)
     pop(a);
 //  trace_printf("lena = %d  r = %p\n", (int)lena, (void *)r);
     for (size_t i=0; i<=lena; i++)
-        bignum_digits(r)[i] = bignum_digits(a)[i];
+        bignum_digits(r)[i] = vbignum_digits(a)[i];
     if ((SIXTY_FOUR_BIT && (lena & 1) == 0) ||
         (!SIXTY_FOUR_BIT && (lena & 1) != 0)) bignum_digits(r)[lena+1] = 0;
     return r;    
@@ -1175,7 +1176,7 @@ static LispObject quotff(LispObject a, LispObject b)
 }
 
 LispObject quot2(LispObject a, LispObject b)
-#ifdef EXPERIMENT
+#ifdef DEBUG
 {   validate_number("Arg1 for quot", a, a, b);
     validate_number("Arg2 for quot", b, a, b);
     extern LispObject quot2a(LispObject a, LispObject b);    
@@ -1385,7 +1386,7 @@ LispObject quot2a(LispObject a, LispObject b)
 }
 
 LispObject quotrem2(LispObject a, LispObject b)
-#ifdef EXPERIMENT
+#ifdef DEBUG
 {   validate_number("Arg1 for quotrem", a, a, b);
     validate_number("Arg2 for quotrem", b, a, b);
     extern LispObject quotrem2a(LispObject a, LispObject b);    
@@ -1610,7 +1611,7 @@ LispObject quotrem2a(LispObject a, LispObject b)
  */
 
 LispObject CLquot2(LispObject a, LispObject b)
-#ifdef EXPERIMENT
+#ifdef DEBUG
 {   validate_number("Arg1 for CLquot", a, a, b);
     validate_number("Arg2 for CLquot", b, a, b);
     extern LispObject CLquot2a(LispObject a, LispObject b);    

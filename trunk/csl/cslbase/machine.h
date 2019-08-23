@@ -42,7 +42,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: machine.h 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: machine.h 5070 2019-08-04 22:39:21Z arthurcnorman $
 
 
 #ifndef header_machine_h
@@ -127,6 +127,18 @@
 
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS 1
+#endif
+
+// Here is some more exploitation of C++17 when it is available.
+
+#ifndef __has_cpp_attribute
+#define __has_cpp_attribute(name) 0
+#endif
+
+#if __has_cpp_attribute(maybe_unused)
+#define MAYBE_UNUSED [[maybe_unused]]
+#else
+#define MAYBE_UNUSED
 #endif
 
 // At some stage I might wish to move to "#include <cstdio>" etc however
@@ -401,7 +413,7 @@ inline void aligned_free(void *p)
 }
 #else // MAXALING4
 
-// IN the hugely more common case where malloc does align things to at least
+// In the hugely more common case where malloc does align things to at least
 // 8 byte boundaries I can use malloc() and free() directly.
 
 inline void *aligned_malloc(size_t n)

@@ -31,7 +31,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: lispthrow.h 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: lispthrow.h 5070 2019-08-04 22:39:21Z arthurcnorman $
 
 #ifndef __lispthrow_h
 #define __lispthrow_h 1
@@ -491,7 +491,8 @@ public:
         debug_printf(" restored-val="); prin_to_debug(savestack[val_loc]);
         debug_printf("\n");
 #endif
-        qvalue(elt(savestack[env_loc], name_loc)) = savestack[val_loc];
+        setvalue(elt(savestack[env_loc], name_loc), savestack[val_loc]);
+// atomic????
     }
 };
 

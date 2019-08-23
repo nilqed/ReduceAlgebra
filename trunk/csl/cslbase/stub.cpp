@@ -1,4 +1,4 @@
-// stub.c                                      Copyright A C Norman 2014
+// stub.cpp                                       Copyright A C Norman 2014
 //
 
 // The object of this code is to have several binaries embedded in it and
@@ -46,7 +46,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: stub.cpp 4130 2017-07-29 12:40:58Z arthurcnorman $
+// $Id: stub.cpp 5039 2019-06-23 20:42:32Z arthurcnorman $
 
 
 // This should be compiled with one of the following symbols predefined:
@@ -714,4 +714,4 @@ int main(int argc, char* argv[])
     }
 }
 
-// End of stub.c
+// End of stub.cpp

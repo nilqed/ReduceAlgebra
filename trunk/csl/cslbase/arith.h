@@ -30,7 +30,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: arith.h 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: arith.h 5060 2019-07-30 10:33:38Z arthurcnorman $
 
 #ifndef header_arith_h
 #define header_arith_h 1
@@ -96,7 +96,7 @@ extern unsigned char msd_table[256], lsd_table[256];
 #define top_bit_set(n)     (((int32_t)(n)) < 0)
 #define top_bit(n)         ((int32_t)(((uint32_t)(n)) >> 31))
 #define set_top_bit(n)     ((int32_t)((uint32_t)(n) | (uint32_t)0x80000000U))
-#define clear_top_bit(n)   ((int32_t)(n) & 0x7fffffff)
+#define clear_top_bit(n)   ((int32_t)((uint32_t)(n) & 0x7fffffff))
 
 // As with fixnum_of_int I need to take care here that the arithmetic I do
 // here can not overflow, since if it did the behaviour would be undefined
@@ -225,12 +225,14 @@ inline void floating_clear_flags()
 
 inline double value_of_immediate_float(LispObject a)
 {   Float_union aa;
+// Worry about strict aliasing here, at least maybe. With GCC I believe I am
+// safe, but as per the standards I think I am not.
     if (SIXTY_FOUR_BIT) aa.i = (int32_t)((uint64_t)a>>32);
     else aa.i = (int32_t)(a - XTAG_SFLOAT);
     return aa.f;
 }
 
-extern LispObject make_boxfloat(double a, int type);
+extern LispObject make_boxfloat(double a, int type=TYPE_DOUBLE_FLOAT);
 #ifdef HAVE_SOFTFLOAT
 extern LispObject make_boxfloat128(float128_t a);
 #endif // HAVE_SOFTFLOAT
@@ -284,7 +286,7 @@ inline LispObject pack_single_float(double d)
 // result will match the wider of the two.
 
 inline LispObject pack_immediate_float(double d,
-                                              LispObject l1, LispObject l2=0)
+                                       LispObject l1, LispObject l2=0)
 {   Float_union aa;
     aa.f = d;
     if (trap_floating_overflow &&
@@ -481,6 +483,11 @@ inline LispObject make_lisp_unsigned128(uint128_t n)
 {   if (uint128_valid_as_fixnum(n))
         return fixnum_of_int((uint64_t)NARROW128(n));
     else return make_lisp_unsigned128_fn(n);
+}
+
+inline void validate_number(LispObject n)
+{
+
 }
 
 extern double float_of_integer(LispObject a);
@@ -780,7 +787,9 @@ stgclass type name(LispObject a1)                                   \
     default:                                                        \
         aerror1("bad arg for " #name, a1);                          \
     case (XTAG_SFLOAT & TAG_BITS):                                  \
-        return name##_s(a1);                                        \
+        if (SIXTY_FOUR_BIT && ((a1 & XTAG_FLOAT32) != 0)            \
+            return name##_f(a1);                                    \
+        else return name##_s(a1);                                   \
     }                                                               \
 }
 
@@ -818,7 +827,9 @@ stgclass type name(LispObject a1, LispObject a2)                    \
     default:                                                        \
         aerror2("bad arg for " #rawname, a1, a2);                   \
     case (XTAG_SFLOAT & TAG_BITS):                                  \
-        return name##_s(a1, a2);                                    \
+        if (SIXTY_FOUR_BIT && ((a2 & XTAG_FLOAT32) != 0))           \
+            return name##_f(a1, a2);                                \
+        else return name##_s(a1, a2);                               \
     }                                                               \
 }
 
@@ -870,7 +881,9 @@ stgclass type name(LispObject a1, LispObject a2)                    \
     default:                                                        \
         aerror2("bad arg for " #name, a1, a2);                      \
     case (XTAG_SFLOAT & TAG_BITS):                                  \
-        return name##_s(a1, a2);                                    \
+        if (SIXTY_FOUR_BIT && ((a1 & XTAG_FLOAT32) != 0))           \
+            return name##_f(a1, a2);                                \
+        else return name##_s(a1, a2);                               \
     }                                                               \
 }
 
@@ -912,7 +925,9 @@ stgclass type name(LispObject a1)                                   \
     default:                                                        \
         aerror1("bad arg for " #name, a1);                          \
     case (XTAG_SFLOAT & TAG_BITS):                                  \
-        return name##_s(a1);                                        \
+        if (SIXTY_FOUR_BIT && ((a1 & XTAG_FLOAT32) != 0))           \
+            return name##_f(a1);                                    \
+        else return name##_s(a1);                                   \
     }                                                               \
 }
 
@@ -948,7 +963,9 @@ stgclass type name(LispObject a1, LispObject a2)                    \
     default:                                                        \
         aerror2("bad arg for " #rawname, a1, a2);                   \
     case (XTAG_SFLOAT & TAG_BITS):                                  \
-        return name##_s(a1, a2);                                    \
+        if (SIXTY_FOUR_BIT && ((a2 & XTAG_FLOAT32) != 0))           \
+            return name##_f(a1, a2);                                \
+        else return name##_s(a1, a2);                               \
     }                                                               \
 }
 
@@ -996,7 +1013,9 @@ stgclass type name(LispObject a1, LispObject a2)                    \
     default:                                                        \
         aerror2("bad arg for " #name, a1, a2);                      \
     case (XTAG_SFLOAT & TAG_BITS):                                  \
-        return name##_s(a1, a2);                                    \
+        if (SIXTY_FOUR_BIT && ((a1 & XTAG_FLOAT32) != 0))           \
+            return name##_f(a1, a2);                                \
+        else return name##_s(a1, a2);                               \
     }                                                               \
 }
 

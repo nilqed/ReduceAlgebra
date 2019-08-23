@@ -428,7 +428,7 @@ symbolic procedure rd!:quotient(u,v);
 % This is a bit hypothetical because the case of division by 0.0 is trapped
 % a few lines above here! There is an issue of proper specification as to
 % whether (quotient 0.0 0.0) should raise an exception or return a NaN,
-% and whether (quotient x 0.0) for non-zero x should yield and IEEE infinity
+% and whether (quotient x 0.0) for non-zero x should yield an IEEE infinity
 % or raise an exception. If it yields an infinity it may become proper
 % to consider division by both +0.0 and -0.0.
              if not fp!-finite z then <<rndbfon(); divbf(bfloat x,bfloat y)>>
@@ -496,7 +496,7 @@ symbolic procedure safe!-fp!-plus(u, v);
 % If the result was exactly 0.0 all is well. Well there is hidden delicacy
 % here in that -0.0 + -0.0 will return -0.0 (but 0.0 + -0.0 and -0.0 + 0.0
 % both return 0.0). I do not have a !*nonegzeroplus because the only way that
-% safe!-fp!-add could possibly give a -0.0 input would be if both inputs
+% safe!-fp!-add could possibly give a -0.0 output would be if both inputs
 % had been -0.0.
     if r = 0.0 then return r
 % If the result is sub-normalised I reject it.
@@ -627,7 +627,7 @@ symbolic procedure safe!-fp!-plus(u, v);
 % Adding two positive values.
     if 0.5*u + 0.5*v > !!maxfloatq2 then nil
     else u + v >>;
-    
+
 symbolic procedure safe!-fp!-times(u, v);
   begin
 % Now the real business. I will have essentially three cases, based on
@@ -656,12 +656,11 @@ symbolic procedure safe!-fp!-times(u, v);
 % Here u is large but v is not... so similar arguments apply.
       if (u1/!!two511)*v1 >= !!two513 then return nil >>
     else <<
-% Finally both u and v are less than 2^511 so overflow is not possible,
-% but underflow is a risk
-      if u1*v1 < !!minnorm and u neq 0.0 and v neq 0.0 then return nil >>;
+% Finally both u and v are greater than or equal to 2^511 so overflow is possible.
+      if (u1/!!two511)*(v1/!!two511) >= 4.0 then return nil >>;
     return u*v
   end;
-    
+
 symbolic procedure safe!-fp!-quot(u, v);
 % The logic for division is essentially the same as that for multiplication.
   if v = 0.0 then nil
@@ -669,7 +668,7 @@ symbolic procedure safe!-fp!-quot(u, v);
     scalar u1, v1;
     if !*nonegzerotimes and u = 0.0 then return 0.0;
     if u < 0.0 then u1 := -u else u1 := u;
-    if v < 0.0 then v1 := -v else v1 := u;
+    if v < 0.0 then v1 := -v else v1 := v;
 % I now have the absolute values of the operands.
     if u1 < !!two511 then
       if v1 > 1.0/!!two511 then <<
@@ -677,14 +676,14 @@ symbolic procedure safe!-fp!-quot(u, v);
 % overflow, but could underflow.
         if u1/v1 < !!minnorm and u neq 0.0 then return nil >>
       else <<
-% Here v is reasonable but v is tiny.
+% Here u is reasonable but v is tiny.
         if u1/(v1*!!two511) >= !!two513 then return nil >>
     else if v1 > 1.0/!!two511 then <<
 % Here u is large but v is not too tiny...
       if (u1/!!two511)/v1 >= !!two513 then return nil >>
     else <<
 % Finally u is big and v is tiny...
-      if u1/v1 < !!minnorm and u neq 0.0 then return nil >>;
+      if (u1/!!two511)/(v1*!!two511) >= 4.0 then return nil >>;
     return u/v;
   end;
     
@@ -847,7 +846,7 @@ symbolic procedure hexfloat1 w1;
 symbolic procedure hexfloat u;
 % hexfloat tries to be a little generous about its args since it will
 % be used in debugging context - but it is inteded to be given a rounded
-% valoue and it returns a string...
+% value and it returns a string...
   begin
     scalar w, w1;
     if numberp u then return hexfloat1 u

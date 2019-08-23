@@ -1,11 +1,11 @@
-// cslread.cpp                             Copyright (C) 1990-2018 Codemist
+// cslread.cpp                             Copyright (C) 1990-2019 Codemist
 
 //
 // Reading and symbol-table support.
 //
 
 /**************************************************************************
- * Copyright (C) 2018, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -34,7 +34,7 @@
  *************************************************************************/
 
 
-// $Id: cslread.cpp 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: cslread.cpp 5075 2019-08-10 20:45:42Z arthurcnorman $
 
 #include "headers.h"
 
@@ -48,22 +48,22 @@
 //
 
 #ifdef HAVE_GETC_UNLOCKED
-#define GETC(x) getc_unlocked((x))
+#define GETC(x) getc_unlocked((FILE *)(x))
 #else
 #ifdef HAVE__GETC_NOLOCK
-#define GETC(x) _getc_nolock((x))
+#define GETC(x) _getc_nolock((FILE *)(x))
 #else
-#define GETC(x) getc((x))
+#define GETC(x) getc((FILE *)(x))
 #endif
 #endif
 
 #ifdef HAVE_PUTC_UNLOCKED
-#define PUTC(x, y) putc_unlocked((x), (y))
+#define PUTC(x, y) putc_unlocked((x), (FILE *)(y))
 #else
 #ifdef HAVE__PUTC_NOLOCK
-#define PUTC(x, y) _putc_nolock((x), (y))
+#define PUTC(x, y) _putc_nolock((x), (FILE *)(y))
 #else
-#define PUTC(x, y) putc((x), (y))
+#define PUTC(x, y) putc((x), (FILE *)(y))
 #endif
 #endif
 
@@ -110,12 +110,12 @@ void validate_string_fn(LispObject s, const char *file, int line)
                 size_t i;
                 if (strrchr(file, '/') != NULL) file = strrchr(file, '/')+1;
                 fprintf(stderr, "\n+++ Bad string at %s %d\n", file, line);
-                fprintf(stderr, "Header = %" PRIxPTR "\n", vechdr(s));
+                fprintf(stderr, "Header = %" PRIxPTR "\n", (uintptr_t)vechdr(s));
                 fprintf(stderr, "length = %d bytelength = %d\n",
                     (int)length_of_header(vechdr(s)),
                     (int)length_of_byteheader(vechdr(s)));
                 fprintf(stderr, "messed at len:%d len1:%d [%x]\n",
-                        (int)len, (int)len1, celt(s, len-CELL));
+                        (int)len, (int)len1, (int)celt(s, len-CELL));
                 for (i=0; i<len1; i++)
                 {   fprintf(stderr, "%3d %p: %.2x   (%c)\n", (int)i, p, *p, *p);
                     p++;
@@ -151,6 +151,38 @@ LispObject copy_string(LispObject str, size_t n)
     while (n < k) s[CELL+n++] = 0;
     validate_string(r);
     return r;
+}
+
+LispObject Lvalidate_package(LispObject env, LispObject p)
+{   printf("package = %p\n", (void *)p);
+    Lprint(env, p);
+    printf("%p\n", (void *)packhdr_(p));
+    Lprint(env, packid_(p));
+    Lprint(env, packint_(p));
+    Lprint(env, packnint_(p));
+    Lprint(env, packflags_(p));
+    printf("Done\n");
+    return onevalue(nil);
+}
+
+LispObject Lvalidate_package(LispObject env)
+{   return Lvalidate_package(env, CP);
+}
+
+extern bool always(LispObject);
+typedef bool symbol_processor_predicate(LispObject);
+extern bool push_symbols(symbol_processor_predicate *pp, LispObject p);
+
+LispObject Lsymbols_in(LispObject env, LispObject a)
+{   LispObject *stacksave = stack;
+    push_symbols(always, a);
+    LispObject r = nil;
+    while (stack != stacksave)
+    {   LispObject w;
+        pop(w);
+        r = cons(w, r);
+    }
+    return onevalue(r);
 }
 
 LispObject Lbatchp(LispObject env)
@@ -515,7 +547,8 @@ LispObject intern(size_t len, bool escaped)
 #ifdef COMMON
             if (!escaped && boffo_char(0) == ':')
             {   size_t i = 0;
-                for (i = 0; i<boffop; i++) boffo_char(i) = boffo_char(i+1);
+                for (i = 0; i<boffop; i++)
+                    boffo_char(i) = (char)boffo_char(i+1);
                 boffop--;
                 return iintern(boffo, boffop, qvalue(keyword_package), 0);
             }
@@ -534,7 +567,7 @@ LispObject intern(size_t len, bool escaped)
 //
             if (boffo_char(0) == '+')
             {   for (size_t i = 0; i<boffop; i++)
-                    boffo_char(i) = boffo_char(i+1);
+                    boffo_char(i) = (char)boffo_char(i+1);
                 boffop--;
             }
             {   LispObject v = fixnum_of_int(0);
@@ -584,8 +617,8 @@ LispObject intern(size_t len, bool escaped)
                 q = -q;
             }
             r = get_basic_vector(TAG_NUMBERS, TYPE_RATNUM, sizeof(Rational_Number));
-            numerator(r) = fixnum_of_int((int32_t)p);
-            denominator(r) = fixnum_of_int((int32_t)q);
+            setnumerator(r, fixnum_of_int((int32_t)p));
+            setdenominator(r, fixnum_of_int((int32_t)q));
             return r;
         }
         case 8:
@@ -624,6 +657,50 @@ LispObject intern(size_t len, bool escaped)
         }
     }
 }
+
+LispObject intern_hex(size_t len)
+{   size_t i;
+    LispObject v = fixnum_of_int(0);
+    int32_t d = 0, d1 = 16;
+    for (i=2; i<boffop; i++)
+    {   if (d1 == 0x1000000 || i == boffop-1)
+        {   d = 16*d + (int32_t)value_in_radix(boffo_char(i), 16);
+            v = times2(v, fixnum_of_int(d1));
+            v = plus2(v, fixnum_of_int(d));
+            d = 0;
+            d1 = 16;
+        }
+        else
+        {   d = 16*d + (int32_t)value_in_radix(boffo_char(i), 16);
+            d1 = 16*d1;
+        }
+    }
+    return v;
+}
+
+#ifdef ARITHLIB
+#include "dispatch.h"
+
+LispObject intern_new(size_t len)
+{   size_t i;
+    LispObject v = fixnum_of_int(0);
+    int32_t d = 0, d1 = 10;
+    for (i=2; i<boffop; i++)
+    {   if (d1 == 10000000 || i == boffop-1)
+        {   d = 10*d + (int32_t)value_in_radix(boffo_char(i), 10);
+            v = Times::op(v, fixnum_of_int(d1));
+            v = Plus::op(v, fixnum_of_int(d));
+            d = 0;
+            d1 = 10;
+        }
+        else
+        {   d = 10*d + (int32_t)value_in_radix(boffo_char(i), 10);
+            d1 = 10*d1;
+        }
+    }
+    return v;
+}
+#endif
 
 LispObject make_undefined_symbol(char const *s)
 {   return make_symbol(s, 0, undefined_0, undefined_1, undefined_2,
@@ -678,7 +755,7 @@ start_again:
             ifn2(v) = (intptr_t)f2;
             ifn3(v) = (intptr_t)f3;
             ifn4up(v) = (intptr_t)f4up;
-            qheader(v) |= SYM_C_DEF;
+            setheader(v, qheader(v) | SYM_C_DEF);
         }
         else
         {   int l = strlen((char *)&boffo_char(0));
@@ -704,7 +781,7 @@ start_again:
                 term_printf(
                     "+++ Built-in \"%s\" clashes with image file: => \"~%s\"\n",
                     &boffo_char(0), &boffo_char(0));
-            while (l >= 0) boffo_char(l+1) = boffo_char(l), l--;
+            while (l >= 0) boffo_char(l+1) = (char)boffo_char(l), l--;
             boffo_char(0) = '~';
             first_try = false;
             goto start_again;
@@ -722,8 +799,8 @@ start_again:
 //
             LispObject v1 = get(v0, work_symbol, nil);
             while (consp(v1))
-            {   LispObject w = qcar(v1);
-                v1 = qcdr(v1);
+            {   LispObject w = car(v1);
+                v1 = cdr(v1);
                 ifn0(w) = (intptr_t)f0;
                 ifn1(w) = (intptr_t)f1;
                 ifn2(w) = (intptr_t)f2;
@@ -1078,17 +1155,19 @@ static int ordpv(LispObject u, LispObject v)
 
 static int ordpl(LispObject u, LispObject v)
 {   for (;;)
-    {   int w = orderp(qcar(u), qcar(v));
+    {   int w = orderp(car(u), car(v));
         if (w != 0) return w;
-        u = qcdr(u);
-        v = qcdr(v);
+        u = cdr(u);
+        v = cdr(v);
         if (!consp(u)) return orderp(u, v);
         if (!consp(v)) return -1;
     }
 }
 
-#define flagged_noncom(v) \
-    ((fv = qfastgets(v)) != nil && elt(fv, 0) != SPID_NOPROP)
+bool flagged_noncom(LispObject v)
+{   LispObject fv = qfastgets(v);
+    return fv != nil && (LispObject)elt(fv, 0) != SPID_NOPROP;
+}
 
 static int orderp(LispObject u, LispObject v)
 {   for (;;)
@@ -1128,8 +1207,7 @@ static int orderp(LispObject u, LispObject v)
         }
         else if (!consp(v)) return -1;
         else
-        {   LispObject cu = qcar(u), cv = qcar(v);
-            LispObject fv;    // used by flagged_noncom
+        {   LispObject cu = car(u), cv = car(v);
             int w;
             push(u, v);
 //          stackcheck();
@@ -1137,14 +1215,14 @@ static int orderp(LispObject u, LispObject v)
             w = orderp(cu, cv);
             pop(v, u);
             if (w != 0)
-            {   cu = qcar(u);
+            {   cu = car(u);
                 if (is_symbol(cu) && flagged_noncom(cu))
-                {   cv = qcar(v);
+                {   cv = car(v);
                     if (is_symbol(cv) && flagged_noncom(cv)) return w;
                     else return -1;
                 }
                 else
-                {   cv = qcar(v);
+                {   cv = car(v);
                     if (is_symbol(cv) && flagged_noncom(cv)) return 1;
                     else return w;
                 }
@@ -1152,8 +1230,8 @@ static int orderp(LispObject u, LispObject v)
 //
 // here car u = car v
 //
-            u = qcdr(u);
-            v = qcdr(v);
+            u = cdr(u);
+            v = cdr(v);
             if (!consp(u)) continue;
             if (!consp(v)) return -1;
 //
@@ -1220,14 +1298,14 @@ static LispObject Lmake_symbol(LispObject env, LispObject str)
     push(str);
     LispObject s = get_symbol(false);
     pop(str);
-    qheader(s) = TAG_HDR_IMMED+TYPE_SYMBOL;
-    qvalue(s) = unset_var;
+    setheader(s, TAG_HDR_IMMED+TYPE_SYMBOL);
+    setvalue(s, unset_var);
     if (is_vector(str)) validate_string(str);
-    qpname(s) = str;
-    qplist(s) = nil;
-    qfastgets(s) = nil;
-    qpackage(s) = nil;
-    qenv(s) = s;
+    setpname(s, str);
+    setplist(s, nil);
+    setfastgets(s, nil);
+    setpackage(s, nil);
+    setenv(s, s);
     ifn0(s) = (intptr_t)undefined_0;
     ifn1(s) = (intptr_t)undefined_1;
     ifn2(s) = (intptr_t)undefined_2;
@@ -1257,17 +1335,17 @@ LispObject Lgensym(LispObject env)
     pop(pn);
 #endif
 #ifdef COMMON
-    qheader(id) = TAG_HDR_IMMED+TYPE_SYMBOL+SYM_ANY_GENSYM;
-    qpname(id) = pn;
+    setheader(id, TAG_HDR_IMMED+TYPE_SYMBOL+SYM_ANY_GENSYM);
+    setpname(id, pn);
 #else
-    qheader(id) = TAG_HDR_IMMED+TYPE_SYMBOL+SYM_UNPRINTED_GENSYM+SYM_ANY_GENSYM;
-    qpname(id) = gensym_base;
+    setheader(id, TAG_HDR_IMMED+TYPE_SYMBOL+SYM_UNPRINTED_GENSYM+SYM_ANY_GENSYM);
+    setpname(id, gensym_base);
 #endif
-    qvalue(id) = unset_var;
-    qplist(id) = nil;
-    qfastgets(id) = nil;
-    qpackage(id) = nil; // Marks it as a uninterned
-    qenv(id) = id;
+    setvalue(id, unset_var);
+    setplist(id, nil);
+    setfastgets(id, nil);
+    setpackage(id, nil); // Marks it as a uninterned
+    setenv(id, id);
     ifn0(id) = (intptr_t)undefined_0;
     ifn1(id) = (intptr_t)undefined_1;
     ifn2(id) = (intptr_t)undefined_2;
@@ -1298,16 +1376,16 @@ LispObject Lgensym0(LispObject env, LispObject a, const char *suffix)
     LispObject id = get_symbol(true);
     pop(genbase);
 #ifdef COMMON
-    qheader(id) = TAG_HDR_IMMED+TYPE_SYMBOL+SYM_ANY_GENSYM;
+    setheader(id, TAG_HDR_IMMED+TYPE_SYMBOL+SYM_ANY_GENSYM);
 #else
-    qheader(id) = TAG_HDR_IMMED+TYPE_SYMBOL+SYM_UNPRINTED_GENSYM+SYM_ANY_GENSYM;
+    setheader(id, TAG_HDR_IMMED+TYPE_SYMBOL+SYM_UNPRINTED_GENSYM+SYM_ANY_GENSYM);
 #endif
-    qvalue(id) = unset_var;
-    qpname(id) = genbase;
-    qplist(id) = nil;
-    qfastgets(id) = nil;
-    qpackage(id) = nil; // Marks it as a uninterned
-    qenv(id) = id;
+    setvalue(id, unset_var);
+    setpname(id, genbase);
+    setplist(id, nil);
+    setfastgets(id, nil);
+    setpackage(id, nil); // Marks it as a uninterned
+    setenv(id, id);
     ifn0(id) = (intptr_t)undefined_0;
     ifn1(id) = (intptr_t)undefined_1;
     ifn2(id) = (intptr_t)undefined_2;
@@ -1345,16 +1423,16 @@ LispObject Lgensym1(LispObject env, LispObject a)
     LispObject id = get_symbol(true);
     pop(genbase);
 #ifdef COMMON
-    qheader(id) = TAG_HDR_IMMED+TYPE_SYMBOL+SYM_ANY_GENSYM;
+    setheader(id, TAG_HDR_IMMED+TYPE_SYMBOL+SYM_ANY_GENSYM);
 #else
-    qheader(id) = TAG_HDR_IMMED+TYPE_SYMBOL+SYM_UNPRINTED_GENSYM+SYM_ANY_GENSYM;
+    setheader(id, TAG_HDR_IMMED+TYPE_SYMBOL+SYM_UNPRINTED_GENSYM+SYM_ANY_GENSYM);
 #endif
-    qvalue(id) = unset_var;
-    qpname(id) = genbase;
-    qplist(id) = nil;
-    qfastgets(id) = nil;
-    qpackage(id) = nil; // Marks it as a uninterned
-    qenv(id) = id;
+    setvalue(id, unset_var);
+    setpname(id, genbase);
+    setplist(id, nil);
+    setfastgets(id, nil);
+    setpackage(id, nil); // Marks it as a uninterned
+    setenv(id, id);
     ifn0(id) = (intptr_t)undefined_0;
     ifn1(id) = (intptr_t)undefined_1;
     ifn2(id) = (intptr_t)undefined_2;
@@ -1385,13 +1463,13 @@ LispObject Lgensym2(LispObject env, LispObject a)
     stack[0] = copy_string(genbase, len);
     LispObject id = get_symbol(true);
     pop(genbase);
-    qheader(id) = TAG_HDR_IMMED+TYPE_SYMBOL+SYM_ANY_GENSYM;
-    qvalue(id) = unset_var;
-    qpname(id) = genbase;
-    qplist(id) = nil;
-    qfastgets(id) = nil;
-    qpackage(id) = nil; // Marks it as a uninterned
-    qenv(id) = id;
+    setheader(id, TAG_HDR_IMMED+TYPE_SYMBOL+SYM_ANY_GENSYM);
+    setvalue(id, unset_var);
+    setpname(id, genbase);
+    setplist(id, nil);
+    setfastgets(id, nil);
+    setpackage(id, nil); // Marks it as a uninterned
+    setenv(id, id);
     ifn0(id) = (intptr_t)undefined_0;
     ifn1(id) = (intptr_t)undefined_1;
     ifn2(id) = (intptr_t)undefined_2;
@@ -1481,8 +1559,8 @@ LispObject iintern(LispObject str, size_t h, LispObject p, int str_is_ok)
     {   mv_2 = nil;
         return nvalues(nil, 2);
     }
-    for (r = packuses_(p); r!=nil; r=qcdr(r))
-    {   LispObject w = qcar(r);
+    for (r = packuses_(p); r!=nil; r=cdr(r))
+    {   LispObject w = car(r);
         w = lookup(str, h, packext_(w), hash);
         if (rehash_pending)
         {   LispObject v = packext_(p);
@@ -1511,20 +1589,20 @@ LispObject iintern(LispObject str, size_t h, LispObject p, int str_is_ok)
 #endif
         LispObject s = get_symbol(false);
         pop(p);
-        qheader(s) = TAG_HDR_IMMED+TYPE_SYMBOL;
+        setheader(s, TAG_HDR_IMMED+TYPE_SYMBOL);
 #ifdef COMMON
         if (p == qvalue(keyword_package) && keyword_package != nil)
-        {   qvalue(s) = (LispObject)s;
-            qheader(s) |= SYM_KEYWORD_VAR;
+        {   setvalue(s, s);
+            setheader(s, qheader(s) | SYM_KEYWORD_VAR);
         }
         else
 #endif
-            qvalue(s) = unset_var;
-        qpname(s) = qpname(nil);    // At this stage the pname is a dummy
-        qplist(s) = nil;
-        qfastgets(s) = nil;
-        qpackage(s) = p;
-        qenv(s) = (LispObject)s;
+            setvalue(s, unset_var);
+        setpname(s, qpname(nil)); // At this stage pname is a dummy
+        setplist(s, nil);
+        setfastgets(s, nil);
+        setpackage(s, p);
+        setenv(s, s);
         ifn0(s) = (intptr_t)undefined_0;
         ifn1(s) = (intptr_t)undefined_1;
         ifn2(s) = (intptr_t)undefined_2;
@@ -1543,13 +1621,13 @@ LispObject iintern(LispObject str, size_t h, LispObject p, int str_is_ok)
             add_to_internals(s, p, hash);
         pop(s); pop(str);
 // Now the symbol-head is safe enough that I can let the GC look at it
-        if (str_is_ok != 0) qpname(s) = str;
+        if (str_is_ok != 0) setpname(s, str);
         else
         {   LispObject pn;
             push(s);
             pn = copy_string(str, h);
             pop(s);
-            qpname(s) = pn;
+            setpname(s, pn);
         }
         mv_2 = nil;
         return nvalues((LispObject)s, 2);
@@ -1706,16 +1784,17 @@ LispObject ndelete(LispObject a, LispObject l)
 // Probably useful in various places throughout the system...
 //
 {   if (!consp(l)) return l;
-    if (a == qcar(l)) return qcdr(l);
-    {   LispObject z1 = l, z2 = qcdr(l);
+    if (a == car(l)) return cdr(l);
+    {   LispObject z1 = l, z2 = cdr(l);
         while (consp(z2))
-        {   if (a == qcar(z2))
-            {   qcdr(z1) = qcdr(z2);
+        {   if (a == car(z2))
+            {   setcdr(z1, cdr(z2));
+                write_barrier(cdraddr(z1));
                 return l;
             }
             else
             {   z1 = z2;
-                z2 = qcdr(z2);
+                z2 = cdr(z2);
             }
         }
     }
@@ -1732,7 +1811,7 @@ LispObject Lunintern_2(LispObject env, LispObject sym, LispObject pp)
     package = pp;
 #endif
     if (!is_symbol(sym)) return onevalue(nil);
-    if (qpackage(sym) == package) qpackage(sym) = nil;
+    if (qpackage(sym) == package) setpackage(sym,nil);
 #ifdef COMMON
     packshade_(package) = ndelete(sym, packshade_(package));
 #endif
@@ -1941,9 +2020,9 @@ LispObject Lrds(LispObject env, LispObject a)
     if (a == nil) a = qvalue(terminal_io);
     if (a == old) return onevalue(old);
     else if (!is_stream(a)) aerror1("rds", a);
-    else if (stream_read_fn(a) == char_from_illegal)
+    else if ((character_stream_reader *)stream_read_fn(a) == char_from_illegal)
         aerror("rds"); // closed stream or output stream
-    qvalue(standard_input) = a;
+    setvalue(standard_input, a);
     return onevalue(old);
 }
 
@@ -2102,7 +2181,8 @@ static LispObject read_list(LispObject stream)
                 push(l);
                 w = read_s(stack[-2]);
                 pop(l);
-                qcdr(l) = w;
+                setcdr(l, w);
+                write_barrier(cdraddr(l));
                 skip_whitespace(stack[-1]);
                 if (curchar == ')') curchar = NOT_CHAR;
 //          else error("missing rpar or bad dot");
@@ -2118,7 +2198,7 @@ static LispObject read_list(LispObject stream)
                 }
                 w = ncons(w);
                 pop(l);
-                qcdr(l) = w;
+                cdr(l) = w;
                 l = w;
                 continue;
 #endif
@@ -2127,7 +2207,8 @@ static LispObject read_list(LispObject stream)
                 w = read_s(stack[-2]);
                 w = ncons(w);
                 pop(l);
-                qcdr(l) = w;
+                setcdr(l, w);
+                write_barrier(cdraddr(l));
                 l = w;
                 continue;
         }
@@ -2137,15 +2218,15 @@ static LispObject read_list(LispObject stream)
 static LispObject list_to_vector(LispObject l)
 {   size_t len = 0;
     LispObject p = l;
-    while (consp(p)) len++, p = qcdr(p);
+    while (consp(p)) len++, p = cdr(p);
     push(l);
     p = get_vector_init(CELL*(len+1), nil);
     pop(l);
     len = 0;
     while (consp(l))
-    {   elt(p, len) = qcar(l);
+    {   elt(p, len) = car(l);
         len++;
-        l = qcdr(l);
+        l = cdr(l);
     }
     return p;
 }
@@ -2155,21 +2236,21 @@ static LispObject list_to_vector(LispObject l)
 static bool evalfeature(LispObject u)
 {   LispObject w;
     if (consp(u))
-    {   LispObject fn = qcar(u);
-        u = qcdr(u);
+    {   LispObject fn = car(u);
+        u = cdr(u);
         if (!consp(u)) return false;
-        if (fn == not_symbol) return !evalfeature(qcar(u));
+        if (fn == not_symbol) return !evalfeature(car(u));
         else if (fn == and_symbol)
         {   while (consp(u))
-            {   if (!evalfeature(qcar(u))) return false;
-                u = qcdr(u);
+            {   if (!evalfeature(car(u))) return false;
+                u = cdr(u);
             }
             return true;
         }
         else if (fn == or_symbol)
         {   while (consp(u))
-            {   if (evalfeature(qcar(u))) return true;
-                u = qcdr(u);
+            {   if (evalfeature(car(u))) return true;
+                u = cdr(u);
             }
             return false;
         }
@@ -2177,8 +2258,8 @@ static bool evalfeature(LispObject u)
     }
     w = qvalue(features_symbol);
     while (consp(w))
-    {   if (u == qcar(w)) return true;
-        w = qcdr(w);
+    {   if (u == car(w)) return true;
+        w = cdr(w);
     }
     return false;
 }
@@ -2213,9 +2294,9 @@ static LispObject read_hash(LispObject stream)
             curchar = NOT_CHAR;
             p = reader_workspace;
             while (p != nil)
-            {   LispObject k = qcar(p);
-                if (fixnum_of_int(w) == qcar(k)) return qcdr(k);
-                p = qcdr(p);
+            {   LispObject k = car(p);
+                if (fixnum_of_int(w) == car(k)) return cdr(k);
+                p = cdr(p);
             }
             aerror1("Label not found with #n# syntax", fixnum_of_int(w));
         case '=':
@@ -2246,9 +2327,9 @@ static LispObject read_hash(LispObject stream)
 //
                 al = reader_workspace;
                 while (al != nil)
-                {   LispObject k = qcar(al);
-                    if (base == qcar(k)) return qcdr(k);
-                    al = qcdr(al);
+                {   LispObject k = car(al);
+                    if (base == car(k)) return cdr(k);
+                    al = cdr(al);
                 }
                 push(base);
 //
@@ -2258,7 +2339,7 @@ static LispObject read_hash(LispObject stream)
                 pop(base);
                 al = acons(base, al, reader_workspace);
                 reader_workspace = al;
-                return qcdr(qcar(al));
+                return cdr(car(al));
             }
 
         case '(':       // Simple vector
@@ -2396,23 +2477,23 @@ static LispObject backquote_expander(LispObject a)
     if (a == nil) return a;
     if (!consp(a)) return list2(quote_symbol, a);
     stackcheck(a);
-    f = qcar(a);
+    f = car(a);
 #if 0
 // For quite some while I did not understand what I was supposed to do with
 // nested backquotes, but PSL showed me what was required. Excet that since I
 // expaqnd backquotes while reading I do not need to do this here!
     if (f == backquote_symbol)
-    {   a = backquote_expander(qcar(qcdr(a)));
+    {   a = backquote_expander(car(cdr(a)));
         if (a == nil) return a;
         if (!consp(a)) return list2(quote_symbol, a);
-        f = qcar(a);
+        f = car(a);
     }
 #endif
-    if (f == comma_symbol) return qcar(qcdr(a));
-    if (consp(f) && qcar(f) == comma_at_symbol)
-    {   w1 = qcar(qcdr(f));
+    if (f == comma_symbol) return car(cdr(a));
+    if (consp(f) && car(f) == comma_at_symbol)
+    {   w1 = car(cdr(f));
         push(w1);
-        a = backquote_expander(qcdr(a));
+        a = backquote_expander(cdr(a));
         pop(w1);
         w1 = list2(w1, a);
         return cons(append_symbol, w1);
@@ -2427,7 +2508,7 @@ static LispObject backquote_expander(LispObject a)
     f = backquote_expander(f);
     pop(a);
     push(f);
-    a = backquote_expander(qcdr(a));
+    a = backquote_expander(cdr(a));
     pop(f);
     a = list2(f, a);
     return cons(cons_symbol, a);
@@ -2618,14 +2699,26 @@ static LispObject read_s(LispObject stream)
                     if (curchar > 0xff || !isdigit(curchar))
                         return intern(boffop, false);
                 }
-                while (curchar <= 0xff && isdigit(curchar))
+                bool ishex = false, isnew = false;
+// The mess here should allow  nnnnnn  0Xxxxxxxx 0Znnnnnnn where n denotes
+// 0..9 and x denotes 0..9a..fA..F.
+// The "0z" notation is a TEMPORARY provision while I work on an upgraded
+// arithmetic package.
+                while (curchar <= 0xff &&
+                    (isdigit(curchar) ||
+                     ((boffop == 1 &&
+                       boffo_char(0)=='0' &&
+                       (((curchar=='x' || curchar=='X') && (ishex=true)) ||
+                        ((curchar=='z' || curchar=='Z') && (isnew=true))))) ||
+                     (ishex && (('a'<=curchar && curchar<='f') ||
+                                ('A'<=curchar && curchar<='F')))))
                 {   push(stream);
                     packcharacter(curchar);  // Should be '0 to '9' (only)
                     pop(stream);
                     curchar = getc_stream(stream);
                 }
 // accept possible decimal point
-                if (curchar == '.')
+                if (!ishex && curchar == '.')
                 {   push(stream);
                     packcharacter(curchar);
                     pop(stream);
@@ -2638,13 +2731,14 @@ static LispObject read_s(LispObject stream)
                     }
                 }
 // accept possible exponent
-                if (curchar == 'e' || curchar == 'E' ||
+                if (!ishex &&
+                    (curchar == 'e' || curchar == 'E' ||
 // Extend syntax to support more exponent signifiers. This is a change so
 // that e.g "1.23D45" will now be parsed as one symbol not two.
-                    curchar == 's' || curchar == 'S' ||
-                    curchar == 'f' || curchar == 'F' ||
-                    curchar == 'd' || curchar == 'D' ||
-                    curchar == 'l' || curchar == 'L')
+                     curchar == 's' || curchar == 'S' ||
+                     curchar == 'f' || curchar == 'F' ||
+                     curchar == 'd' || curchar == 'D' ||
+                     curchar == 'l' || curchar == 'L'))
                 {   push(stream);
                     packcharacter(curchar);
                     pop(stream);
@@ -2662,7 +2756,11 @@ static LispObject read_s(LispObject stream)
                         curchar = getc_stream(stream);
                     }
                 }
-                return intern(boffop, false);
+                if (ishex) return intern_hex(boffop);
+#ifdef ARITHLIB
+                else if (isnew) return intern_new(boffop);
+#endif
+                else return intern(boffop, false);
             }
 
             case '_':       // This seems to have to be a funny case for REDUCE
@@ -2850,15 +2948,15 @@ int char_from_concatenated(LispObject stream)
 {   LispObject l = stream_read_data(stream), s1;
     int c;
     while (consp(l))
-    {   s1 = qcar(l);
+    {   s1 = car(l);
         if (!is_symbol(s1))
-        {   l = qcdr(l);
+        {   l = cdr(l);
             stream_read_data(stream) = l;
             continue;
         }
         s1 = qvalue(s1);
         if (!is_stream(s1))
-        {   l = qcdr(l);
+        {   l = cdr(l);
             stream_read_data(stream) = l;
             continue;
         }
@@ -2866,7 +2964,7 @@ int char_from_concatenated(LispObject stream)
         c = getc_stream(s1);
         pop(stream, l);
         if (c == EOF)
-        {   l = qcdr(l);
+        {   l = cdr(l);
             stream_read_data(stream) = l;
             continue;
         }
@@ -2938,7 +3036,7 @@ int32_t read_action_file(int32_t op, LispObject f)
     else if (op <= 0x10ffff) return (stream_pushed_char(f) = op);
     else switch (op)
         {   case READ_CLOSE:
-                if (stream_file(f) == NULL) op = 0;
+                if ((FILE *)stream_file(f) == NULL) op = 0;
                 else op = fclose(stream_file(f));
                 set_stream_read_fn(f, char_from_illegal);
                 set_stream_read_other(f, read_action_illegal);
@@ -3014,8 +3112,8 @@ int32_t read_action_concatenated(int32_t c, LispObject f)
     LispObject l, f1;
     l = stream_read_data(f);
     while (consp(l))
-    {   f1 = qcar(l);
-        l = qcdr(l);
+    {   f1 = car(l);
+        l = cdr(l);
         if (!is_symbol(f1)) continue;
         f1 = qvalue(f1);
         if (!is_stream(f1)) continue;
@@ -3200,8 +3298,8 @@ int char_from_list(LispObject f)
             {   kilo = 0;
                 io_now++;
             }
-            ch = qcar(stream_read_data(f));
-            stream_read_data(f) = qcdr(stream_read_data(f));
+            ch = car(stream_read_data(f));
+            stream_read_data(f) = cdr(stream_read_data(f));
         }
 //
 // here I tend towards generosity - a symbol stands for the first character
@@ -3227,7 +3325,7 @@ int char_from_list(LispObject f)
 int char_from_vector(LispObject f)
 {   LispObject ch = stream_pushed_char(f);
     if (ch == NOT_CHAR)
-    {   unsigned char *v = (unsigned char *)stream_file(f);
+    {   unsigned char *v = (unsigned char *)(FILE *)stream_file(f);
         if (v == NULL) ch = EOF;
         else
         {   if (++kilo >= 1024)
@@ -3295,7 +3393,7 @@ LispObject Llist_to_string(LispObject env, LispObject stream)
     set_stream_read_fn(lisp_work_stream, char_from_list);
     set_stream_read_other(lisp_work_stream, read_action_list);
     stream_pushed_char(lisp_work_stream) = NOT_CHAR;
-    while (consp(stream)) n++, stream = qcdr(stream);
+    while (consp(stream)) n++, stream = cdr(stream);
     str = get_basic_vector(TAG_VECTOR, TYPE_STRING_4, n);
     s = (char *)str + CELL - TAG_VECTOR;
     for (k=CELL; k<n; k++) *s++ = (char)char_from_list(lisp_work_stream);
@@ -3666,8 +3764,8 @@ LispObject Lrdf3(LispObject env, LispObject file, LispObject noisy, LispObject v
 
 LispObject Lrdfn(LispObject env, LispObject file, LispObject noisy,
         LispObject verbose, LispObject nofile)
-{   if (qcdr(nofile) != nil) aerror("too many args for rdf/load");
-    nofile = qcar(nofile);
+{   if (cdr(nofile) != nil) aerror("too many args for rdf/load");
+    nofile = car(nofile);
     return Lrdf4(env, file, noisy, verbose, nofile);
 }
 
@@ -3792,18 +3890,18 @@ static LispObject Lfind_package(LispObject env, LispObject name)
     name = want_a_string(name);
     h = vechdr(name);
     len = length_of_byteheader(h) - CELL;
-    for (w = all_packages; w!=nil; w=qcdr(w))
-    {   LispObject nn, n = packname_(qcar(w));
+    for (w = all_packages; w!=nil; w=cdr(w))
+    {   LispObject nn, n = packname_(car(w));
         if (is_vector(n) && vechdr(n) == h &&
             memcmp((char *)name + (CELL-TAG_VECTOR),
                    (char *)n + (CELL-TAG_VECTOR), (size_t)len) == 0)
-            return onevalue(qcar(w));
-        for (nn = packnick_(qcar(w)); nn!=nil; nn=qcdr(nn))
-        {   n = qcar(nn);
+            return onevalue(car(w));
+        for (nn = packnick_(car(w)); nn!=nil; nn=cdr(nn))
+        {   n = car(nn);
             if (!is_vector(n) || vechdr(n) != h) continue;
             if (memcmp((char *)name + (CELL-TAG_VECTOR),
                        (char *)n + (CELL-TAG_VECTOR), (size_t)len) == 0)
-                return onevalue(qcar(w));
+                return onevalue(car(w));
         }
     }
     return onevalue(nil);
@@ -3816,20 +3914,20 @@ LispObject find_package(char *name, int len)
 // call from the middle of other things...
 //
 {   LispObject w;
-    for (w = all_packages; w!=nil; w=qcdr(w))
-    {   LispObject nn, n = packname_(qcar(w));
+    for (w = all_packages; w!=nil; w=cdr(w))
+    {   LispObject nn, n = packname_(car(w));
         if (is_vector(n) &&
             length_of_byteheader(vechdr(n))==(uint32_t)(len+CELL) &&
             memcmp(name, (char *)n + (CELL-TAG_VECTOR), (size_t)len) == 0)
-            return qcar(w);
-        for (nn = packnick_(qcar(w)); nn!=nil; nn=qcdr(nn))
-        {   n = qcar(nn);
+            return car(w);
+        for (nn = packnick_(car(w)); nn!=nil; nn=cdr(nn))
+        {   n = car(nn);
             if (!is_vector(n) ||
                 length_of_byteheader(vechdr(n)) != (uint32_t)(len+CELL))
                 continue;
             if (memcmp(name,
                        (char *)n + (CELL-TAG_VECTOR), (size_t)len) == 0)
-                return qcar(w);
+                return car(w);
         }
     }
     return nil;
@@ -3843,9 +3941,9 @@ static LispObject Luse_package(LispObject env, LispObject uses, LispObject pkg)
     if (consp(uses))
     {   while (consp(uses))
         {   push(uses, pkg);
-            Luse_package(nil, qcar(uses), pkg);
+            Luse_package(nil, car(uses), pkg);
             pop(pkg, uses);
-            uses = qcdr(uses);
+            uses = cdr(uses);
         }
     }
     else
@@ -3886,11 +3984,11 @@ static LispObject Lmake_package(LispObject env, LispObject name, LispObject k1,
 {   LispObject nicknames = nil, uses = nil, w = nil
     bool has_nicknames = false, has_use = false;
     LispObject k2 = nil, v2 = nil;
-    k2 = qcar(kv2);
-    kv2 = qcdr(kv2);
+    k2 = car(kv2);
+    kv2 = cdr(kv2);
     if (kv2 == nil) aerror("wrong number of arguments for make-package");
-    v2 = qcar(kv2);
-    kv2 = qcdr(kv2);
+    v2 = car(kv2);
+    kv2 = cdr(kv2);
     if (kv2 != nil) aerror("wrong number of arguments for make-package");    if (k1 == nicknames_symbol) nicknames = v1;
     if (k1 == nicknames_symbol) nicknames = v1, has_nicknames = true;
     else if (k1 == use_symbol) uses = v1, has_uses = true;
@@ -3943,16 +4041,16 @@ static LispObject Lmake_package(LispObject env, LispObject name, LispObject k1,
     while (consp(stack[0]))
     {   w = stack[0];
         push(uses);
-        w = want_a_string(qcar(w));
+        w = want_a_string(car(w));
         pop(uses);
         uses = cons(w, uses);
-        stack[0] = qcdr(stack[0]);
+        stack[0] = cdr(stack[0]);
     }
     nicknames = nil;
     while (uses != nil)
     {   w = uses;
-        uses = qcdr(w);
-        qcdr(w) = nicknames;
+        uses = cdr(w);
+        cdr(w) = nicknames;
         nicknames = w;
     }
     popv(1);
@@ -4009,12 +4107,12 @@ LispObject Lreadbyte(LispObject env, LispObject stream)
     bool force = force_echo;
     force_echo = nil;
     if (!is_stream(stream)) aerror0("readb requires an appropriate stream");
-    qvalue(echo_symbol) = nil;
+    setvalue(echo_symbol, nil);
     raw_input = 1;
     ch = getc_stream(stream);
     raw_input = 0;
     force_echo = force;
-    qvalue(echo_symbol) = save;
+    setvalue(echo_symbol, save);
 //
 // At one stage this code treated ^D as an end-of file marker - that is
 // most nasty for binary files! The code should now be more transparent.
@@ -4163,6 +4261,8 @@ setup_type const read_setup[] =
     {"unintern",                G0Wother, Lunintern, Lunintern_2, G3Wother, G4Wother},
     {"remob",                   G0Wother, Lunintern, Lunintern_2, G3Wother, G4Wother},
     {"make-symbol",             G0W1, Lmake_symbol, G2W1, G3W1, G4W1},
+    {"symbols-in",              G0W1, Lsymbols_in, G2W1, G3W1, G4W1},
+    {"validate-package",        Lvalidate_package, Lvalidate_package, G2W1, G3W1, G4W1},
 #ifdef COMMON
 // The package system...
     {"extern",                  G0Wother, Lextern_1, Lextern, G3Wother, G4Wother},

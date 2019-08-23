@@ -1,11 +1,11 @@
-//  arith08.cpp                            Copyright (C) 1990-2017 Codemist
+//  arith08.cpp                            Copyright (C) 1990-2019 Codemist
 
 //
 // Arithmetic functions.
 //
 
 /**************************************************************************
- * Copyright (C) 2017, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -34,7 +34,7 @@
  *************************************************************************/
 
 
-// $Id: arith08.cpp 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: arith08.cpp 5076 2019-08-11 10:00:15Z arthurcnorman $
 
 #include "headers.h"
 
@@ -112,12 +112,12 @@ static LispObject Lbyte(LispObject env, LispObject a, LispObject b)
 
 static LispObject Lbyte_position(LispObject env, LispObject a)
 {   if (!consp(a)) aerror1("byte-position", a);
-    else return onevalue(qcdr(a));
+    else return onevalue(cdr(a));
 }
 
 static LispObject Lbyte_size(LispObject env, LispObject a)
 {   if (!consp(a)) aerror1("byte-size", a);
-    else return onevalue(qcar(a));
+    else return onevalue(car(a));
 }
 
 static LispObject Lcomplex_2(LispObject env, LispObject a, LispObject b)
@@ -214,8 +214,8 @@ LispObject Lgcd_4up(LispObject env, LispObject a1, LispObject a2,
     a1 = gcd(a1, a3);
     while (stack[0] != nil)
     {   a2 = stack[0];
-        a3 = qcar(a2);
-        stack[0] = qcdr(a2);
+        a3 = car(a2);
+        stack[0] = cdr(a2);
         a1 = gcd(a1, a3);
     }
     popv(1);
@@ -265,8 +265,8 @@ LispObject Llcm_4up(LispObject env, LispObject a1, LispObject a2,
     a1 = lcm(a1, a3);
     while (stack[0] != nil)
     {   a2 = stack[0];
-        a3 = qcar(a2);
-        stack[0] = qcdr(a2);
+        a3 = car(a2);
+        stack[0] = cdr(a2);
         a1 = lcm(a1, a3);
     }
     popv(1);
@@ -315,7 +315,7 @@ LispObject decode_long_float(LispObject a)
         f128M_set_exponent(&d, 0x3fff);
     }
     LispObject sign = make_boxfloat128(f128_1);
-    if (neg) f128M_negate(long_float_addr(sign));
+    if (neg) f128M_negate((float128_t *)long_float_addr(sign));
     push(sign);
     a = make_boxfloat128(d);
     pop(sign);
@@ -389,7 +389,7 @@ static LispObject Lfp_infinite(LispObject env, LispObject a)
             {
 #ifdef HAVE_SOFTFLOAT
                 case TYPE_LONG_FLOAT:
-                    if (f128M_infinite(&long_float_val(a)))
+                    if (f128M_infinite((float128_t *)&long_float_val(a)))
                         return onevalue(lisp_true);
                     return onevalue(nil);
 #endif // HAVE_SOFTFLOAT
@@ -425,7 +425,7 @@ static LispObject Lfp_nan(LispObject env, LispObject a)
                     return onevalue(nil);
 #ifdef HAVE_SOFTFLOAT
                 case TYPE_LONG_FLOAT:
-                    if (f128M_nan(&long_float_val(a)))
+                    if (f128M_nan((float128_t *)&long_float_val(a)))
                         return onevalue(lisp_true);
                     return onevalue(nil);
 #endif // HAVE_SOFTFLOAT
@@ -452,7 +452,7 @@ static LispObject Lfp_finite(LispObject env, LispObject a)
             {
 #ifdef HAVE_SOFTFLOAT
                 case TYPE_LONG_FLOAT:
-                    if (f128M_finite(&long_float_val(a)))
+                    if (f128M_finite((float128_t *)&long_float_val(a)))
                         return onevalue(lisp_true);
                     return onevalue(nil);
 #endif // HAVE_SOFTFLOAT
@@ -492,14 +492,14 @@ static LispObject Lfp_subnorm(LispObject env, LispObject a)
                     }
 #ifdef HAVE_SOFTFLOAT
                 case TYPE_LONG_FLOAT:
-                    if (f128M_subnorm(&long_float_val(a)))
+                    if (f128M_subnorm((float128_t *)&long_float_val(a)))
                         return onevalue(lisp_true);
                     return onevalue(nil);
 #endif // HAVE_SOFTFLOAT
                 case TYPE_DOUBLE_FLOAT:
                     if (double_float_val(a) == 0.0) return onevalue(nil);
                     {   Double_union ff;
-                        ff.f = double_float_val(a);
+                        ff.f = (double)double_float_val(a);
                         if (ff.f == 0.0) return onevalue(nil);
                         uint64_t x = ff.i64 & UINT64_C(0x7ff0000000000000);
                         return onevalue(x == 0 ? lisp_true : nil);
@@ -537,7 +537,7 @@ static LispObject Lfp_signbit(LispObject env, LispObject a)
 #endif
 #ifdef HAVE_SOFTFLOAT
                 case TYPE_LONG_FLOAT:
-                    return onevalue(f128M_negative(&long_float_val(a)) ?
+                    return onevalue(f128M_negative((float128_t *)&long_float_val(a)) ?
                                     lisp_true : nil);
 #endif // HAVE_SOFTFLOAT
                 case TYPE_DOUBLE_FLOAT:
@@ -545,7 +545,7 @@ static LispObject Lfp_signbit(LispObject env, LispObject a)
                     return onevalue(signbit(double_float_val(a)) ? lisp_true : nil);
 #else
                     {   Double_union ff;
-                        ff.f = double_float_val(a);
+                        ff.f = (double)double_float_val(a);
                         return onevalue((int64_t)ff.i64 < 0 ? lisp_true : nil);
                     }
 #endif
@@ -789,8 +789,68 @@ static LispObject Llogbitp(LispObject env, LispObject a1, LispObject a2)
     else aerror1("logbitp", a2);
 }
 
+
+#ifdef __GNUC__
+
+// Note that __GNUC__ also gets defined by clang on the Macintosh, so
+// this code is probably optimized there too. This must NEVER be called
+// with a zero argument.
+
+// Count the leading zeros in a 64-bit word.
+
+inline int nlz(uint64_t x)
+{   return __builtin_clzll(x);  // Must use the 64-bit version of clz.
+}
+
+inline int popcount(uint64_t x)
+{   return __builtin_popcountll(x);
+}
+
+#else // __GNUC__
+
+inline int nlz(uint64_t x)
+{   int n = 0;
+    if (x <= 0x00000000FFFFFFFFU) {n = n +32; x = x <<32;}
+    if (x <= 0x0000FFFFFFFFFFFFU) {n = n +16; x = x <<16;}
+    if (x <= 0x00FFFFFFFFFFFFFFU) {n = n + 8; x = x << 8;}
+    if (x <= 0x0FFFFFFFFFFFFFFFU) {n = n + 4; x = x << 4;}
+    if (x <= 0x3FFFFFFFFFFFFFFFU) {n = n + 2; x = x << 2;}
+    if (x <= 0x7FFFFFFFFFFFFFFFU) {n = n + 1;}
+    return n;
+}
+
+
+inline int popcount(uint64_t x)
+{   x = (x & 0x5555555555555555U) + (x >> 1 & 0x5555555555555555U);
+    x = (x & 0x3333333333333333U) + (x >> 2 & 0x3333333333333333U);
+    x = x + (x >> 4) & 0x0f0f0f0f0f0f0f0fU;
+    x = x + (x >> 8);
+    x = x + (x >> 16);
+    x = x + (x >> 32) & 0x7f;
+}
+
+#endif // __GNUC__
+
 static LispObject Llogcount(LispObject env, LispObject a)
-{   aerror("logcount");
+{   if (is_fixnum(a))
+    {   intptr_t n = int_of_fixnum(a);
+        if (a >= 0) return onevalue(fixnum_of_int(popcount(n)));
+        else return onevalue(fixnum_of_int(popcount(~n)));
+    }
+    else if (is_bignum(a))
+    {   size_t len = (length_of_header(numhdr(a)) - CELL)/4;
+        int n = 0;
+        if ((int32_t)bignum_digits(a)[len-1] < 0)
+        {   for (size_t i=0; i<len; i++)
+                n += popcount(~bignum_digits(a)[i]);
+        }
+        else
+        {   for (size_t i=0; i<len; i++)
+                n += popcount(bignum_digits(a)[i]);
+        }
+        return onevalue(fixnum_of_int(n));
+    }
+    else aerror1("bad argument to logcount", a);
 }
 
 static LispObject Llogtest(LispObject env, LispObject a1, LispObject a2)
@@ -850,7 +910,7 @@ static LispObject Lscale_float(LispObject env, LispObject a, LispObject b)
 // double precision version.
 
 static LispObject lisp_fix_sub128(LispObject a, int roundmode)
-{   float128_t *d = long_float_addr(a);
+{   float128_t *d = (float128_t *)long_float_addr(a);
     if (f128M_nan(d)) aerror("NaN in fix");
     if (f128M_infinite(d)) aerror("infinity in fix");
     int x = f128M_exponent(d);

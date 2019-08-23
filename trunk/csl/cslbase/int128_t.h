@@ -33,7 +33,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: int128_t.h 4986 2019-05-08 16:38:47Z arthurcnorman $
+// $Id: int128_t.h 5094 2019-08-20 19:14:47Z arthurcnorman $
 
 // This header provides a shallow abstraction for signed 128-bit integers.
 // In the easy case it uses a built-in type, in the hard case it maps
@@ -91,10 +91,10 @@ inline int128_t ASR128(int128_t a, int n)
 #else // SIGNED_SHIFTS_ARE_ARITHMETIC
 
 inline int128_t ASR128(int128_t a, int n)
-{   if (n<0 || n>=sizeof(uint128_t)) n = 0;
+{   if (n<0 || n>=(int)sizeof(uint128_t)) n = 0;
     uint128_t r = ((uint128_t)a) >> n;
     uint128_t signbit = ((uint128_t)a) >> (8*sizeof(uint128_t)-1);
-    if (n != 0) r |= ((-signbit) << (8*sizeof(uint128_t) - n);
+    if (n != 0) r |= ((-signbit) << (8*sizeof(uint128_t) - n));
     return (int128_t)r;
 }
 
@@ -121,30 +121,31 @@ inline void divrem128(int128_t a, int128_t b,
 typedef uint128_t int128_t;
 
 inline uint128_t uint128(int128_t v)
-{   uint128_t r;
-    r.UPPER = v.UPPER;
-    r.lower = v.LOWER;
+{   uint128_t r = v;
     return r;
 }
 
 inline uint128_t uint128(int64_t v)
-{   uint128_t r;
-    r.UPPER = 0;
-    r.lower = (uint64_t)v;
+{   uint128_t r = (uint64_t)v;
     return r;
 }
 
 inline uint128_t uint128(uint64_t v)
-{   uint128_t r;
-    r.UPPER = 0;
-    r.lower = (uint64_t)v;
+{   uint128_t r = v;
     return r;
 }
 
+// This MESS is based on me reading the code for uint128_t and hoping that
+// this achieves what I need! Getting values into the top 64-bits is not
+// as easy as I might have hoped!
+
 inline int128_t int128(int64_t v)
-{   int128_t r;
-    r.UPPER = -(uint64_t)(v < 0);
-    r.lower = (uint64_t)v;
+{   int128_t r = (uint64_t)v;
+    if (v < 0)
+    {   int128_t w = -(uint64_t)1;
+        w = w <<64;
+        r = r | w;
+    }
     return r;
 }
 

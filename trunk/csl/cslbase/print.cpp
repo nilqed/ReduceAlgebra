@@ -1,11 +1,11 @@
-//  print.cpp                              Copyright (C) 1990-2017 Codemist
+//  print.cpp                              Copyright (C) 1990-2019 Codemist
 
 //
 // Printing, plus some file-related operations.
 //
 
 /**************************************************************************
- * Copyright (C) 2017, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -33,7 +33,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: print.cpp 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: print.cpp 5075 2019-08-10 20:45:42Z arthurcnorman $
 
 #include "headers.h"
 
@@ -46,6 +46,74 @@
 #include "sockhdr.h"
 #endif
 
+void debugprint(const char *s, LispObject a)
+{   printf("%s", s);
+    debugprint(a);
+}
+
+void debugprint(const char *s)
+{   printf("%s", s);
+    fflush(stdout);
+}
+
+void debugprint1(LispObject a, int depth)
+{   if (depth < 0)
+    {   printf("...");
+    }
+    else if (a==nil)
+    {   printf("nil");
+    }
+    else if (is_fixnum(a))
+    {   printf("%" PRId64, (int64_t)int_of_fixnum(a));
+    }
+    else if (is_cons(a))
+    {   const char *sep = "(";
+        while (is_cons(a) && depth > 0)
+        {   depth--;
+            printf(sep);
+            debugprint1(car(a), depth-1);
+            a = cdr(a);
+            sep = " ";
+        }
+        if (a != nil)
+        {   if (depth > 0)
+            {   printf(" . ");
+                debugprint1(a, depth-1);
+            }
+        }
+        printf(")");
+    }
+    else if (is_symbol(a))
+    {   LispObject pn = qpname(a);
+        if (is_string(pn))
+        {   unsigned int len = (unsigned int)length_of_byteheader(vechdr(pn));
+            if (CELL<len && len < 64) printf("%.*s", (int)(len-CELL), &celt(pn, 0));
+            else printf("<symbol with pname hdr %p>", (void *)vechdr(pn));
+        }
+        else printf("<symbol with odd pname>");
+    }
+    else if (is_vector(a) && type_of_vector(a) == TYPE_SIMPLE_VEC)
+    {   size_t len = cells_in_vector(a);
+        const char *sep = "[";
+        for (size_t i=0; i<len; i++)
+        {   printf(sep);
+            debugprint1(elt(a, i), depth-1);
+            sep = " ";
+        }
+        printf("]");
+    }
+    else
+    {   printf("@%p@", (void *)a);
+    }
+}
+
+void debugprint(LispObject a, int depth)
+{   printf("%p: ", (void *)a);
+    debugprint1(a, depth);
+    printf("\n");
+    fflush(stdout);
+}
+
 //
 // At present CSL is single threaded - at least as regards file IO - and
 // using the unlocked versions of putc and getc can be a MAJOR saving.
@@ -54,22 +122,22 @@
 //
 
 #ifdef HAVE_GETC_UNLOCKED
-#define GETC(x) getc_unlocked((x))
+#define GETC(x) getc_unlocked((FILE *)(x))
 #else
 #ifdef HAVE__GETC_NOLOCK
-#define GETC(x) _getc_nolock((x))
+#define GETC(x) _getc_nolock((FILE *)(x))
 #else
-#define GETC(x) getc((x))
+#define GETC(x) getc((FILE *)(x))
 #endif
 #endif
 
 #ifdef HAVE_PUTC_UNLOCKED
-#define PUTC(x, y) putc_unlocked((x), (y))
+#define PUTC(x, y) putc_unlocked((x), (FILE *)(y))
 #else
 #ifdef HAVE__PUTC_NOLOCK
-#define PUTC(x, y) _putc_nolock((x), (y))
+#define PUTC(x, y) _putc_nolock((x), (FILE *)(y))
 #else
-#define PUTC(x, y) putc((x), (y))
+#define PUTC(x, y) putc((x), (FILE *)(y))
 #endif
 #endif
 
@@ -219,7 +287,7 @@ int32_t write_action_file(int32_t op, LispObject f)
 {   int32_t w;
     switch (op & 0xf0000000)
     {   case WRITE_CLOSE:
-            if (stream_file(f) == NULL) op = 0;
+            if ((FILE *)stream_file(f) == NULL) op = 0;
             else op = fclose(stream_file(f));
             set_stream_write_fn(f, char_to_illegal);
             set_stream_write_other(f, write_action_illegal);
@@ -603,8 +671,8 @@ LispObject Lget_output_stream_string(LispObject env, LispObject a)
 // /* The list can now contain big characters that need to re-expand to
 // utf-8 form here.
 //
-        celt(a, n) = int_of_fixnum(qcar(w));
-        w = qcdr(w);
+        celt(a, n) = int_of_fixnum(car(w));
+        w = cdr(w);
     }
     return a;
 }
@@ -711,7 +779,7 @@ int char_to_file(int c, LispObject stream)
     if (c == '\n' || c == '\f')
         stream_char_pos(stream) = stream_byte_pos(stream) = 0;
     else if (c == '\t')
-    {   stream_char_pos(stream) = (stream_char_pos(stream) + 8) & ~7;
+    {   stream_char_pos(stream) = ((int)stream_char_pos(stream) + 8) & ~7;
         stream_byte_pos(stream)++;
     }
     else if ((c & 0xc0) == 0x80) stream_byte_pos(stream)++;
@@ -739,8 +807,8 @@ int char_to_broadcast(int c, LispObject f)
 {   LispObject l = stream_write_data(f);
     int r = 0;
     while (consp(l))
-    {   f = qcar(l);
-        l = qcdr(l);
+    {   f = car(l);
+        l = cdr(l);
         if (!is_symbol(f)) continue;
         f = qvalue(f);
         if (!is_stream(f)) continue;
@@ -770,8 +838,8 @@ int32_t write_action_broadcast(int32_t c, LispObject f)
 {   int r = 0, r1;
     LispObject l = stream_write_data(f), f1;
     while (consp(l))
-    {   f1 = qcar(l);
-        l = qcdr(l);
+    {   f1 = car(l);
+        l = cdr(l);
         if (!is_symbol(f1)) continue;
         f1 = qvalue(f1);
         if (!is_stream(f1)) continue;
@@ -797,7 +865,7 @@ int char_to_pipeout(int c, LispObject stream)
         stream_byte_pos(stream) = stream_char_pos(stream) = 0;
     else if (c == '\t')
     {   stream_byte_pos(stream)++;
-        stream_char_pos(stream) = (stream_char_pos(stream) + 8) & ~7;
+        stream_char_pos(stream) = ((int)stream_char_pos(stream) + 8) & ~7;
     }
     else if ((c & 0xc0) == 0x80) stream_byte_pos(stream)++;
     else
@@ -829,7 +897,7 @@ int32_t read_action_pipe(int32_t op, LispObject f)
     else if (op <= 0xffff) return (stream_pushed_char(f) = op);
     else switch (op)
         {   case READ_CLOSE:
-                if (stream_file(f) == NULL) op = 0;
+                if ((FILE *)stream_file(f) == NULL) op = 0;
                 else my_pclose(stream_file(f));
                 set_stream_read_fn(f, char_from_illegal);
                 set_stream_read_other(f, read_action_illegal);
@@ -863,7 +931,7 @@ const char *get_string_data(LispObject name, const char *why, size_t &len)
     else if (!is_vector(name)) aerror1(why, name);
     else if (!is_string_header(h = vechdr(name))) aerror1(why, name);
     len = length_of_byteheader(h) - CELL;
-    return &celt(name, 0);
+    return (const char *)&celt(name, 0);
 }
 
 static LispObject Lfiledate(LispObject env, LispObject name)
@@ -1223,13 +1291,13 @@ LispObject Lwrs(LispObject env, LispObject a)
     if (a == nil) a = qvalue(terminal_io);
     if (a == old) return onevalue(old);
     else if (!is_stream(a)) aerror1("wrs", a);
-    else if (stream_write_fn(a) == char_to_illegal)
+    else if ((character_stream_writer *)stream_write_fn(a) == char_to_illegal)
 #ifdef COMMON
         a = qvalue(terminal_io);
 #else
         aerror("wrs (closed or input file)"); // closed file or input file
 #endif
-    qvalue(standard_output) = a;
+    setvalue(standard_output, a);
     return onevalue(old);
 }
 
@@ -1242,9 +1310,9 @@ LispObject Lclose(LispObject env, LispObject a)
         a == lisp_terminal_io) return onevalue(nil);
     else if (!is_stream(a)) aerror1("close", a);
     if (a == qvalue(standard_input))
-        qvalue(standard_input) = lisp_terminal_io;
+        setvalue(standard_input, lisp_terminal_io);
     else if (a == qvalue(standard_output))
-        qvalue(standard_output) = lisp_terminal_io;
+        setvalue(standard_output, lisp_terminal_io);
     other_read_action(READ_CLOSE, a);
     other_write_action(WRITE_CLOSE, a);
 #ifdef COMMON
@@ -1306,9 +1374,9 @@ LispObject Lmath_display(LispObject env, LispObject a)
 // mode). I do NOT allow for broadcast streams. I then check if the current
 // output stream would end up executing char_to_terminal to write a character.
 //
-        while (stream_write_fn(std) == char_to_synonym)
+        while ((character_stream_writer *)stream_write_fn(std) == char_to_synonym)
             std = stream_write_data(std);
-        if (stream_write_fn(std) != char_to_terminal) return onevalue(nil);
+        if ((character_stream_writer *)stream_write_fn(std) != char_to_terminal) return onevalue(nil);
 //
 // Now I believe I am attached to a screen that can display maths.
 //
@@ -1542,7 +1610,7 @@ LispObject Lrename_file(LispObject env, LispObject from, LispObject to)
     push(from);
     to_w = get_string_data(to, "rename-file", to_len);
     pop(from);
-    from_w = &celt(from, 0);
+    from_w = (const char *)&celt(from, 0);
     if (to_len >= sizeof(to_name)) to_len = sizeof(to_name);
 
     to_len = rename_file(from_name, from_w, (size_t)from_len,
@@ -1900,15 +1968,15 @@ restart:
             push(u);
             outprefix(blankp, 1);
             putc_stream('(', active_stream);
-            internal_prin(qcar(stack[0]), 0);
+            internal_prin(car(stack[0]), 0);
             w = stack[0];
-            while (is_cons(w = qcdr(w)) && w != 0)
+            while (is_cons(w = cdr(w)) && w != 0)
             {
 #ifdef COMMON
                 if (w == nil) break;    // Again BEWARE the tag code of NIL
 #endif
                 stack[0] = w;
-                internal_prin(qcar(w), 1);
+                internal_prin(car(w), 1);
                 w = stack[0];
             }
             if (w != nil)
@@ -2405,7 +2473,7 @@ restart:
                 case TYPE_SP:
                     pop(u);
                     sprintf(my_buff, "#<closure: %p>",
-                            (void *)elt(u, 0));
+                            (void *)(LispObject)elt(u, 0));
                     goto print_my_buff;
 
 #if 0
@@ -2477,9 +2545,9 @@ restart:
 // I suppose that really I need to deal with non-simple bitvectors too.
 // And generally get Common Lisp style array printing "right".
 //
-                    if (consp(dims) && !consp(qcdr(dims)) &&
+                    if (consp(dims) && !consp(cdr(dims)) &&
                         elt(stack[0], 0) == string_char_sym)
-                    {   len = int_of_fixnum(qcar(dims));
+                    {   len = int_of_fixnum(car(dims));
                         dims = elt(stack[0], 5);   // Fill pointer
                         if (is_fixnum(dims)) len = int_of_fixnum(dims);
                         stack[0] = elt(stack[0], 2);
@@ -2599,7 +2667,7 @@ restart:
                     putc_stream('#', active_stream); putc_stream('V', active_stream);
                     putc_stream('8', active_stream); putc_stream('(', active_stream);
                     for (k=0; k<len; k++)
-                    {   sprintf(my_buff, "%d", scelt(stack[0], k));
+                    {   sprintf(my_buff, "%d", (int)scelt(stack[0], k));
                         prin_buf(my_buff, k != 0);
                     }
                     outprefix(false, 1);
@@ -2613,7 +2681,7 @@ restart:
                     putc_stream('#', active_stream); putc_stream('V', active_stream);
                     putc_stream('1', active_stream); putc_stream('6', active_stream); putc_stream('(', active_stream);
                     for (k=0; k<len; k++)
-                    {   sprintf(my_buff, "%d", helt(stack[0], k));
+                    {   sprintf(my_buff, "%d", (int)helt(stack[0], k));
                         prin_buf(my_buff, k != 0);
                     }
                     outprefix(false, 1);
@@ -2710,7 +2778,7 @@ restart:
             {   if ((qheader(u) & (SYM_CODEPTR+SYM_ANY_GENSYM)) == SYM_ANY_GENSYM)
                 {   LispObject al = stream_write_data(active_stream);
                     while (al != nil &&
-                           qcar(qcar(al)) != u) al = qcdr(al);
+                           car(car(al)) != u) al = cdr(al);
                     pop(u);
                     if (al == nil)
                     {   al = acons(u, fixnum_of_int(local_gensym_count),
@@ -2718,7 +2786,7 @@ restart:
                         local_gensym_count++;
                         stream_write_data(active_stream) = al;
                     }
-                    al = qcdr(qcar(al));
+                    al = cdr(car(al));
                     sprintf(my_buff, "#G%lx", (long)int_of_fixnum(al));
                     break;
                 }
@@ -3113,12 +3181,12 @@ restart:
                     else if (escaped_printing & escape_hex)
                     {   uint32_t *p = (uint32_t *)&single_float_val(u);
                         sprintf(my_buff, "{%.8" PRIx32 ":%#.8g}",
-                            p[0], single_float_val(u));
+                            p[0], (double)single_float_val(u));
                     }
                     else if (escaped_printing & escape_octal)
                     {   uint32_t *p = (uint32_t *)&double_float_val(u);
                         sprintf(my_buff, "{%.11" PRIo32 ":%#.8g}",
-                                p[0], single_float_val(u));
+                                p[0], (double)single_float_val(u));
                     }
                     else fp_sprint(my_buff,
                         (double)single_float_val(u), print_precision, 'f');
@@ -3138,18 +3206,18 @@ restart:
                         sprintf(my_buff,
                             "{%.8" PRIx32 "/%.8" PRIx32 ":%#.15g}",
 #ifdef LITTLEENDIAN
-                            p[1], p[0], double_float_val(u));
+                            p[1], p[0], (double)double_float_val(u));
 #else
-                            p[0], p[1], double_float_val(u));
+                            p[0], p[1], (double)double_float_val(u));
 #endif
                     }
                     else if (escaped_printing & escape_octal)
                     {   uint32_t *p = (uint32_t *)&double_float_val(u);
                         sprintf(my_buff, "{%.11" PRIo32 "/%.11" PRIo32 ":%#.8g}",
 #ifdef LITTLEENDIAN
-                            p[1], p[0], double_float_val(u));
+                            p[1], p[0], (double)double_float_val(u));
 #else
-                            p[0], p[1], double_float_val(u));
+                            p[0], p[1], (double)double_float_val(u));
 #endif
                     }
                     else fp_sprint(my_buff, double_float_val(u),
@@ -3181,7 +3249,7 @@ restart:
                         o += sprintf(o, "/%.8" PRIx32, p[3]);
 #endif
                         *o++ = ':';
-                        o += f128M_sprint_G(o, 0, 34, &long_float_val(u));
+                        o += f128M_sprint_G(o, 0, 34, (float128_t *)&long_float_val(u));
                         *o++ = '}';
                         *o = 0;
                     }
@@ -3200,7 +3268,7 @@ restart:
                         o += sprintf(o, "/%.11" PRIo32, p[3]);
 #endif
                         *o++ = ':';
-                        o += f128M_sprint_G(o, 0, 34, &long_float_val(u));
+                        o += f128M_sprint_G(o, 0, 34, (float128_t *)&long_float_val(u));
                         *o++ = '}';
                         *o = 0;
                     }
@@ -3211,7 +3279,7 @@ restart:
                     break;
 #endif // HAVE_SOFTFLOAT
                 default:
-                    sprintf(my_buff, "?%.8lx?", (long)(uint32_t)u);
+                    sprintf(my_buff, "?%p?", (void *)u);
                     break;
             }
         float_print_tidyup:   // label to join in from short float printing
@@ -3236,6 +3304,26 @@ restart:
                                  (escaped_printing & escape_nolinebreak) || tmprint_flag);
                 return;
             }
+#ifdef ARITHLIB
+            if (is_new_bignum(u))
+            {   if (escaped_printing & escape_hex)
+                    print_newbighexoctbin(u, 16, escape_width(escaped_printing),
+                                          blankp,
+                                          (escaped_printing & escape_nolinebreak) || tmprint_flag);
+                else if (escaped_printing & escape_octal)
+                    print_newbighexoctbin(u, 8, escape_width(escaped_printing),
+                                          blankp,
+                                          (escaped_printing & escape_nolinebreak) || tmprint_flag);
+                else if (escaped_printing & escape_binary)
+                    print_newbighexoctbin(u, 2, escape_width(escaped_printing),
+                                          blankp,
+                                          (escaped_printing & escape_nolinebreak) || tmprint_flag);
+                else
+                    print_newbignum(u, blankp,
+                                    (escaped_printing & escape_nolinebreak) || tmprint_flag);
+                return;
+            }
+#endif
             else if (is_ratio(u))
             {   push(u);
 //
@@ -3266,7 +3354,7 @@ restart:
         // Else drop through to treat as an error
         default:
         error_case:
-            sprintf(my_buff, "?%.8lx?", (long)(uint32_t)u);
+            sprintf(my_buff, "?%p?", (void *)u);
             break;
     }
 print_my_buff:
@@ -3377,10 +3465,10 @@ void loop_print_error(LispObject o)
 {   LispObject w = qvalue(standard_output);
     push(w);
     if (is_stream(qvalue(error_output)))
-        qvalue(standard_output) = qvalue(error_output);
+        setvalue(standard_output, qvalue(error_output));
     loop_print_stdout(o);
     pop(w);
-    qvalue(standard_output) = w;
+    setvalue(standard_output, w);
 #ifdef COMMON
 //
 // This is to help me debug in the face of low level system crashes
@@ -3394,14 +3482,12 @@ void loop_print_trace(LispObject o)
     LispObject w = qvalue(standard_output);
     push(w);
     if (is_stream(qvalue(trace_output)))
-        qvalue(standard_output) = qvalue(trace_output);
+        setvalue(standard_output, qvalue(trace_output));
     loop_print_stdout(o);
     pop(w);
-    qvalue(standard_output) = w;
+    setvalue(standard_output, w);
 #ifdef COMMON
-//
 // This is to help me debug in the face of low level system crashes
-//
     if (spool_file) fflush(spool_file);
 #endif
 }
@@ -3410,30 +3496,30 @@ void loop_print_debug(LispObject o)
 {   LispObject w = qvalue(standard_output);
     push(w);
     if (is_stream(qvalue(debug_io)))
-        qvalue(standard_output) = qvalue(debug_io);
+        setvalue(standard_output, qvalue(debug_io));
     loop_print_stdout(o);
     pop(w);
-    qvalue(standard_output) = w;
+    setvalue(standard_output, w);
 }
 
 void loop_print_query(LispObject o)
 {   LispObject w = qvalue(standard_output);
     push(w);
     if (is_stream(qvalue(query_io)))
-        qvalue(standard_output) = qvalue(query_io);
+        setvalue(standard_output, qvalue(query_io));
     loop_print_stdout(o);
     pop(w);
-    qvalue(standard_output) = w;
+    setvalue(standard_output, w);
 }
 
 void loop_print_terminal(LispObject o)
 {   LispObject w = qvalue(standard_output);
     push(w);
     if (is_stream(qvalue(terminal_io)))
-        qvalue(standard_output) = qvalue(terminal_io);
+        setvalue(standard_output, qvalue(terminal_io));
     loop_print_stdout(o);
     pop(w);
-    qvalue(standard_output) = w;
+    setvalue(standard_output, w);
 }
 
 LispObject prinraw(LispObject u)
@@ -3456,16 +3542,26 @@ LispObject prinraw(LispObject u)
         sprintf(b, "%.8x%.8x", (int)hi, (int)lo);
         for (p=b; *p!=0; p++) putc_stream(*p, active_stream);
     }
-    else if (!is_numbers(u) || type_of_header(h = numhdr(u)) != TYPE_BIGNUM)
-    {   for (i=0; i<11; i++)
-            putc_stream("<NotNumber>"[i], active_stream);
-    }
-    else
+    if (is_numbers(u) && type_of_header(h = numhdr(u)) == TYPE_BIGNUM)
     {   len = length_of_header(h);
         for (i=CELL; i<len; i+=4)
-        {   sprintf(b, "%.8x ", bignum_digits(u)[(i-CELL)/4]);
+        {   sprintf(b, "%.8x ", (uint32_t)bignum_digits(u)[(i-CELL)/4]);
             for (p=b; *p!=0; p++) putc_stream(*p, active_stream);
         }
+    }
+#ifdef ARITHLIB
+    else if (is_numbers(u) && type_of_header(h) == TYPE_NEW_BIGNUM)
+    {   len = length_of_header(h);
+        for (i=8; i<len; i+=8)
+        {   sprintf(b, "%.16" PRIx64 " ",
+                *(uint64_t *)((char *)u - TAG_NUMBERS + i));
+            for (p=b; *p!=0; p++) putc_stream(*p, active_stream);
+        }
+    }
+#endif // ARITHLIB
+    else
+    {   for (i=0; i<11; i++)
+            putc_stream("<NotNumber>"[i], active_stream);
     }
     pop(u);
     return u;
@@ -3832,8 +3928,8 @@ static void internal_check(LispObject original_a, LispObject a, int depth, uint6
             original_a, path);
         *(char *)(-1) = 0;
     }
-    internal_check(original_a, qcar(a), depth+1, path<<1);
-    internal_check(original_a, qcdr(a), depth+1, (path<<1)+1);
+    internal_check(original_a, car(a), depth+1, path<<1);
+    internal_check(original_a, cdr(a), depth+1, (path<<1)+1);
 }
 
 LispObject Lcheck_list(LispObject env, LispObject a)
@@ -4050,17 +4146,17 @@ LispObject Ldebug_print(LispObject env, LispObject a)
     h = vechdr(a);
     if (!is_string_header(h)) return Lprint(env, a);
     len = length_of_byteheader(h) - CELL;
-    p = &celt(a, 0);
+    p = (const char *)&celt(a, 0);
     for (i=0; i<len; i++)
     {   push(a);
         putc_stream(p[i], stream);
         pop(a);
-        p = &celt(a, 0);
+        p = (const char  *)&celt(a, 0);
     }
     push(a);
     putc_stream(':', stream);
     pop(a);
-    p = &celt(a, 0);
+    p = (const char *)&celt(a, 0);
     for (; i<doubleword_align_up(len+CELL)-CELL; i++)
     {   int c = p[i] & 0xff;
         push(a);
@@ -4074,7 +4170,7 @@ LispObject Ldebug_print(LispObject env, LispObject a)
         }
         putc_stream(c, stream);
         pop(a);
-        p = &celt(a, 0);
+        p = (const char *)&celt(a, 0);
     }
     putc_stream('\n', stream);
     return onevalue(nil);
@@ -4378,8 +4474,8 @@ static LispObject Lbinary_open_input(LispObject env, LispObject name)
 
 static LispObject Lbinary_select_input(LispObject env, LispObject a)
 {   if (!is_stream(a) ||
-        stream_file(a) == NULL ||
-        stream_write_fn(a) != 0)
+        (FILE *)stream_file(a) == NULL ||
+        (character_stream_writer *)stream_write_fn(a) != 0)
         aerror1("binary-select-input", a); // closed file or output file
 
     binary_infile = stream_file(a);
@@ -4704,8 +4800,8 @@ int char_from_socket(LispObject stream)
 //
         if (sb_start != sb_end) ch = ucelt(w, sb_start++);
         else
-        {   ch = recv((SOCKET)(intptr_t)stream_file(stream),
-                      &celt(w, 4), SOCKET_BUFFER_SIZE, 0);
+        {   ch = recv((SOCKET)(intptr_t)(FILE *)stream_file(stream),
+                      (char *)&celt(w, 4), SOCKET_BUFFER_SIZE, 0);
             if (ch == 0) return EOF;
             if (ch == SOCKET_ERROR)
             {   err_printf("socket read error (%s)\n",
@@ -4733,10 +4829,11 @@ int32_t read_action_socket(int32_t op, LispObject f)
     else if (op <= 0xff) return (stream_pushed_char(f) = op);
     else switch (op)
         {   case READ_CLOSE:
-                if (stream_file(f) == NULL) op = 0;
+                if ((FILE *)stream_file(f) == NULL) op = 0;
                 else
 #ifdef SOCKETS
-                    op = closesocket((SOCKET)(intptr_t)stream_file(f));
+                    op = closesocket(
+                        (SOCKET)(intptr_t)(FILE *)stream_file(f));
 #else
                     op = 0;
 #endif

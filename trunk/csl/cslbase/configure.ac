@@ -5,7 +5,7 @@
 # I guess that this file scan be subject to the same BSD license that
 # applies to almost all other parts of the code here.
 
-# $Id: configure.ac 4992 2019-05-11 21:20:04Z arthurcnorman $
+# $Id: configure.ac 5067 2019-08-02 21:31:46Z arthurcnorman $
 
 #
 # Special flags that can be used here:
@@ -66,6 +66,19 @@ AC_ARG_WITH(cygwin32,
                  [Force configure and build to be under cygwin32]),
   [],
   [with_cygwin32="no"])
+
+AC_MSG_CHECKING(for win32bit)
+AC_ARG_WITH(win32bit,
+  AC_HELP_STRING([--with-win32bit],
+                 [Build 32-bit Windows version alongside 64]),
+  [],
+  [with_win32bit="no"])
+AC_MSG_RESULT([$with_win32bit])
+
+if test "x$with_win32bit" = "xno"
+then
+  with_cygwin32="no"
+fi
 
 # If the "--with-cygwin32" flag was passed and I am at present running under
 # a 64-bit cygwin shell then I will insist on changing gear so that I run
@@ -334,6 +347,9 @@ case $host in
 # Note that I may be under either cygwin32 or cygwin64 here...
   x86="yes"
   exeext="yes"
+# Here I will certainly be using gcc and I like to limit the number of
+# diagnostics it can generate in any one build.
+  CPPFLAGS="$CPPFLAGS -fmax-errors=10"
   if test "x$with_cygwin" != "xno"
   then
 # The next line may ALMOST count as a lie, but under raw cygwin the world
@@ -625,7 +641,7 @@ ARCHITECTURE="$foxdir"
 AC_MSG_CHECKING(for conservative)
 AC_ARG_ENABLE(conservative,
   AC_HELP_STRING([--enable-conservative],
-                 [garbage collect option]),
+                 [garbage collect option that is under development]),
   [],
   [enable_conservative="no"])
 AC_MSG_RESULT([$enable_conservative])
@@ -832,6 +848,68 @@ else
     AX_CXX_COMPILE_STDCXX([11], [ext], [mandatory])
 fi
 
+# Some platforms need "-latomic" to support std::atomic<T> where sizeof(T)
+# exceeds 8.
+
+AC_LINK_IFELSE([
+  AC_LANG_PROGRAM([[#include <atomic>
+                     typedef struct _c16 { char c[16]; } c16;
+                     typedef std::atomic<c16> a16;
+                   ]],
+                   [[ c16 v16 = {1};
+                      a16 av16;
+                      av16 = v16;
+                   v16 = av16;
+                  ]])],
+  [AC_MSG_NOTICE([std::atomic<T> width 16 available])],
+  [maybe_need_libatomic="yes"])
+
+if test "x$maybe_need_libatomic" = "xyes"
+then
+  LIBS="$LIBS -latomic"
+  AC_LINK_IFELSE([
+    AC_LANG_PROGRAM([[#include <atomic>
+                       typedef struct _c16 { char c[16]; } c16;
+                       typedef std::atomic<c16> a16;
+                     ]],
+                     [[ c16 v16 = {1};
+                        a16 av16;
+                        av16 = v16;
+                     v16 = av16;
+                    ]])],
+    [AC_MSG_NOTICE([std::atomic<T> width 16 OK with -libatomic])],
+    [AC_MSG_ERROR([std::atomic<T> with sizeof(T)=16 fails])])
+fi
+
+
+OLIBS="$LIBS"
+LIBS="$OLIBS -lncurses"
+AC_LINK_IFELSE(
+  [AC_LANG_SOURCE([#include <ncurses.h>
+     #include <term.h>
+     int main()
+     {  (void)tgetent(NULL, "xterm");
+        return 0;
+     } ])],
+  [AC_MSG_NOTICE([tgetent found in ncurses])],
+  [AC_MSG_NOTICE([tgetent NOT found in ncurses])
+   LIBS="$OLIBS -lcurses"
+   AC_LINK_IFELSE(
+     [AC_LANG_SOURCE([#include <curses.h>
+        #include <term.h>
+        int main()
+        {  (void)tgetent(NULL, "xterm");
+           return 0;
+        } ])],
+     [AC_MSG_NOTICE([tgetent found in curses])],
+     [AC_MSG_NOTICE([tgetent NOT found in curses])
+      LIBS="$OLIBS"
+      LDFLAGS="$LDFLAGS -L/usr/local/lib"
+      AC_SEARCH_LIBS([tgetent], [ncurses curses])
+     ])
+  ])
+
+
 # The sad news is that some 32-bit systems only set maxalign to 4, so for
 # instance even double precision floats can be aligned only that well. A
 # consequence is that they are entitles to let malloc() return an address
@@ -859,6 +937,9 @@ if test $maxalign -lt 8
 then
   AC_DEFINE([MAXALIGN4], [1], [alignof(max_align_t)==4])
 fi
+
+AC_CHECK_FUNCS([aligned_alloc])
+
 
 # I have alternative ways of doing things on Windows and Macintosh, but
 # for systems that use gcc (and I am perhaps most thinking of Linux here)
@@ -1162,8 +1243,7 @@ AC_MSG_RESULT([$enable_static])
 # drop back to "-O0 -g".
 # Now in 2016 I am moving back to -O3 for production use, but will remain
 # with a very conservative -O0 for debugging builds. Please note that these
-# settings are applied if the compiler is detected as gcc. Also note that
-# I may try to disable optimisations that exploit the strict aliasing rules.
+# settings are applied if the compiler is detected as gcc.
 
 LOWOPT="-O0"
 if test "x$HIGHOPT" = "x"
@@ -1550,8 +1630,8 @@ then
 # 10.7  Lion          )
 # 10.8  Mountain Lion )
 # 10.9  Mavericks     )
-# 10.10 Yosemite       Now the oldest deployment target I support
-# 10.11 El Capitan
+# 10.10 Yosemite
+# 10.11 El Capitan      Now the oldest deployment target I support
 # 10.12 Sierra
 # 10.13 High Sierra
 # 10.14 Mojave         Now the version I build and test on.
@@ -1562,7 +1642,7 @@ then
 # macports stuff is liable to need rebuilding or re-installing so as to
 # avoid moans about version support conflicts when things are linked.
 #
-  ENVP="MACOSX_DEPLOYMENT_TARGET=10.10"
+  ENVP="MACOSX_DEPLOYMENT_TARGET=10.11"
   CC="$ENVP $CC"
   CXX="$ENVP $CXX"
   CPP="$ENVP $CPP"
@@ -1728,6 +1808,7 @@ AM_CONDITIONAL(x86,test "x$x86" = "xyes")
 AM_CONDITIONAL(windows,test "x$windows_build" = "xyes")
 AM_CONDITIONAL(win64,test "x$win64" = "xyes")
 AM_CONDITIONAL(cygwin,test "x$cygwin_build" = "xyes")
+AM_CONDITIONAL(win32bit, test "x$with_win32bit" != "xno")
 AM_CONDITIONAL(cyg32,test "x$cyg32" = "xyes")
 AM_CONDITIONAL(cyg64,test "x$cyg64" = "xyes")
 AM_CONDITIONAL(darwin,test "x$darwin_build" = "xyes")
@@ -1738,6 +1819,7 @@ AM_CONDITIONAL(fox,test "x$with_fox" != "xno")
 AM_CONDITIONAL(wx,test "x$with_wx" != "xno")
 AM_CONDITIONAL(gui,test "x$with_fox" != "xno" || test "x$with_wx" != "xno")
 AM_CONDITIONAL(experiment,test "x$enable_test" = "xyes")
+AM_CONDITIONAL(conservative,test "x$enable_conservative" = "xyes")
 AM_CONDITIONAL(arithlib,test "x$with_arithlib" = "xyes")
 AM_CONDITIONAL(canrun,test "x$can_run_executables" = "xyes")
 AM_CONDITIONAL(cygpath, test "x$CYGPATH" != "xno")

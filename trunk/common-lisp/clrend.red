@@ -65,7 +65,7 @@ complete the definition of REDUCE:
 	EVLOAD -- defined in "clprolo.red"
 	ERROR1 -- defined in "sl-on-cl.lisp"
 	MKFIL
-	ORDERP -- defined in "clprolo.red"
+	ORDERP -- defined in "sl-on-cl.lisp"
 	QUIT
 	SEPRP
 	SETPCHAR.
@@ -219,38 +219,12 @@ symbolic procedure initreduce;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Common LISP specific definitions.
-
-% flag('(load),'opfn); % unnecessary ? -- see rlisp/module.red
-
 
 % tr etc. are defined as macros in "trace.lisp".
 % The following two declarations are from pslrend/cslrend:
 flag('(tr untr trst untrst),'noform);
 deflist('((tr rlis) (untr rlis) (trst rlis) (untrst rlis)),'stat);
 
-
-% The following function is necessary in Common Lisp startup sequence,
-% since initial packages are not loaded with load-package.
-
-% symbolic procedure fixup!-packages!*;
-%    for each x in '(rlisp clrend entry poly arith alg mathpr) do
-%       if not(x memq loaded!-packages!*)
-%         then <<loaded!-packages!* := x . loaded!-packages!*;
-%                if (x := get(x,'patchfn)) then eval list x>>;
-
-
-% FLOOR is already defined.
-
-% flag('(floor),'lose);
-
-% CL doesn't like '(function ...) in defautoload (module entry).
-
-% remflag('(mkfunction),'lose);
-
-% inline procedure mkfunction u; mkquote u;
-
-% flag('(mkfunction),'lose);
 
 %% Fix problems in the arith package
 %% =================================
@@ -289,22 +263,6 @@ symbolic procedure ttab n;  while posn() < n do prin2 " ";
 
 symbolic inline procedure explodec x; explode2 x;
 
-% This function is called in redlog but only defined for PSL or CSL
-% specifically.  Otherwise, it only gets an autoload definition that
-% causes infinite recursion when called.  This stub is an attempt to
-% avoid this error, but nothing more.  It will need attention later!
-
-remflag('(systo_get!-resource!-directory), 'lose);
-
-procedure systo_get!-resource!-directory; "";
-
-flag('(systo_get!-resource!-directory), 'lose);
-
-% This function is called in tmprint and apparently defined in PSL.
-% This stub is an attempt to avoid an error, but nothing more.  It
-% will need attention later!
-
-procedure compute!-prompt!-string(count,level); "";
 
 % Make ON DEFN load the prettyprinter if necessary and
 % OFF DEFN reinstate property lists saved during ON DEFN:
@@ -317,20 +275,25 @@ put('comp, 'simpfg, '((t (compilation t))
                       (nil (compilation nil))));
 #endif
 
-% This procedure is defined in "rlisp88/inspect.red", but it prints
-% all letters as lower case.  This version fixes that:
 
-remflag('(i!&prn), 'lose);
+remflag('(systo_get!-resource!-directory), 'lose);
 
-procedure i!&prn x;
-   % I!&PRN(x) -- Display the characters of list x and then terminate
-   % the line.
-   begin scalar !*printlower;
-      for each c in x do prin2 c;
-   	  terpri()
-   end;
+% This function is called in redlog but only defined for PSL or CSL
+% specifically.  Otherwise, it only gets an autoload definition that
+% causes infinite recursion when called.  This stub is an attempt to
+% avoid this error, but nothing more.  It may need attention later,
+% but what is the Common Lisp resource directory?
+symbolic procedure systo_get!-resource!-directory; "";
 
-flag('(i!&prn), 'lose);
+flag('(systo_get!-resource!-directory), 'lose);
+
+
+% This function is called in tmprint and apparently defined in PSL.
+% This stub is an attempt to avoid an error, but nothing more.  It
+% will need attention later!
+
+procedure compute!-prompt!-string(count,level); "";
+
 
 % Fixes for the crack suite
 % =========================
@@ -370,6 +333,35 @@ symbolic procedure rename!-file(fromname, toname)$
 %%     if sa eq car c and sd eq cdr c then return c
 %%     else return sa . sd
 %%   end;
+
+% Fixes for the lalr package
+% ==========================
+
+% This procedure is defined in "lalr/genparser.red".  Because Common
+% Lisp seems to view equality of uninterned and interned symbols
+% differently from PSL/CSL, I need explicitly to apply intern to
+% identifiers but not to strings handled within this procedure until I
+% can think of a way to modify sl-on-cl that works.
+
+fluid '(nonterminals);
+
+remflag('(lalr_collect_terminals), 'lose);
+
+symbolic procedure lalr_collect_terminals grammar;
+  begin
+    scalar rhs_symbols;
+    for each productions in grammar do
+      for each production in cdr productions do
+        for each symbol in car production do
+        <<
+           if idp symbol then symbol := intern symbol; % FJW
+           if not (symbol member rhs_symbols) then
+              rhs_symbols := symbol . rhs_symbols
+        >>;
+    return setdiff(rhs_symbols, nonterminals)
+  end;
+
+flag('(lalr_collect_terminals), 'lose);
 
 endmodule;
 

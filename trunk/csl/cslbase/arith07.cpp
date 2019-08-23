@@ -36,7 +36,7 @@
  *************************************************************************/
 
 
-// $Id: arith07.cpp 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: arith07.cpp 5074 2019-08-10 16:49:01Z arthurcnorman $
 
 #include "headers.h"
 
@@ -52,7 +52,7 @@ LispObject copyb(LispObject a)
     pop(a);
     len = (len-CELL)/4;
     for (i=0; i<len; i++)
-        bignum_digits(b)[i] = bignum_digits(a)[i];
+        bignum_digits(b)[i] = vbignum_digits(a)[i];
     return b;
 }
 
@@ -143,7 +143,7 @@ LispObject negateb(LispObject a)
 // least two words to deal with here.
         if (carry == -1 && (bignum_digits(b)[i-1] & 0x40000000) != 0)
         {   bignum_digits(b)[i-1] |= ~0x7fffffff;
-            numhdr(b) -= pack_hdrlength(1);
+            setnumhdr(b, numhdr(b) - pack_hdrlength(1));
             if (SIXTY_FOUR_BIT)
             {   if ((i & 1) != 0) bignum_digits(b)[i] = 0;
                 else *(Header *)&bignum_digits(b)[i] = make_bighdr(2);

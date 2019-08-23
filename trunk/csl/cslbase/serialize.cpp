@@ -29,7 +29,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: serialize.cpp 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: serialize.cpp 5075 2019-08-10 20:45:42Z arthurcnorman $
 
 
 //=========================================================================
@@ -465,15 +465,6 @@ static char delayed_message[80];
 static inthash repeat_hash;
 LispObject *repeat_heap = NULL;
 size_t repeat_heap_size = 0, repeat_count = 0;
-
-// This tiny function exists just so that I can set a breakpoint on it.
-
-[[noreturn]] void my_abort()
-{   fflush(stdout);
-    fflush(stderr);
-    ensure_screen();
-    abort();
-}
 
 void reader_setup_repeats(size_t n)
 {   if (repeat_heap_size != 0 ||
@@ -1422,18 +1413,18 @@ down:
                 case SER_L_A:
                     GC_PROTECT(prev = cons(fixnum_of_int(0), nil));
                     if (c & 1) reader_repeat_new(prev);
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     pbase = prev;
-                    p = &qcar(pbase);
+                    p = (LispObject *)vcaraddr(pbase);
                     goto down;
 
                 case SER_L_a_S:
                 case SER_L_A_S:
                     GC_PROTECT(prev = cons(b, fixnum_of_int(0)));
                     if (c & 1) reader_repeat_new(prev);
-                    *p = b = prev;
+                    *(std::atomic<LispObject>*)p = b = prev;
                     pbase = b;
-                    p = &qcdr(b);
+                    p = (LispObject *)vcdraddr(b);
                     goto down;
 
                 case SER_L_aa:
@@ -1445,11 +1436,11 @@ down:
 // where note that the old sequence CONS a b would create (CONS b a), ie
 // the CDR field is transmitted before the CAR one.
                     if (c & 1) reader_repeat_new(prev);
-                    if (c & 2) reader_repeat_new(qcdr(prev));
-                    qcar(prev) = b;
-                    b = *p = prev;
-                    pbase = qcdr(b);
-                    p = &qcar(pbase);
+                    if (c & 2) reader_repeat_new(cdr(prev));
+                    setcar(prev, b);
+                    b = *(std::atomic<LispObject>*)p = prev;
+                    pbase = cdr(b);
+                    p = (LispObject *)vcaraddr(pbase);
                     goto down;
 
                 case SER_L_aa_S:
@@ -1460,13 +1451,13 @@ down:
 // Here I need to set things up just as if I had CONS CONS in the
 // old model (ie L_a_S L_a_S in the new one!)
                     if (c & 1) reader_repeat_new(prev);
-                    if (c & 2) reader_repeat_new(qcdr(prev));
-                    qcar(prev) = b;
-                    b = *p = prev;
-                    pbase = qcdr(b);
-                    qcar(pbase) = b;
+                    if (c & 2) reader_repeat_new(cdr(prev));
+                    setcar(prev, b);
+                    b = *(std::atomic<LispObject>*)p = prev;
+                    pbase = cdr(b);
+                    setcar(pbase, b);
                     b = pbase;
-                    p = &qcdr(pbase);
+                    p = (LispObject *)vcdraddr(pbase);
                     goto down;
 
                 case SER_L_aaa:
@@ -1479,15 +1470,15 @@ down:
                 case SER_L_AAA:
                     GC_PROTECT(prev = list3(nil, nil, nil));
                     if (c & 1) reader_repeat_new(prev);
-                    if (c & 2) reader_repeat_new(qcdr(prev));
-                    if (c & 4) reader_repeat_new(qcdr(qcdr(prev)));
-                    qcar(prev) = b;
-                    b = *p = prev;
-                    pbase = qcdr(b);
-                    qcar(pbase) = b;
+                    if (c & 2) reader_repeat_new(cdr(prev));
+                    if (c & 4) reader_repeat_new(cdr(cdr(prev)));
+                    setcar(prev, b);
+                    b = *(std::atomic<LispObject>*)p = prev;
+                    pbase = cdr(b);
+                    setcar(pbase, b);
                     b = pbase;
-                    pbase = qcdr(b);
-                    p = &qcar(pbase);
+                    pbase = cdr(b);
+                    p = (LispObject *)vcaraddr(pbase);
                     goto down;
 
                 case SER_L_aaa_S:
@@ -1500,17 +1491,17 @@ down:
                 case SER_L_AAA_S:
                     GC_PROTECT(prev = list3(nil, nil, nil));
                     if (c & 1) reader_repeat_new(prev);
-                    if (c & 2) reader_repeat_new(qcdr(prev));
-                    if (c & 4) reader_repeat_new(qcdr(qcdr(prev)));
-                    qcar(prev) = b;
-                    b = *p = prev;
-                    pbase = qcdr(b);
-                    qcar(pbase) = b;
+                    if (c & 2) reader_repeat_new(cdr(prev));
+                    if (c & 4) reader_repeat_new(cdr(cdr(prev)));
+                    setcar(prev, b);
+                    b = *(std::atomic<LispObject>*)p = prev;
+                    pbase = cdr(b);
+                    setcar(pbase, b);
                     b = pbase;
-                    pbase = qcdr(b);
-                    qcar(pbase) = b;
+                    pbase = cdr(b);
+                    setcar(pbase, b);
                     b = pbase;
-                    p = &qcdr(pbase);
+                    p = (LispObject *)vcdraddr(pbase);
                     goto down;
 
                 case SER_L_aaaa:
@@ -1519,34 +1510,34 @@ down:
 // Note that for the longest sequence here only the start CONS cell
 // can be shared.
                     if (c & 1) reader_repeat_new(prev);
-                    qcar(prev) = b;
-                    b = *p = prev;
-                    pbase = qcdr(b);
-                    qcar(pbase) = b;
+                    setcar(prev, b);
+                    b = *(std::atomic<LispObject>*)p = prev;
+                    pbase = cdr(b);
+                    setcar(pbase, b);
                     b = pbase;
-                    pbase = qcdr(b);
-                    qcar(pbase) = b;
+                    pbase = cdr(b);
+                    setcar(pbase, b);
                     b = pbase;
-                    pbase = qcdr(pbase);
-                    p = &qcar(pbase);
+                    pbase = cdr(pbase);
+                    p = (LispObject *)vcaraddr(pbase);
                     goto down;
 
                 case SER_L_aaaa_S:
                 case SER_L_Aaaa_S:
                     GC_PROTECT(prev = list4(nil, nil, nil, nil));
                     if (c & 1) reader_repeat_new(prev);
-                    qcar(prev) = b;
-                    b = *p = prev;
-                    pbase = qcdr(b);
-                    qcar(pbase) = b;
+                    setcar(prev, b);
+                    b = *(std::atomic<LispObject>*)p = prev;
+                    pbase = cdr(b);
+                    setcar(pbase, b);
                     b = pbase;
-                    pbase = qcdr(b);
-                    qcar(pbase) = b;
+                    pbase = cdr(b);
+                    setcar(pbase, b);
                     b = pbase;
-                    pbase = qcdr(pbase);
-                    qcar(pbase) = b;
+                    pbase = cdr(pbase);
+                    setcar(pbase, b);
                     b = pbase;
-                    p = &qcdr(pbase);
+                    p = (LispObject *)vcdraddr(pbase);
                     goto down;
 
                 case SER_BIGBACKREF:
@@ -1567,7 +1558,7 @@ down:
 // and so on using 7 bits per byte... up until I have used 8 bytes.
 // If one is needed beyond that it can be a final 8-bit value.
 // This allows for up to 2^64 back-references.
-                    *p = reader_repeat_old(1 + 64 + read_u64());
+                    *(std::atomic<LispObject>*)p = reader_repeat_old(1 + 64 + read_u64());
                     goto up;
 
                 case SER_DUP:
@@ -1601,7 +1592,7 @@ down:
 // they needed to be bignums. Since they are immutable objects I do not
 // believe that should cause any trouble.
                     GC_PROTECT(prev = make_lisp_unsigned64(repeat_arg));
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     goto up;
 
                 case SER_NEGFIXNUM:
@@ -1618,7 +1609,7 @@ down:
                         repeat_arg_ready = true;
                     }
                     GC_PROTECT(prev = make_lisp_integer64(repeat_arg));
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     goto up;
 
                 case SER_DUPRAWSYMBOL:
@@ -1633,14 +1624,14 @@ down:
                     assert(opcode_repeats == 0);
                     GC_PROTECT(prev =
                         get_basic_vector(TAG_SYMBOL, TYPE_SYMBOL, symhdr_length));
-                    *p = w = prev;
+                    *(std::atomic<LispObject>*)p = w = prev;
                     if (c == SER_DUPRAWSYMBOL) reader_repeat_new(prev);
 // Note that the vector as created will have its LENGTH encoded in the
 // header, but for symbols that is incorrect so I need to re-write the
 // header wholesale here. Note that a symbol header has the normal tag for
 // headers in its low bits then two zero bits to indicate that it is
 // a symbol.
-                    qheader(w) = (Header)((read_u64()<<(Tw+4)) + TAG_HDR_IMMED);
+                    setheader(w, (Header)((read_u64()<<(Tw+4)) + TAG_HDR_IMMED));
 // I will first fill in the fields that hold binary data or pointers to
 // executable code.
                     qfn0(w) = (no_args *)read_function();
@@ -1651,15 +1642,20 @@ down:
                     qcount(w) = read_u64();
 // Now to allow me to feel safe I will put NIL in all the other fields
 // on a provisional basis. They get their proper values later.
-                    qvalue(w) = qenv(w) = qpname(w) = qplist(w) =
-                        qfastgets(w) = qpackage(w) = nil;
-                    qvalue(w) = b; // the back-pointer.
+                    setvalue(w, nil);
+                    setenv(w, nil);
+                    setpname(w, nil);
+                    setplist(w, nil);
+                    setfastgets(w, nil);
+                    setpackage(w, nil);
+                    setvalue(w, b); // the back-pointer.
                     b = w;
-#define PNAME_INDEX (&qpname(w) - &qvalue(w))
-                    GC_PROTECT(prev = cons(fixnum_of_int(PNAME_INDEX), s));
+                    {   const int PNAME_INDEX = pnameaddr(w) - valueaddr(w);
+                        GC_PROTECT(prev = cons(fixnum_of_int(PNAME_INDEX), s));
+                    }
                     s = prev;
                     prev = pbase = b;
-                    p = &qpname(b);
+                    p = (LispObject *)pnameaddr(b);
                     goto down;
 
 
@@ -1696,7 +1692,7 @@ down:
                             GC_PROTECT(prev = Lgensym1(nil, prev));
                         }
                         else GC_PROTECT(prev = iintern(boffo, (int32_t)boffop, CP, 0));
-                        *p = prev;
+                        *(std::atomic<LispObject>*)p = prev;
                         if (c == SER_DUPSYMBOL || c == SER_DUPGENSYM)
                             reader_repeat_new(prev);
                         goto up;
@@ -1712,7 +1708,7 @@ down:
 // a 32-bit single float
                     assert(opcode_repeats == 0);
                     GC_PROTECT(prev = make_boxfloat(read_f32(), TYPE_SINGLE_FLOAT));
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     goto up;
 
                 case SER_FLOAT64:
@@ -1723,7 +1719,7 @@ down:
 // But at present I think that will be an uncommon case with Reduce and so
 // I will give priority to other cases.
                     GC_PROTECT(prev = make_boxfloat(read_f64(), TYPE_DOUBLE_FLOAT));
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     goto up;
 
 #ifdef HAVE_SOFTFLOAT
@@ -1732,7 +1728,7 @@ down:
                     assert(opcode_repeats == 0);
                     GC_PROTECT(prev = make_boxfloat(0.0, TYPE_LONG_FLOAT));
                     long_float_val(prev) = read_f128();
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     goto up;
 #endif // HAVE_SOFTFLOAT
 
@@ -1757,7 +1753,7 @@ down:
                     {   repeat_arg = read_u64();
                         repeat_arg_ready = true;
                     }
-                    prev = *p = ((LispObject)repeat_arg<<(Tw+2)) | TAG_HDR_IMMED;
+                    prev = *(std::atomic<LispObject>*)p = ((LispObject)repeat_arg<<(Tw+2)) | TAG_HDR_IMMED;
                     goto up;
 
                 case SER_BITVEC:
@@ -1766,8 +1762,8 @@ down:
                     {   size_t len = CELL + (w + 7)/8; // length in bytes
                         GC_PROTECT(prev =
                             get_basic_vector(TAG_VECTOR, bitvechdr_(w), len));
-                        *p = prev;
-                        char *x = &basic_celt(prev, 0);
+                        *(std::atomic<LispObject>*)p = prev;
+                        char *x = (char *)&basic_celt(prev, 0);
                         for (size_t i=0; i<(size_t)w; i++)
                             *x++ = read_data_byte();
                         while (((intptr_t)x & 7) != 0) *x++ = 0;
@@ -1782,7 +1778,7 @@ down:
                     opcode_repeats++;
                     c = SER_NIL;
                 case SER_NIL:
-                    prev = *p = nil;
+                    prev = *(std::atomic<LispObject>*)p = nil;
                     goto up;
 
                 case SER_END:
@@ -1831,7 +1827,7 @@ down:
 // allows for the header word as well.
                 size_t n = read_u64();
                 GC_PROTECT(prev = get_basic_vector(tag, type, CELL*(n+1)));
-                w = *p = prev;
+                w = *(std::atomic<LispObject>*)p = prev;
 // Note that the "vector" just created may be tagged with TAG_NUMBERS
 // rather than TAG_VECTOR, so I use the access macro "vselt" rather than
 // "elt" - and that survives whichever case I am in.
@@ -1853,7 +1849,7 @@ down:
 // then I must NOT set up back-pointers and the "s-stack" in quite the usual
 // manner...
                 if (n == 0)
-                {   p = &vselt(w, 0);
+                {   p = (LispObject *)&vselt(w, 0);
                     goto down;
                 }
                 vselt(w, 0) = b;
@@ -1861,7 +1857,7 @@ down:
                 GC_PROTECT(prev = cons(fixnum_of_int(n), s));
                 s = prev;
                 prev = pbase = b;
-                p = &vselt(b, n);
+                p = (LispObject *)&vselt(b, n);
             }
             goto down;
 
@@ -1870,19 +1866,19 @@ down:
 // repeat-runs of "SER_BACKREF0 <1>" to reference the top item in the
 // repeat heap. The efford involved in supporting SER_REPEAT to compress
 // such sequences is minimal here, so I do so.
-            *p = reader_repeat_old(1 + (c & 0x1f));
+            *(std::atomic<LispObject>*)p = reader_repeat_old(1 + (c & 0x1f));
             goto up;
 
         case SER_BACKREF1:
 // I do not view repeated instances of BACKREF1 as significant, but it is
 // so cheap to support that I will.
-            *p = reader_repeat_old(1 + 32 + (c & 0x1f));
+            *(std::atomic<LispObject>*)p = reader_repeat_old(1 + 32 + (c & 0x1f));
             goto up;
 
         case SER_FIXNUM:
             repeat_arg = c & 0x1f;
             if ((c & 0x10) != 0) repeat_arg |= (uint64_t)~0xf; // sign extend
-            *p = fixnum_of_int((int64_t)repeat_arg);
+            *(std::atomic<LispObject>*)p = fixnum_of_int((int64_t)repeat_arg);
             goto up;
 
         case SER_STRING:
@@ -1894,8 +1890,8 @@ down:
             assert(opcode_repeats == 0);
             w = (c & 0x1f) + 1;
             GC_PROTECT(prev = get_basic_vector(TAG_VECTOR, TYPE_STRING_4, CELL+w));
-            *p = prev;
-            {   char *x = &basic_celt(prev, 0);
+            *(std::atomic<LispObject>*)p = prev;
+            {   char *x = (char *)&basic_celt(prev, 0);
                 for (size_t i=0; i<(size_t)w; i++) *x++ = read_string_byte();
 // Fill in end of the memory block with zero bytes so it is properly tidy.
 // This is needed so that comaprisons between strings and hash value
@@ -1926,7 +1922,7 @@ down:
                                                    TAG_VECTOR;
                 if (vector_i8(type))
                 {   GC_PROTECT(prev = get_basic_vector(tag, type, CELL+w));
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     unsigned char *x = (unsigned char *)start_contents(prev);
                     if (is_string_header(type))
                         for (size_t i=0; i<(size_t)w; i++)
@@ -1937,7 +1933,7 @@ down:
                 }
                 else if (vector_i32(type))
                 {   GC_PROTECT(prev = get_basic_vector(tag, type, CELL+4*w));
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     uint32_t *x = (uint32_t *)start_contents(prev);
 // 32-bit integers are transmitted most significant byte first.
                     for (size_t i=0; i<(size_t)w; i++)
@@ -1950,7 +1946,7 @@ down:
                 }
                 else if (vector_f64(type))
                 {   GC_PROTECT(prev = get_basic_vector(tag, type, CELL+8*w));
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     double *x = (double *)start_contents64(prev);
 // There has to be a padder word in these objects on a 32-bit machine so
 // that the data is 64-bit aligned. Clean it up.
@@ -1959,7 +1955,7 @@ down:
                 }
                 else if (vector_i16(type))
                 {   GC_PROTECT(prev = get_basic_vector(tag, type, CELL+2*w));
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     uint16_t *x = (uint16_t *)start_contents(prev);
                     for (size_t i=0; i<(size_t)w; i++)
                     {   uint32_t q = read_data_byte() & 0xff;
@@ -1969,7 +1965,7 @@ down:
                 }
                 else if (vector_i64(type))
                 {   GC_PROTECT(prev = get_basic_vector(tag, type, CELL+8*w));
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     uint64_t *x = (uint64_t *)start_contents64(prev);
                     if (!SIXTY_FOUR_BIT) *(int32_t *)start_contents(prev) = 0;
                     for (size_t i=0; i<(size_t)w; i++)
@@ -1985,7 +1981,7 @@ down:
                 }
                 else if (vector_f32(type))
                 {   GC_PROTECT(prev = get_basic_vector(tag, type, CELL+4*w));
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     float *x = (float *)start_contents(prev);
                     for (size_t i=0; i<(size_t)w; i++) *x++ = read_f32();
                     while (((intptr_t)x & 7) != 0) *x++ = 0;
@@ -1993,14 +1989,14 @@ down:
 #ifdef HAVE_SOFTFLOAT
                 else if (vector_f128(type))
                 {   GC_PROTECT(prev = get_basic_vector(tag, type, CELL+16*w));
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     fprintf(stderr, "128-bit integer arrays not supported (yet?)\n");
                     my_abort();
                 }
 #endif // HAVE_SOFTFLOAT
                 else if (vector_i128(type))
                 {   GC_PROTECT(prev = get_basic_vector(tag, type, CELL+16*w));
-                    *p = prev;
+                    *(std::atomic<LispObject>*)p = prev;
                     fprintf(stderr, "128-bit floats not supported (yet?)\n");
                     my_abort();
                 }
@@ -2033,8 +2029,8 @@ up:
 // just need to go and deal with the CAR.
     if (consp(b))
     {   pbase = b;
-        p = &qcar(b);
-        b = qcar(b);
+        p = (LispObject *)vcaraddr(b);
+        b = car(b);
         goto down;
     }
 // The remaining cases are when b points to a vector or symbol. I use the
@@ -2045,17 +2041,17 @@ up:
         simple_print(s);
         my_abort();
     }
-    if (!is_fixnum(qcar(s)))
+    if (!is_fixnum(car(s)))
     {   fprintf(stderr, "car s bad at line %d in serialize.cpp\n", __LINE__);
-        simple_print(qcar(s));
+        simple_print(car(s));
         my_abort();
     }
-    intptr_t n = int_of_fixnum(qcar(s)) - 1;
+    intptr_t n = int_of_fixnum(car(s)) - 1;
     if (n < 0)
     {   fprintf(stderr, "car s negative at line %d in serialize.cpp\n", __LINE__);
-        fprintf(stderr, "qcar(s) = %" PRIx64 " in raw hex\n", (int64_t)qcar(s));
-        fprintf(stderr, "value of qcar(s) as list: ");
-        simple_print(qcar(s));
+        fprintf(stderr, "car(s) = %" PRIx64 " in raw hex\n", (int64_t)car(s));
+        fprintf(stderr, "value of car(s) as list: ");
+        simple_print(car(s));
         my_abort();
     }
     if (n == 0)
@@ -2065,18 +2061,18 @@ up:
 // (including hash tables, structures, records, objects...) or a symbol.
 // In the case of a symbol the index n selects as between qvalue, pname and
 // the other fields making up a symbol.
-        p = &vselt(w, 0);
+        p = (LispObject *)&vselt(w, 0);
         b = vselt(w, 0);
 // I could and possibly should push the released cell from s onto a local
 // freelist and use that where I do a CONS if possible...
-//      qcar(s) = fr; fr = s; s = qcdr(s); qcdr(fr) = fixnum_of_int(0);
+//      car(s) = fr; fr = s; s = cdr(s); cdr(fr) = fixnum_of_int(0);
 // might do the job, chaining the freelist through its CAR field.
-        s = qcdr(s);
+        s = cdr(s);
         goto down;
     }
-    qcar(s) = fixnum_of_int(n); // write back decreased index
+    setcar(s, fixnum_of_int(n)); // write back decreased index
     pbase = b;
-    p = &vselt(b, n);
+    p = (LispObject *)&vselt(b, n);
     goto down;
 }
 
@@ -2315,8 +2311,8 @@ down:
             }
             mark_address_as_used(p - TAG_CONS);
             w = p;
-            p = qcdr(p);
-            qcdr(w) = b;
+            p = cdr(p);
+            setcdr(w, b);
             b = w - TAG_CONS + BACKPOINTER_CDR;
             goto down;
 
@@ -2344,8 +2340,8 @@ down:
             if (!descend_symbols) goto up;
             w = p;
             p = qpname(p);
-            qpname(w) = b;
-            b = (LispObject)&qpname(w) + BACKPOINTER_SYMBOL;
+            setpname(w, b);
+            b = (LispObject)pnameaddr(w) + BACKPOINTER_SYMBOL;
             goto down;
 
         case TAG_VECTOR:
@@ -2419,10 +2415,10 @@ up:
         case BACKPOINTER_CDR:
 // This is where I had just finished scanning the CAR of a cell and now
 // need to deal with the CDR.
-            w = qcdr(b - BACKPOINTER_CDR + TAG_CONS);
-            qcdr(b - BACKPOINTER_CDR + TAG_CONS) = p;
-            p = qcar(b - BACKPOINTER_CDR + TAG_CONS);
-            qcar(b - BACKPOINTER_CDR + TAG_CONS) = w;
+            w = cdr(b - BACKPOINTER_CDR + TAG_CONS);
+            setcdr(b - BACKPOINTER_CDR + TAG_CONS, p);
+            p = car(b - BACKPOINTER_CDR + TAG_CONS);
+            setcar(b - BACKPOINTER_CDR + TAG_CONS, w);
             b = b + BACKPOINTER_CAR - BACKPOINTER_CDR;
             goto down;
 
@@ -2433,8 +2429,8 @@ up:
 // I have just finished the CDR, so now I can repair the structure and go
 // up another level.
             w = b - BACKPOINTER_CAR + TAG_CONS;
-            b = qcar(w);
-            qcar(w) = p;
+            b = car(w);
+            setcar(w, p);
             p = w;
             goto up;
 
@@ -2571,7 +2567,7 @@ down:
 //         (CONS b a)
 // niltail will do what is sort of obvious from its name
             i2 = i3 = i4 = (size_t)(-1);
-            tail1 = qcdr(p);
+            tail1 = cdr(p);
 // Let me talk through the logic of the next lines. I will consider the tail
 // of the list something I can consolidate into one of my more elaborate
 // composite list-building opcoded subject to
@@ -2596,8 +2592,8 @@ down:
                     write_delayed(SER_L_A, "ncons that will be re-used");
                 else write_delayed(SER_L_a, "ncons");
                 w = p;
-                p = qcar(p);
-                qcar(w) = b;
+                p = car(p);
+                setcar(w, b);
                 b = w - TAG_CONS + BACKPOINTER_CAR;
                 goto down;
             }
@@ -2613,13 +2609,13 @@ down:
                     write_delayed(SER_L_A_S, "cons that will be re-used");
                 else write_delayed(SER_L_a_S, "cons");
                 w = p;
-                p = qcdr(p);
-                qcdr(w) = b;
+                p = cdr(p);
+                setcdr(w, b);
  // Reverse pointers with the back-pointer being tagged with 0
                 b = w - TAG_CONS + BACKPOINTER_CDR;
                 goto down;
             }
-            tail2 = qcdr(tail1);
+            tail2 = cdr(tail1);
             if (tail2 == nil)
             {
 // Here the case I have is (LIST b a) and either or both of the CONS cells
@@ -2629,10 +2625,10 @@ down:
                      (i2==(size_t)(-1) ? SER_L_aa : SER_L_aA) :
                      (i2==(size_t)(-1) ? SER_L_Aa : SER_L_AA), "list2");
                 if (i2 != (size_t)(-1)) find_index_in_repeats(i2);
-                qcdr(p) = b;
+                setcdr(p, b);
                 b = p - TAG_CONS + BACKPOINTER_CDR;
-                p = qcar(tail1);
-                qcar(tail1) = b;
+                p = car(tail1);
+                setcar(tail1, b);
                 b = tail1 - TAG_CONS + BACKPOINTER_CAR;
                 goto down;
             }
@@ -2648,14 +2644,14 @@ down:
                      (i2==(size_t)(-1) ? SER_L_aa_S : SER_L_aA_S) :
                      (i2==(size_t)(-1) ? SER_L_Aa_S : SER_L_AA_S), "list2*");
                 if (i2 != (size_t)(-1)) find_index_in_repeats(i2);
-                qcdr(p) = b;
+                setcdr(p, b);
                 b = p - TAG_CONS + BACKPOINTER_CDR;
                 p = tail2;
-                qcdr(tail1) = b;
+                setcdr(tail1, b);
                 b = tail1 - TAG_CONS + BACKPOINTER_CDR;
                 goto down;
             }
-            tail3 = qcdr(tail2);
+            tail3 = cdr(tail2);
             if (tail3 == nil)
             {   write_delayed(
                    i==(size_t)(-1) ?
@@ -2667,12 +2663,12 @@ down:
                        (i3==(size_t)(-1) ? SER_L_AAa : SER_L_AAA)), "list3");
                 if (i2 != (size_t)(-1)) find_index_in_repeats(i2);
                 if (i3 != (size_t)(-1)) find_index_in_repeats(i3);
-                qcdr(p) = b;
+                setcdr(p, b);
                 b = p - TAG_CONS + BACKPOINTER_CDR;
-                qcdr(tail1) = b;
+                setcdr(tail1, b);
                 b = tail1 - TAG_CONS + BACKPOINTER_CDR;
-                p = qcar(tail2);
-                qcar(tail2) = b;
+                p = car(tail2);
+                setcar(tail2, b);
                 b = tail2 - TAG_CONS + BACKPOINTER_CAR;
                 goto down;
             }
@@ -2697,40 +2693,40 @@ down:
                     "list3*");
                 if (i2 != (size_t)(-1)) find_index_in_repeats(i2);
                 if (i3 != (size_t)(-1)) find_index_in_repeats(i3);
-                qcdr(p) = b;
+                setcdr(p, b);
                 b = p - TAG_CONS + BACKPOINTER_CDR;
-                qcdr(tail1) = b;
+                setcdr(tail1, b);
                 b = tail1 - TAG_CONS + BACKPOINTER_CDR;
-                p = qcdr(tail2);
-                qcdr(tail2) = b;
+                p = cdr(tail2);
+                setcdr(tail2, b);
                 b = tail2 - TAG_CONS + BACKPOINTER_CDR;
                 goto down;
             }
-            tail4 = qcdr(tail3);
+            tail4 = cdr(tail3);
             if (tail4 == nil)
             {   write_delayed(
                    i==(size_t)(-1) ? SER_L_aaaa : SER_L_Aaaa, "list4");
-                qcdr(p) = b;
+                setcdr(p, b);
                 b = p - TAG_CONS + BACKPOINTER_CDR;
-                qcdr(tail1) = b;
+                setcdr(tail1, b);
                 b = tail1 - TAG_CONS + BACKPOINTER_CDR;
-                qcdr(tail2) = b;
+                setcdr(tail2, b);
                 b = tail2 - TAG_CONS + BACKPOINTER_CDR;
-                p = qcar(tail3);
-                qcar(tail3) = b;
+                p = car(tail3);
+                setcar(tail3, b);
                 b = tail3 - TAG_CONS + BACKPOINTER_CAR;
                 goto down;
             }
             write_delayed(
                    i==(size_t)(-1) ? SER_L_aaaa_S : SER_L_Aaaa_S, "list4*");
-            qcdr(p) = b;
+            setcdr(p, b);
             b = p - TAG_CONS + BACKPOINTER_CDR;
-            qcdr(tail1) = b;
+            setcdr(tail1, b);
             b = tail1 - TAG_CONS + BACKPOINTER_CDR;
-            qcdr(tail2) = b;
+            setcdr(tail2, b);
             b = tail2 - TAG_CONS + BACKPOINTER_CDR;
-            p = qcdr(tail3);
-            qcdr(tail3) = b;
+            p = cdr(tail3);
+            setcdr(tail3, b);
             b = tail3 - TAG_CONS + BACKPOINTER_CDR;
             goto down;
 
@@ -2802,16 +2798,16 @@ down:
 // will be 1 byte long in easy cases but can cope with 2^64 possibilities in
 // all if necessary.
             write_u64(((uint64_t)qheader(p))>>(Tw+4));
-            write_function((void *)(qfn0(p)));
-            write_function((void *)(qfn1(p)));
-            write_function((void *)(qfn2(p)));
-            write_function((void *)(qfn3(p)));
-            write_function((void *)(qfn4up(p)));
+            write_function((void *)(no_args *)(qfn0(p)));
+            write_function((void *)(one_arg *)(qfn1(p)));
+            write_function((void *)(two_args *)(qfn2(p)));
+            write_function((void *)(three_args *)(qfn3(p)));
+            write_function((void *)(fourup_args *)(qfn4up(p)));
             write_u64(qcount(p));
             w = p;
             p = qpname(p);
-            qpname(w) = b;
-            b = (LispObject)&qpname(w) + BACKPOINTER_SYMBOL;
+            setpname(w, b);
+            b = (LispObject)pnameaddr(w) + BACKPOINTER_SYMBOL;
             goto down;
 
         case TAG_VECTOR:
@@ -3124,10 +3120,10 @@ up:
         case BACKPOINTER_CDR:
 // This is where I had just finished scanning the CDR of a cell and now
 // need to deal with the CAR.
-            w = qcdr(b - BACKPOINTER_CDR + TAG_CONS);
-            qcdr(b - BACKPOINTER_CDR + TAG_CONS) = p;
-            p = qcar(b - BACKPOINTER_CDR + TAG_CONS);
-            qcar(b - BACKPOINTER_CDR + TAG_CONS) = w;
+            w = cdr(b - BACKPOINTER_CDR + TAG_CONS);
+            setcdr(b - BACKPOINTER_CDR + TAG_CONS, p);
+            p = car(b - BACKPOINTER_CDR + TAG_CONS);
+            setcar(b - BACKPOINTER_CDR + TAG_CONS, w);
             b = b + BACKPOINTER_CAR - BACKPOINTER_CDR;
             goto down;
 
@@ -3142,8 +3138,8 @@ up:
 // I have just finished the CAR, so now I can repair the structure and go
 // up another level.
             w = b - BACKPOINTER_CAR + TAG_CONS;
-            b = qcar(w);
-            qcar(w) = p;
+            b = car(w);
+            setcar(w, p);
             p = w;
             goto up;
 
@@ -3331,9 +3327,9 @@ static LispObject load_module(LispObject env, LispObject file,
             error(1, err_no_fasl, file);
         }
         push(qvalue(standard_input));
-        qvalue(standard_input) = file;
+        setvalue(standard_input, file);
         push(qvalue(echo_symbol));
-        qvalue(echo_symbol) = nil;
+        setvalue(echo_symbol, nil);
     }
     else
     {   len = length_of_byteheader(h) - CELL;
@@ -3379,12 +3375,16 @@ static LispObject load_module(LispObject env, LispObject file,
 // This is some tidy-up activity that I must always do at the end of
 // reading (or trying to read) something.
             repeat_heap = NULL;
-            pop(CP);
+            LispObject p;
+            pop(p);
+            setvalue(current_package, p);
             inf_finish();
             IcloseInput();
             if (from_stream)
-            {   pop(qvalue(echo_symbol));
-                pop(qvalue(standard_input));
+            {   pop(p);
+                setvalue(echo_symbol, p);
+                pop(p);
+                setvalue(standard_input, p);
             }
             uint64_t delta = read_clock() - t0b;
             gc_time += delta;
@@ -3421,12 +3421,12 @@ static LispObject load_module(LispObject env, LispObject file,
 #endif // DEBUG_FASL
         file = nil;
         while (is_cons(r))
-        {   LispObject p = qcar(r);
-            r = qcdr(r);
+        {   LispObject p = car(r);
+            r = cdr(r);
             LispObject name, def;
-            if (is_cons(p) && is_cons(qcdr(p)))
-            {   name = qcar(p);
-                def = qcar(qcdr(p));
+            if (is_cons(p) && is_cons(cdr(p)))
+            {   name = car(p);
+                def = car(cdr(p));
             }
             else continue;
 // if I am in load_selected_source mode I need to check before I set up
@@ -3439,7 +3439,7 @@ static LispObject load_module(LispObject env, LispObject file,
                 else if (integerp(w) != nil && consp(def))
                 {   push(name, file, r, def);
 // The md60 function is called on something like (fname (args...) body...)
-                    def = cons(name, qcdr(def));
+                    def = cons(name, cdr(def));
                     LispObject w1 = Lmd60(nil, def);
                     if (!numeq2(w, w1)) getsavedef = false;
                     pop(def, r, file, name);
@@ -3448,10 +3448,10 @@ static LispObject load_module(LispObject env, LispObject file,
             if (getsavedef)
             {   push(name, file, r);
                 if (name == nil)
-                {   LispObject p1 = qcdr(p);
-                    LispObject n1 = qcar(p1);
-                    LispObject t1 = qcar(p1 = qcdr(p1));
-                    LispObject v1 = qcar(p1 = qcdr(p1));
+                {   LispObject p1 = cdr(p);
+                    LispObject n1 = car(p1);
+                    LispObject t1 = car(p1 = cdr(p1));
+                    LispObject v1 = car(p1 = cdr(p1));
                     putprop(n1, t1, v1);
                 }
                 else putprop(name, savedef, def);
@@ -3492,13 +3492,13 @@ LispObject load_source0(int option)
 // names of modules present in them. I will discard any duplicates
 // names.
     LispObject mods = nil;
-    for (LispObject l = qvalue(input_libraries); is_cons(l); l = qcdr(l))
+    for (LispObject l = qvalue(input_libraries); is_cons(l); l = cdr(l))
     {   push(mods, l);
-        LispObject m = Llibrary_members(nil, qcar(l));
+        LispObject m = Llibrary_members(nil, car(l));
         pop(l, mods);
         while (is_cons(m))
-        {   LispObject m1 = qcar(m);
-            m = qcdr(m);
+        {   LispObject m1 = car(m);
+            m = cdr(m);
             if (Lmemq(nil, m1, mods) != nil) continue;
             push(l, m);
             mods = cons(m1, mods);
@@ -3510,8 +3510,8 @@ LispObject load_source0(int option)
 // list of the names of functions seen.
     LispObject r = nil;
     while (is_cons(mods))
-    {   LispObject m = qcar(mods);
-        mods = qcdr(mods);
+    {   LispObject m = car(mods);
+        mods = cdr(mods);
         push(r, mods);
         LispObject w = load_module(nil, m, option);
         pop(mods, r);
@@ -3734,23 +3734,23 @@ void warm_setup()
 
     set_up_function_tables();
 
-    qheader(nil) = TAG_HDR_IMMED+TYPE_SYMBOL+SYM_GLOBAL_VAR;
+    setheader(nil, TAG_HDR_IMMED+TYPE_SYMBOL+SYM_GLOBAL_VAR);
     for (LispObject **p = list_bases; *p!=NULL; p++) **p = nil;
     *stack = nil;
     qcount(nil) = 0;
 // Make things GC safe first...
-    qvalue(nil) = nil;
-    qenv(nil) = nil;
-    qpname(nil) = nil;
-    qplist(nil) = nil;
-    qfastgets(nil) = nil;
-    qpackage(nil) = nil;
+    setvalue(nil, nil);
+    setenv(nil, nil);
+    setpname(nil, nil);
+    setplist(nil, nil);
+    setfastgets(nil, nil);
+    setpackage(nil, nil);
     ifn0(nil) = (intptr_t)undefined_0;
     ifn1(nil) = (intptr_t)undefined_1;
     ifn2(nil) = (intptr_t)undefined_2;
     ifn3(nil) = (intptr_t)undefined_3;
     ifn4up(nil) = (intptr_t)undefined_4up;
-    qheader(nil) = TAG_HDR_IMMED+TYPE_SYMBOL+SYM_GLOBAL_VAR;
+    setheader(nil, TAG_HDR_IMMED+TYPE_SYMBOL+SYM_GLOBAL_VAR);
 
 #define boffo_size 256
     boffo = get_basic_vector(TAG_VECTOR, TYPE_STRING_4, CELL+boffo_size);
@@ -3785,15 +3785,15 @@ void warm_setup()
 
 // Now I can use serial_read...
 
-    qvalue(nil) = serial_read();
-    qenv(nil) = serial_read();
-    qpname(nil) = serial_read();
-    qplist(nil) = serial_read();
-    qfastgets(nil) = serial_read();
+    setvalue(nil, serial_read());
+    setenv(nil, serial_read());
+    setpname(nil, serial_read());
+    setplist(nil, serial_read());
+    setfastgets(nil, serial_read());
 
 // This next one is a BIGGY because the package structure is liable to
 // include all other symbols, and through them basically everything!
-    qpackage(nil) = serial_read();
+    setpackage(nil, serial_read());
 
     for (LispObject **p = list_bases; *p!=NULL; p++) **p = serial_read();
 
@@ -3891,14 +3891,19 @@ down:
             if (address_used(p - TAG_CONS)) goto up;
             mark_address_as_used(p - TAG_CONS);
             w = p;
-            p = qcdr(p);
-            qcdr(w) = b;
+            p = cdr(p);
+            setcdr(w, b);
             b = w - TAG_CONS + BACKPOINTER_CDR;
             goto down;
 
         case TAG_SYMBOL:
             debug_record("push_symbols SYMBOL");
             if (address_used(p - TAG_SYMBOL)) goto up;
+//          {   LispObject pn = qpname(p);
+//              if (is_string(pn))
+//                  trace_printf(": %.*s\n",
+//                      (int)length_of_byteheader(vechdr(pn))-CELL, &celt(pn, 0));
+//          }
 // I will stop 256 bytes before letting the stack overflow.
             if ((uintptr_t)stack+256 < (uintptr_t)stacklimit)
             {   if ((*pp)(p)) push(p);
@@ -3907,8 +3912,8 @@ down:
             mark_address_as_used(p - TAG_SYMBOL);
             w = p;
             p = qpname(p);
-            qpname(w) = b;
-            b = (LispObject)&qpname(w) + BACKPOINTER_SYMBOL;
+            setpname(w, b);
+            b = (LispObject)pnameaddr(w) + BACKPOINTER_SYMBOL;
             goto down;
 
         case TAG_VECTOR:
@@ -3936,6 +3941,7 @@ down:
             if (len == CELL) goto up;
             w = p + len - CELL - TAG_NUMBERS;
             p = *(LispObject *)w;
+my_assert(p != 0x7e65);
             *(LispObject *)w = b;
             b = w + BACKPOINTER_VECTOR;
             goto down;
@@ -3970,10 +3976,11 @@ up:
     {   default:
         case BACKPOINTER_CDR:
             debug_record("push_symbols BACKPOINTER_CDR");
-            w = qcdr(b - BACKPOINTER_CDR + TAG_CONS);
-            qcdr(b - BACKPOINTER_CDR + TAG_CONS) = p;
-            p = qcar(b - BACKPOINTER_CDR + TAG_CONS);
-            qcar(b - BACKPOINTER_CDR + TAG_CONS) = w;
+            w = cdr(b - BACKPOINTER_CDR + TAG_CONS);
+            setcdr(b - BACKPOINTER_CDR + TAG_CONS, p);
+            p = car(b - BACKPOINTER_CDR + TAG_CONS);
+my_assert(p != 0x7e65);
+            setcar(b - BACKPOINTER_CDR + TAG_CONS, w);
             b = b + BACKPOINTER_CAR - BACKPOINTER_CDR;
             goto down;
 
@@ -3981,9 +3988,10 @@ up:
             debug_record("push_symbols BACKPOINTER_CAR");
             if (b == 0 + BACKPOINTER_CAR) return fail; // finished!
             w = b - BACKPOINTER_CAR + TAG_CONS;
-            b = qcar(w);
-            qcar(w) = p;
+            b = car(w);
+            setcar(w, p);
             p = w;
+my_assert(p != 0x7e65);
             goto up;
 
         case BACKPOINTER_SYMBOL:
@@ -3992,8 +4000,10 @@ up:
             *(LispObject *)(b - BACKPOINTER_SYMBOL) = p;
             b = b - CELL;
             p = *(LispObject *)(b - BACKPOINTER_SYMBOL);
+my_assert(p != 0x7e65);
             if (is_symbol_header_full_test(p))
             {   p = b - BACKPOINTER_SYMBOL + TAG_SYMBOL;
+my_assert(p != 0x7e65);
                 b = w;
                 goto up;
             }
@@ -4006,8 +4016,10 @@ up:
             *(LispObject *)(b - BACKPOINTER_VECTOR) = p;
             b = b - CELL;
             p = *(LispObject *)(b - BACKPOINTER_VECTOR);
+my_assert(p != 0x7e65);
             if (is_number_header_full_test(p))
             {   p = b - BACKPOINTER_VECTOR + TAG_NUMBERS;
+my_assert(p != 0x7e65);
                 b = w;
                 goto up;
             }
@@ -4048,7 +4060,7 @@ static bool push_all_symbols(symbol_processor_predicate *pp)
     return false;
 }
 
-static bool always(LispObject x)
+bool always(LispObject x)
 {   return true;
 }
 
@@ -4059,7 +4071,7 @@ static bool interesting(LispObject x)
 {   LispObject ff;
     if ((ff = qfastgets(x)) != nil)
     {   for (int i=0; i<fastget_size; i++)
-            if (basic_elt(ff, i) != SPID_NOPROP) return true;
+            if ((LispObject)basic_elt(ff, i) != SPID_NOPROP) return true;
     }
     return (qfn1(x) != undefined_1 ||
             qplist(x) != nil ||
@@ -4142,7 +4154,7 @@ static bool count_totals(LispObject x)
     if (n == 0) return false; // Ignore items with zero count
     LispObject e = qenv(x);
     if (is_cons(e))
-    {   e = qcar(e);
+    {   e = car(e);
         if (is_bps(e))
         {   size_t clen = length_of_byteheader(vechdr(e)) - CELL;
             double w = (double)n/(double)clen;
@@ -4171,7 +4183,7 @@ static bool clear_counts(LispObject x)
 }
 
 static bool non_zero_count(LispObject x)
-{   return (qcount(x) != 0);
+{   return ((uint64_t)qcount(x) != 0);
 }
 
 LispObject Lmapstore(LispObject env, LispObject a)
@@ -4223,7 +4235,7 @@ LispObject Lmapstore(LispObject env, LispObject a)
             if (n == 0) continue;
             LispObject e = qenv(x);
             if (is_cons(e))
-            {   e = qcar(e);
+            {   e = car(e);
                 if (is_bps(e))
                 {   size_t clen = length_of_byteheader(vechdr(e)) - CELL;
                     double w = (double)n/(double)clen;
@@ -4243,7 +4255,7 @@ LispObject Lmapstore(LispObject env, LispObject a)
                             LispObject pn = qpname(x);
                             size_t npn = length_of_byteheader(vechdr(pn)) - CELL;
                             if (npn >= 40) npn = 39;
-                            strncpy(buff[buffp].name, &basic_celt(pn, 0), npn);
+                            strncpy(buff[buffp].name, (const char *)&basic_celt(pn, 0), npn);
                             buff[buffp].name[npn] = 0; 
                             buffp++;
                         }

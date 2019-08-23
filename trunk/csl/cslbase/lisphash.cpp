@@ -29,7 +29,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: lisphash.cpp 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: lisphash.cpp 5075 2019-08-10 20:45:42Z arthurcnorman $
 
 // This is a refresh of the Lisp hash table support for CSL, installed
 // in 2017. It uses a scheme fairly traditional double hashing and by
@@ -132,11 +132,11 @@ inline bool COMPARE(LispObject k1, LispObject k2)
 
 // I will give myself accessors to the keys and values.
 
-inline LispObject& ht(size_t n)
+inline std::atomic<LispObject>& ht(size_t n)
 {   return elt(h_table, n);
 }
 
-inline LispObject& htv(size_t n)
+inline std::atomic<LispObject>& htv(size_t n)
 {   return elt(v_table, n);
 }
 
@@ -331,12 +331,15 @@ LispObject Lmkhash_3(LispObject env, LispObject size, LispObject flavour, LispOb
     LispObject v = get_basic_vector_init(6*CELL, nil);
     pop(v2, v1);
     basic_elt(v, HASH_FLAVOUR) = flavour;         // comparison method
+    write_barrier(&basic_elt(v, HASH_FLAVOUR));
     basic_elt(v, HASH_COUNT) = fixnum_of_int(0);  // current number of items stored.
     int shift = 64 - bits;
     basic_elt(v, HASH_SHIFT) = fixnum_of_int(shift);  // 64-log2(table size)
     basic_elt(v, HASH_KEYS) = v1;                 // key table.
+    write_barrier(&basic_elt(v, HASH_KEYS));
     basic_elt(v, HASH_VALUES) = v2;               // value table.
-    vechdr(v) ^= (TYPE_SIMPLE_VEC ^ TYPE_HASH);
+    write_barrier(&basic_elt(v, HASH_VALUES));
+    setvechdr(v, vechdr(v) ^ (TYPE_SIMPLE_VEC ^ TYPE_HASH));
     return onevalue(v);
 }
 
@@ -367,12 +370,15 @@ LispObject Lmkhashset(LispObject env, LispObject flavour)
     LispObject v = get_basic_vector_init(6*CELL, nil);
     pop(v1);
     basic_elt(v, HASH_FLAVOUR) = flavour;         // comparison method
+    write_barrier(&basic_elt(v, HASH_FLAVOUR));
     basic_elt(v, HASH_COUNT) = fixnum_of_int(0);  // current number of items stored.
     int shift = 64 - bits;
     basic_elt(v, HASH_SHIFT) = fixnum_of_int(shift);  // 64-log2(table size)
     basic_elt(v, HASH_KEYS) = v1;                 // key table.
+    write_barrier(&basic_elt(v, HASH_KEYS));
     basic_elt(v, HASH_VALUES) = nil;              // value table.
-    vechdr(v) ^= (TYPE_SIMPLE_VEC ^ TYPE_HASH);
+    write_barrier(&basic_elt(v, HASH_VALUES));
+    setvechdr(v, vechdr(v) ^ (TYPE_SIMPLE_VEC ^ TYPE_HASH));
     return onevalue(v);
 }
 
@@ -430,7 +436,7 @@ static uint64_t hash_byte_vector(uint64_t r, LispObject key)
 // it works byte by byte.
     UPDATE(r, (uint64_t)vechdr(key));
     size_t n = length_of_byteheader(vechdr(key))-CELL;
-    unsigned char *p = &basic_ucelt(key, 0);
+    unsigned char *p = (unsigned char *)&basic_ucelt(key, 0);
     for (size_t i=0; i<n; i++) UPDATE32(r, *p++);
     return r;
 }
@@ -489,7 +495,7 @@ static uint64_t hash_eql(uint64_t r, LispObject key)
 #ifdef HAVE_SOFTFLOAT
             case TYPE_LONG_FLOAT:
                 UPDATE32(r, (uint64_t)h);
-                if (f128M_zero(long_float_addr(key)))
+                if (f128M_zero((float128_t *)long_float_addr(key)))
                 {   UPDATE(r, 0);
                     UPDATE(r, 0);
                 }
@@ -670,8 +676,8 @@ static uint64_t hash_generic_equal(uint64_t r, LispObject key,
     while (is_cons(key) && key != nil)
     {   UPDATE32(r, VIRTUAL_TYPE_CONS | TAG_HDR_IMMED);
         depth++;
-        r = hash_generic_equal(r, qcar(key), mode, depth);
-        key = qcdr(key);
+        r = hash_generic_equal(r, car(key), mode, depth);
+        key = cdr(key);
     }
 // Partly because in CSL (in Common Lisp mode) I tagged NIL in an odd way
 // I will compute its hash value specially here.
@@ -726,7 +732,7 @@ static uint64_t hash_generic_equal(uint64_t r, LispObject key,
 // Here I must compute a case-insensitive hash value. Ugh this means I work
 // character by character and so slow things down.
                         r = hash_eq(r, (LispObject)h);
-                        data = &ucelt(key, 0);
+                        data = (unsigned char *)&ucelt(key, 0);
                         len = length_of_byteheader(h) - CELL;
                         while (len != 0)
                         {   int c = *data++;
@@ -872,7 +878,7 @@ LispObject Lget_hash(LispObject env, LispObject key, LispObject tab, LispObject 
     if (!is_vector(tab) || type_of_header(vechdr(tab)) != TYPE_HASH)
     {   if (type_of_header(vechdr(tab)) != TYPE_HASHX)
             aerror1("gethash", tab);
-        vechdr(tab) ^= (TYPE_HASH ^ TYPE_HASHX);
+        setvechdr(tab, vechdr(tab) ^ (TYPE_HASH ^ TYPE_HASHX));
         set_hash_operations(tab);
 // Here I have a table that at some stage had all fitted into the table, and
 // I am not adding new data. I need to rehash it because garbage collection
@@ -897,7 +903,7 @@ LispObject Lget_hash(LispObject env, LispObject key, LispObject tab, LispObject 
             {   elt(oldkeys, load) = k;
                 ht(i) = SPID_HASHEMPTY;
                 if (v_table != nil)
-                {   elt(oldvals, load) = htv(i);
+                {   elt(oldvals, load) = (LispObject)htv(i);
                     htv(i) = SPID_HASHEMPTY;
                 }
                 load++;
@@ -907,7 +913,11 @@ LispObject Lget_hash(LispObject env, LispObject key, LispObject tab, LispObject 
         {   LispObject k = elt(oldkeys, i);
             size_t j = hash_where_to_insert(k);
             ht(j) = k;
-            if (v_table != nil) htv(j) = elt(oldvals, i);
+            write_barrier(&ht(j));
+            if (v_table != nil)
+            {   htv(j) = (LispObject)elt(oldvals, i);
+                write_barrier(&htv(j));
+            }
         }
     }
     else set_hash_operations(tab);
@@ -1018,7 +1028,7 @@ LispObject Lput_hash(LispObject env,
     if (type_of_header(vechdr(tab)) != TYPE_HASH)
     {   if (type_of_header(vechdr(tab)) == TYPE_HASHX)
         {   needs_rehashing = true;
-            vechdr(tab) ^= (TYPE_HASH ^ TYPE_HASHX);
+            setvechdr(tab, vechdr(tab) ^ (TYPE_HASH ^ TYPE_HASHX));
         }
         else aerror1("puthash", tab);
     }
@@ -1033,7 +1043,8 @@ LispObject Lput_hash(LispObject env,
     if (needs_rehashing)
     {   size_t load = 0;
         for (size_t i=0; i<h_table_size; i++)
-            if (ht(i) != SPID_HASHEMPTY && ht(i) != SPID_HASHTOMB) load++;
+            if ((LispObject)ht(i) != SPID_HASHEMPTY &&
+                (LispObject)ht(i) != SPID_HASHTOMB) load++;
 #ifdef PROFILE
         printf("Inserting with load=%d count=%d size=%d\n",
                (int)load, (int)count, (int)h_table_size);
@@ -1060,11 +1071,13 @@ LispObject Lput_hash(LispObject env,
 // could mark the table as in need of rehashing. Well I am about to
 // rehash everything already, so I can cancel any new request.
             if (type_of_header(vechdr(tab)) == TYPE_HASHX)
-                vechdr(tab) ^= (TYPE_HASH ^ TYPE_HASHX);
+                setvechdr(tab, vechdr(tab) ^ (TYPE_HASH ^ TYPE_HASHX));
             LispObject oldkeys = basic_elt(tab, HASH_KEYS);
             LispObject oldvals = basic_elt(tab, HASH_VALUES);
             basic_elt(tab, HASH_KEYS) = h_table = newkeys;
+            write_barrier(&basic_elt(tab, HASH_KEYS));
             basic_elt(tab, HASH_VALUES) = v_table = newvals;
+            write_barrier(&basic_elt(tab, HASH_VALUES));
             basic_elt(tab, HASH_SHIFT) = fixnum_of_int(h_shift);
             basic_elt(tab, HASH_COUNT) = fixnum_of_int(0);
             for (size_t i=0; i<h_table_size; i++)
@@ -1073,8 +1086,12 @@ LispObject Lput_hash(LispObject env,
                 if (k != SPID_HASHEMPTY && k != SPID_HASHTOMB)
                 {   size_t j = hash_where_to_insert(k);
                     ht(j) = k;
-                    if (v_table != nil) htv(j) = elt(oldvals, i);
-                    basic_elt(tab, HASH_COUNT) += 0x10;
+                    write_barrier(&ht(j));
+                    if (v_table != nil)
+                    {   htv(j) = (LispObject)elt(oldvals, i);
+                        write_barrier(&htv(j));
+                    }
+                    basic_elt(tab, HASH_COUNT) = (LispObject)basic_elt(tab, HASH_COUNT) + 0x10;
                 }
             }
 // Here I can recycle the old space. This is not going to be very important
@@ -1096,7 +1113,7 @@ LispObject Lput_hash(LispObject env,
             {   LispObject k = ht(i);
                 if (k != SPID_HASHEMPTY && k != SPID_HASHTOMB)
                 {   elt(oldkeys, load) = k;
-                    if (v_table != nil) elt(oldvals, load) = htv(i);
+                    if (v_table != nil) elt(oldvals, load) = (LispObject)htv(i);
                     load++;
                 }
             }
@@ -1110,7 +1127,9 @@ LispObject Lput_hash(LispObject env,
                 if (v_table != nil)
                     v_table = reduce_vector_size(v_table, CELL*(load+1));
                 basic_elt(tab, HASH_KEYS) = h_table;
+                write_barrier(&basic_elt(tab, HASH_KEYS));
                 basic_elt(tab, HASH_VALUES) = v_table;
+                write_barrier(&basic_elt(tab, HASH_VALUES));
             }
             for (size_t i=0; i<h_table_size; i++)
             {   ht(i) = SPID_HASHEMPTY;
@@ -1121,8 +1140,12 @@ LispObject Lput_hash(LispObject env,
             {   LispObject k = elt(oldkeys, i);
                 size_t j = hash_where_to_insert(k);
                 ht(j) = k;
-                if (v_table != nil) htv(j) = elt(oldvals, i);
-                basic_elt(tab, HASH_COUNT) += 0x10;
+                write_barrier(&ht(j));
+                if (v_table != nil)
+                {   htv(j) = (LispObject)elt(oldvals, i);
+                    write_barrier(&htv(j));
+                }
+                basic_elt(tab, HASH_COUNT) = (LispObject)basic_elt(tab, HASH_COUNT) + 0x10;
             }
         }
     }
@@ -1131,9 +1154,13 @@ LispObject Lput_hash(LispObject env,
 // If I insert where a tombstone value had been I do not increment the
 // occupancy count, since the tombstone is counted as an occupier.
     if (k1 == SPID_HASHEMPTY)
-        basic_elt(tab, HASH_COUNT) += 0x10; // Increment count.
+        basic_elt(tab, HASH_COUNT) = (LispObject)basic_elt(tab, HASH_COUNT) + 0x10; // Increment count.
     ht(pos) = key;
-    if (v_table != nil) htv(pos) = val;
+    write_barrier(&ht(pos));
+    if (v_table != nil)
+    {   htv(pos) = val;
+        write_barrier(&htv(pos));
+    }
     return onevalue(val);
 }
 
@@ -1159,7 +1186,9 @@ LispObject Lclr_hash(LispObject env, LispObject tab)
         if (v_table != nil)
             v_table = reduce_vector_size(v_table, CELL*(size+1));
         basic_elt(tab, HASH_KEYS) = h_table;
+        write_barrier(&basic_elt(tab, HASH_KEYS));
         basic_elt(tab, HASH_VALUES) = v_table;
+        write_barrier(&basic_elt(tab, HASH_VALUES));
         basic_elt(tab, HASH_SHIFT) = fixnum_of_int(64-4);
     }
     LispObject keys = basic_elt(tab, HASH_KEYS);
@@ -1170,7 +1199,7 @@ LispObject Lclr_hash(LispObject env, LispObject tab)
     }
     basic_elt(tab, HASH_COUNT) = fixnum_of_int(0);
     if (type_of_header(vechdr(tab)) == TYPE_HASHX)
-        vechdr(tab) ^= (TYPE_HASH ^ TYPE_HASHX);
+        setvechdr(tab, vechdr(tab) ^ (TYPE_HASH ^ TYPE_HASHX));
     return tab;
 }
 
@@ -1244,8 +1273,8 @@ void simple_print1(LispObject x)
         {   simple_lineend(1);
             fprintf(stderr, "%s", sep);
             sep = " ";
-            simple_print1(qcar(x));
-            x = qcdr(x);
+            simple_print1(car(x));
+            x = cdr(x);
         }
         if (x != nil)
         {   simple_lineend(3);
@@ -1267,20 +1296,20 @@ void simple_print1(LispObject x)
         x = qpname(x);
         len = length_of_byteheader(vechdr(x)) - CELL;
         simple_lineend(len);
-        fprintf(stderr, "%.*s", (int)len, &celt(x, 0));
+        fprintf(stderr, "%.*s", (int)len, (const char *)&celt(x, 0));
     }
     else if (is_vector(x))
     {   size_t i, len;
         if (is_string(x))
         {   len = length_of_byteheader(vechdr(x)) - CELL;
             simple_lineend(len+2);
-            fprintf(stderr, "\"%.*s\"", (int)len, &celt(x, 0));
+            fprintf(stderr, "\"%.*s\"", (int)len, (const char *)&celt(x, 0));
             return;
         }
         else if (vector_holds_binary(vechdr(x)) &&
                  vector_i8(vechdr(x)))
         {   len = length_of_byteheader(vechdr(x)) - CELL;
-            fprintf(stderr, "<Header is %" PRIxPTR ">", vechdr(x));
+            fprintf(stderr, "<Header is %" PRIxPTR ">", (uintptr_t)vechdr(x));
             simple_lineend(2*len+3);
             fprintf(stderr, "#8[");
             for (size_t i=0; i<len; i++)

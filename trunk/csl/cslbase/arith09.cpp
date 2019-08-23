@@ -36,7 +36,7 @@
  *************************************************************************/
 
 
-// $Id: arith09.cpp 4975 2019-05-01 20:54:45Z arthurcnorman $
+// $Id: arith09.cpp 5074 2019-08-10 16:49:01Z arthurcnorman $
 
 #include "headers.h"
 
@@ -407,7 +407,7 @@ static size_t huge_gcd(uint32_t *a, size_t lena, uint32_t *b, size_t lenb)
             for (i=0, j=lenr-lenb; i<=lenb; i++, j++)
             {   uint32_t mlow, w;
                 Dmultiply(carry, mlow, b[i], q, carry);
-                w = a[j] + clear_top_bit(~mlow) + carry1;
+                w = a[j] + (uint32_t)clear_top_bit(~mlow) + carry1;
                 if ((int32_t)w < 0)
                 {   w = clear_top_bit(w);
                     carry1 = 1;
@@ -471,8 +471,8 @@ static size_t huge_gcd(uint32_t *a, size_t lena, uint32_t *b, size_t lenb)
                     Dmultiply(carryay, aiy, b[i], ay, carryay);
                     Dmultiply(carrybx, bix, a[i], bx, carrybx);
                     Dmultiply(carryby, biy, b[i], by, carryby);
-                    aa = aix + clear_top_bit(~aiy) + borrowa;
-                    bb = biy + clear_top_bit(~bix) + borrowb;
+                    aa = aix + (uint32_t)clear_top_bit(~aiy) + borrowa;
+                    bb = biy + (uint32_t)clear_top_bit(~bix) + borrowb;
                     borrowa = aa >> 31;
                     borrowb = bb >> 31;
                     a[i] = clear_top_bit(aa);
@@ -486,8 +486,8 @@ static size_t huge_gcd(uint32_t *a, size_t lena, uint32_t *b, size_t lenb)
                 Dmultiply(carryay, aiy, b0, ay, carryay);
                 Dmultiply(carrybx, bix, a[lena], bx, carrybx);
                 Dmultiply(carryby, biy, b0, by, carryby);
-                aa = aix + clear_top_bit(~aiy) + borrowa;
-                bb = biy + clear_top_bit(~bix) + borrowb;
+                aa = aix + (uint32_t)clear_top_bit(~aiy) + borrowa;
+                bb = biy + (uint32_t)clear_top_bit(~bix) + borrowb;
                 borrowa = aa >> 31;
                 borrowb = bb >> 31;
                 aa = clear_top_bit(aa);
@@ -589,8 +589,11 @@ LispObject gcd(LispObject a, LispObject b)
 #ifdef DEBUG_GCD_CODE
                 trace_printf("lena = %d lenb = %d\n", lena, lenb);
 #endif
-                new_lena = huge_gcd(&bignum_digits(a)[0], lena,
-                                    &bignum_digits(b)[0], lenb);
+// Here and in a bunch of places I am hoping that the fact that std::atomic<T>
+// has standard layout will mean that casting a pointer to one to a (T*) will
+// be OK. Well I sort of know it might not be!
+                new_lena = huge_gcd((uint32_t *)&bignum_digits(a)[0], lena,
+                                    (uint32_t *)&bignum_digits(b)[0], lenb);
 //
 // The result handed back (new_lena here) contains not only the revised
 // length of a, but also a flag bit (handed back in its sign bit) to
@@ -647,7 +650,7 @@ LispObject gcd(LispObject a, LispObject b)
 #ifdef DEBUG_GCD_CODE
                     trace_printf("lena = %d\n", lena);
 #endif
-                    numhdr(a) = make_bighdr(new_lena+CELL/4+1);
+                    setnumhdr(a, make_bighdr(new_lena+CELL/4+1));
                     if (SIXTY_FOUR_BIT)
                     {   lena |= 1;
                         new_lena |= 1;
@@ -869,7 +872,7 @@ LispObject ash(LispObject a, LispObject b)
         int32_t bits = bb % 31;     // bits to shift left by
         int32_t msd = bignum_digits(a)[lena];
         int32_t d0 = ASR(msd, (31 - bits));
-        int32_t d1 = clear_top_bit(msd << bits);
+        int32_t d1 = clear_top_bit(((uint32_t)msd) << bits);
         size_t i, lenc = lena + words;
         bool longer = false;
         LispObject c;
@@ -897,7 +900,8 @@ LispObject ash(LispObject a, LispObject b)
 // logical vs arithmetic shifts to bother me.
 //
             bignum_digits(c)[words + i] =
-                (d0 >> (31 - bits)) | clear_top_bit(d1 << bits);
+                ((uint32_t)d0 >> (31 - bits)) |
+                clear_top_bit(((uint32_t)d1) << bits);
             d0 = d1;
         }
         if (longer) bignum_digits(c)[words+i] = ASR(d0, (31 - bits));
@@ -914,7 +918,7 @@ LispObject ash(LispObject a, LispObject b)
         int32_t bits = (-bb) % 31;     // bits to shift right by
         int32_t msd = bignum_digits(a)[lena];
         int32_t d0 = ASR(msd, bits);
-        int32_t d1 = clear_top_bit(msd << (31 - bits));
+        int32_t d1 = clear_top_bit(((uint32_t)msd) << (31 - bits));
 // Maybe at this stage I can tell that the result will be zero (or -1).
         if (words > lena) return fixnum_of_int(msd < 0 ? -1 : 0);
         size_t i, lenc = lena - words;
@@ -940,7 +944,7 @@ LispObject ash(LispObject a, LispObject b)
         for (i=0; i<lenc; i++)
         {   d1 = bignum_digits(a)[words+i+1];
             bignum_digits(c)[i] =
-                (d0 >> bits) | clear_top_bit(d1 << (31 - bits));
+                ((uint32_t)d0 >> bits) | clear_top_bit(((uint32_t)d1) << (31 - bits));
             d0 = d1;
         }
         d1 = shorter ? msd : (msd < 0 ? -1 : 0);
@@ -1000,7 +1004,7 @@ LispObject shrink_bignum(LispObject a, size_t lena)
 // Here I had allocated too much space, so I have to trim it off and
 // put a dummy vector in to pad out the heap.
 //
-    numhdr(a) -= pack_hdrlength(olen-lena);
+    setnumhdr(a, numhdr(a) - pack_hdrlength(olen-lena));
     msd = bignum_digits(a)[lena];
     if ((msd & 0x40000000) != 0) bignum_digits(a)[lena] = msd | ~0x7fffffff;
     if ((lena & 1) != 0) bignum_digits(a)[++lena] = 0;

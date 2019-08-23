@@ -30,7 +30,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: tempdoc.cpp 3896 2017-02-12 11:24:11Z arthurcnorman $
+// $Id: tempdoc.cpp 5074 2019-08-10 16:49:01Z arthurcnorman $
 
 
 //
@@ -2341,7 +2341,7 @@
 // Not yet written
 //
 
-// fns [qcar expr] \item [{\ttfamily qcar} {\itshape  expr}] \index{{\ttfamily qcar} {\itshape  expr}} ~\newline
+// fns [car expr] \item [{\ttfamily car} {\itshape  expr}] \index{{\ttfamily car} {\itshape  expr}} ~\newline
 // Not yet written
 //
 
@@ -2353,7 +2353,7 @@
 // Not yet written
 //
 
-// fns [qcdr expr] \item [{\ttfamily qcdr} {\itshape  expr}] \index{{\ttfamily qcdr} {\itshape  expr}} ~\newline
+// fns [cdr expr] \item [{\ttfamily cdr} {\itshape  expr}] \index{{\ttfamily cdr} {\itshape  expr}} ~\newline
 // Not yet written
 //
 

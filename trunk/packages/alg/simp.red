@@ -863,8 +863,7 @@ symbolic procedure radf(u,n);
       while not domainp u do
      <<y := comfac u;
        if car y
-         then <<x := if !*precise_complex %and not realvaluedp!-sf u
-                       then 0 . pdeg car y
+         then <<x := if !*precise_complex then 0 . pdeg car y
                       else divide(pdeg car y,n);
             if car x neq 0
               then ipart := multf(
@@ -878,9 +877,8 @@ symbolic procedure radf(u,n);
 %                                                    else mvar u),
                     else check!-radf!-sign(!*p2f(mvar u .** pdeg car y),
                                            !*p2f(
-                            (if !*precise and evenp n then {'abs,mvar u}
-                              else mvar u)
-                                                  .** car x),
+                             if !*precise and evenp n then mksp({'abs, sfchk mvar u}, car x)
+                              else mvar u .** car x),
                                            n),
                     ipart);
             if cdr x neq 0

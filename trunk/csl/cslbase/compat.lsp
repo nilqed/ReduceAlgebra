@@ -36,7 +36,7 @@
 % variables (the one to !!fleps1 bit me!) that ought not to be done
 % more than once. 
 
-% $Id: compat.lsp 4188 2017-09-08 07:44:29Z arthurcnorman $
+% $Id: compat.lsp 5035 2019-06-17 17:47:25Z arthurcnorman $
 
 (cond
   ((not (globalp '!!fleps1)) (progn
@@ -626,6 +626,16 @@ top (cond ((null a) (return (reversip r))))
         evenp reversip seprp atsoc eqcar flagp!*!* flagpcar get!*
         prin1 prin2 apply0 apply1 apply2 apply3 smemq spaces
         subla gcdn lcmn printprompt pair putc) 'lose)
+
+
+% For testing my new arithmetic I want a function that maps from existing
+% numbers to the new ones. This is onky temporary and is no use unless
+% CSL has been built with the experimental --with-arithlib option.
+
+(de newbig (a)
+  (if (minusp a)
+      (newminus (newbig (minus a)))
+      (compress (cons '!0 (cons '!z (explode a))))))
 
 
 % end of compat.lsp

@@ -26,7 +26,7 @@ module cslrend; % CSL REDUCE "back-end".
 % POSSIBILITY OF SUCH DAMAGE.
 %
 
-% $Id: cslrend.red 4975 2019-05-01 20:54:45Z arthurcnorman $
+% $Id: cslrend.red 5074 2019-08-10 16:49:01Z arthurcnorman $
 
 create!-package('(cslrend csl),nil);
 
@@ -66,7 +66,7 @@ global '(!$eol!$
          symchar!*);
 
 author1!* := "A C Hearn, 1971-2016";
-author2!* := "Codemist, 1989-2016";
+author2!* := "Codemist, 1989-2019";
 
 % Lists of packages & switches...
 

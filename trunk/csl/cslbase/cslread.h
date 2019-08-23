@@ -1,4 +1,4 @@
-// cslread.h                             Copyright (C) Codemist, 1989-2017
+// cslread.h                             Copyright (C) Codemist, 1989-2019
 
 //
 // Header defining the structure of the package system for use by
@@ -7,7 +7,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2017, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -36,7 +36,7 @@
  *************************************************************************/
 
 
-// $Id: cslread.h 4627 2018-05-27 09:04:04Z arthurcnorman $
+// $Id: cslread.h 5075 2019-08-10 20:45:42Z arthurcnorman $
 
 #ifndef header_read_h
 #define header_read_h 1

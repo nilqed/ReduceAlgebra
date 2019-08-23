@@ -47,7 +47,7 @@
 // "LaTeX" for more information.
 //
 
-// $Id: csl.cpp 4987 2019-05-09 08:42:16Z arthurcnorman $
+// $Id: csl.cpp 5074 2019-08-10 16:49:01Z arthurcnorman $
 
 
 //
@@ -951,12 +951,10 @@ void debug_show_trail_raw(const char *msg, const char *file, int line)
 
 #endif
 
-// See comments in lispthrow.h for an explanation of this.
-//#undef global_jb
-//thread_local jmp_buf *global_jb;
-//jmp_buf **get_global_jb_addr()
-//{   return &global_jb;
-//}
+// See comments in lispthrow.h for an explanation of this. And note that
+// any threaded system will need to worry a LOT about this! Maybe global_jb
+// can be thread_local?
+
 jmp_buf *global_jb;
 
 [[noreturn]] void global_longjmp()
@@ -1026,7 +1024,10 @@ static void lisp_main(void)
                     return_code = EXIT_SUCCESS;
                     if (is_vector(exit_value) &&
                         is_string(exit_value))
-                    {   msg = &celt(exit_value, 0);
+// celt returns a vector of atomic characters but here I need to treat that
+// as just plain characters. Casting away the std<<atomic> stuff is liable
+// to be evil (eg wrt strict aliasing rules)!
+                    {   msg = (const char *)&celt(exit_value, 0);
                         len = (int)(length_of_byteheader(vechdr(exit_value)) - CELL);
                     }
                     push(codevec, litvec);
@@ -1042,7 +1043,7 @@ static void lisp_main(void)
                     return_code = EXIT_SUCCESS;
                     if (is_vector(exit_value) &&
                         is_string(exit_value))
-                    {   msg = &celt(exit_value, 0);
+                    {   msg = (const char *)&celt(exit_value, 0);
                         len = (int)(length_of_byteheader(vechdr(exit_value)) - CELL);
                     }
                     push(litvec, codevec);
@@ -1110,10 +1111,10 @@ static void lisp_main(void)
                         if (exit_value != lisp_true)
                         {   LispObject modname = nil;
                             if (is_cons(exit_value))
-                            {   modname = qcar(exit_value);
-                                exit_value = qcdr(exit_value);
+                            {   modname = car(exit_value);
+                                exit_value = cdr(exit_value);
                                 if (is_cons(exit_value))
-                                    exit_value = qcar(exit_value);
+                                    exit_value = car(exit_value);
                             }
                             if (symbolp(modname) && modname != nil)
                             {   modname = get_pname(modname);
@@ -1363,6 +1364,7 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
     time_now   = space_now   = io_now   = errors_now   = 0;
     time_limit = space_limit = io_limit = errors_limit = -1;
     base_time = read_clock();
+    base_walltime = std::chrono::high_resolution_clock::now();
     gc_time = 0.0;
     fwin_pause_at_end = true;
 // Now that the window manager is active I can send output through
@@ -2561,16 +2563,33 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 // here despite the full system not being loaded. I use references to the
 // nil-segment and cons().
 //
-
-        nilsegment = (LispObject *)aligned_malloc(NIL_SEGMENT_SIZE);
-        if (nilsegment == NULL) abort();
+#if defined __cpp_aligned_new && defined HAVE_ALIGNED_ALLOC
+        nilsegment = nilsegmentbase =
+            reinterpret_cast<LispObject *>(
+                aligned_alloc(16, NIL_SEGMENT_SIZE));
+#else
+        nilsegment =
+            reinterpret_cast<LispObject *>(malloc(NIL_SEGMENT_SIZE+32));
+        nilsegment = reinterpret_cast<LispObject *>(
+            doubleword_align_up(reinterpret_cast<uintptr_t>(nilsegmentbase)));
+#endif
+        if (nilsegmentbase == NULL) abort();
 #ifdef COMMON
         nil = doubleword_align_up((LispObject)nilsegment) + TAG_CONS + 8;
 #else
         nil = doubleword_align_up((LispObject)nilsegment) + TAG_SYMBOL;
 #endif
         pages_count = heap_pages_count = vheap_pages_count = 0;
-        stacksegment = (LispObject *)aligned_malloc(CSL_PAGE_SIZE);
+#if defined __cpp_aligned_new && HAVE_ALIGNED_ALLOC
+        stacksegment = stacksegmentbase =
+            reinterpret_cast<LispObject *>(
+                aligned_alloc(16, CSL_PAGE_SIZE));
+#else
+        stacksegment =
+            reinterpret_cast<LispObject *>(malloc(CSL_PAGE_SIZE+32));
+        stacksegment = reinterpret_cast<LispObject *>(
+            doubleword_align_up(reinterpret_cast<uintptr_t>(stacksegmentbase)));
+#endif
         if (stacksegment == NULL) abort();
         heaplimit = doubleword_align_up((LispObject)stacksegment);
         fringe = heaplimit + CSL_PAGE_SIZE - 16;
@@ -2580,11 +2599,11 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 // I have now fudged up enough simulation of a Lisp heap that maybe I can
 // build the library search-list.
 //
-        qheader(input_libraries)  |= SYM_SPECIAL_FORM;
-        qvalue(input_libraries) = nil;
+        setheader(input_libraries, qheader(input_libraries) | SYM_SPECIAL_FORM);
+        setvalue(input_libraries, nil);
         for (i=number_of_fasl_paths-1; i>=0; i--)
-            qvalue(input_libraries) = cons(SPID_LIBRARY + (((int32_t)i)<<20),
-                                           qvalue(input_libraries));
+            setvalue(input_libraries, cons(SPID_LIBRARY + (((int32_t)i)<<20),
+                                           qvalue(input_libraries)));
 
         if (Imodulep(module_enquiry, strlen(module_enquiry),
                      datestamp, &size, fullname))
@@ -2655,9 +2674,9 @@ void cslstart(int argc, const char *argv[], character_writer *wout)
 //
         Csrand((uint32_t)initial_random_seed);
 
-        uint64_t t0 = read_clock();
-        gc_time += t0;
-        base_time += t0;
+//?        uint64_t t0 = read_clock();
+//?        gc_time += t0;
+//?        base_time += t0;
 
         ensure_screen();
         procedural_output = NULL;
@@ -2841,6 +2860,146 @@ void respond_to_stack_event()
 // with the precise collector perhaps?
         interrupted();
     }
+}
+
+#ifdef HAVE_SIGACTION
+static void low_level_signal_handler(int signo, siginfo_t *t, void *v);
+#else // !HAVE_SIGACTION
+static void low_level_signal_handler(int signo);
+#endif // !HAVE_SIGACTION
+
+void set_up_signal_handlers()
+{
+//
+#ifdef USE_SIGALTSTACK
+// If I get a SIGSEGV that is caused by a stack overflow then I am in
+// a world of pain because the regular stack does not have space to run my
+// exception handler. So where I can I will arrange that the exception
+// handler runs in its own small stack. This may itself lead to pain,
+// but perhaps less?
+    signal_stack.ss_sp = (void *)signal_stack_block;
+    signal_stack.ss_size = SIGSTKSZ;
+    signal_stack.ss_flags = 0;
+    sigaltstack(&signal_stack, (stack_t *)0);
+#endif
+#ifdef HAVE_SIGACTION
+    struct sigaction sa;
+    sa.sa_sigaction = low_level_signal_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART | SA_SIGINFO; //???@@@ | SA_ONSTACK | SA_NODEFER;
+// (a) restart system calls after signal (if possible),
+// (b) use handler that gets more information,
+// (c) use alternative stack for the handler,
+// (d) leave the exception unmasked while the handler is active. This
+//     will be vital if then handler "exits" using longjmp, because as
+//     far as the exception system is concerned that leaves us within the
+//     handler. But after the  exit is caught by setjmp I want the
+//     exception to remain trapped.
+    if (sigaction(SIGSEGV, &sa, NULL) == -1)
+        /* I can not thing of anything useful to do if I fail here! */;
+#ifdef SIGBUS
+    if (sigaction(SIGBUS, &sa, NULL) == -1)
+        /* I can not thing of anything useful to do if I fail here! */;
+#endif
+#ifdef SIGILL
+    if (sigaction(SIGILL, &sa, NULL) == -1)
+        /* I can not thing of anything useful to do if I fail here! */;
+#endif
+    if (sigaction(SIGFPE, &sa, NULL) == -1)
+        /* I can not thing of anything useful to do if I fail here! */;
+#else // !HAVE_SIGACTION
+#ifndef WIN32
+#error All platforms other than Windows are expected to support sigaction.
+#endif // !WIN32
+    signal(SIGSEGV, low_level_signal_handler);
+#ifdef SIGBUS
+    signal(SIGBUS, low_level_signal_handler);
+#endif
+#ifdef SIGILL
+    signal(SIGILL, low_level_signal_handler);
+#endif
+    signal(SIGFPE, low_level_signal_handler);
+#endif // !HAVE_SIGACTION
+}
+
+static volatile thread_local char signal_msg[32];
+
+static volatile char *int2str(volatile char *s, int n)
+{   unsigned int n1;
+// Even though I really only expect this to be called with small positive
+// arguments I will code it so it should support ANY integer value, including
+// the most negative one.
+    if (n >= 0) n1 = (unsigned int)n;
+    {   *s++ = '-';
+        n1 = -(unsigned int)n;
+    }
+    if (n1 >= 10)
+    {   s = int2str(s, n1/10);
+        n1 = n1 % 10;
+    }
+    *s++ = '0' + n1;
+    return s;
+}
+
+#ifdef HAVE_SIGACTION
+static void low_level_signal_handler(int signo, siginfo_t *si, void *v)
+#else // !HAVE_SIGACTION
+static void low_level_signal_handler(int signo)
+#endif // !HAVE_SIGACTION
+{
+// There are really very restrictive rules about what I can do in a
+// signal handler and remain safe. For a start I should only reference
+// variables that are of type atomic_t (or its friends) and that are
+// volatile, and there are fairly few system functions that are
+// "async signal safe" and generally permitted. However I am going to
+// stray well beyond the rules here! Well in most cases I will view this
+// as acceptable, because in most cases these low level signals will only
+// arise in case of a system-level bug, and so ANY recovery or diagnostic
+// I can produce will be better than nothing, and if things get confused
+// or crash again then that is not much worse than the exception having
+// arisen in the first case!
+// I will create a message string (which I should put in thread local memory)
+    if (miscflags & HEADLINE_FLAG)
+    {   switch (signo)
+        {   default:
+                {   volatile char *p = signal_msg;
+                    const char *m1 = "Signal (signo=";
+                    while (*m1) *p++ = *m1++;
+                    p = int2str(p, signo);
+                    *p++ = ')';
+                    *p = 0;
+                }
+                errorset_msg = signal_msg;
+                break;
+#ifdef SIGFPE
+            case SIGFPE:
+                errorset_msg = "Arithmetic exception";
+                break;
+#endif
+#ifdef SIGSEGV
+            case SIGSEGV:
+                errorset_msg = "Memory access violation";
+                break;
+#endif
+#ifdef SIGBUS
+            case SIGBUS:
+                errorset_msg = "Bus error";
+                break;
+#endif
+#ifdef SIGILL
+            case SIGILL:
+                errorset_msg = "Illegal instruction";
+                break;
+#endif
+        }
+    }
+// I am NOT ALLOWED TO USE THROW to exit from a signal handler in C++. I
+// can at best try use of longjmp, and that is not really legal
+// In particular this has the malign consequence that destructors
+// associated with stack frames passed through will not be activated. And
+// I use destructors in a RAII style to tidy up bindings at times, so I
+// hope I never do a really do longjmp, because that would bypass things!
+    global_longjmp();
 }
 
 static void cslaction(void)
@@ -3257,8 +3416,8 @@ int PROC_make_function_call(const char *name, int n)
     if_error(
         while (n > 0)
         {   if (procstack == nil) return 1; // Not enough args available
-            w = cons(qcar(procstack), w);
-            procstack = qcdr(procstack);
+            w = cons(car(procstack), w);
+            procstack = cdr(procstack);
             n--;
         }
         push(w);
@@ -3278,8 +3437,9 @@ int PROC_make_function_call(const char *name, int n)
 int PROC_save(int n)
 {   if (n < 0 || n > 99) return 1; // index out of range
     if (procstack == nil) return 2; // Nothing available to save
-    elt(procmem, n) = qcar(procstack);
-    procstack = qcdr(procstack);
+// On the next line I want to copy the LispObject not any atomic thing!
+    elt(procmem, n) = (LispObject)car(procstack);
+    procstack = cdr(procstack);
     return 0;
 }
 
@@ -3308,7 +3468,7 @@ int PROC_dup()
     volatile uintptr_t sp;
     C_stackbase = (uintptr_t *)&sp;
     if (procstack == nil) return 1; // no item to duplicate
-    w = qcar(procstack);
+    w = car(procstack);
     if_error(w = cons(w, procstack),
         return 2)  // Failed to push onto stack
     procstack = w;
@@ -3317,7 +3477,7 @@ int PROC_dup()
 
 int PROC_pop()
 {   if (procstack == nil) return 1; // stack is empty
-    procstack = qcdr(procstack);
+    procstack = cdr(procstack);
     return 0;
 }
 
@@ -3335,12 +3495,12 @@ int PROC_simplify()
     if (procstack == nil) return 1; // stack is empty
     if_error(
         w = make_undefined_symbol("simp");
-        w = Lapply1(nil, w, qcar(procstack));
+        w = Lapply1(nil, w, car(procstack));
         push(w);
         w1 = make_undefined_symbol("mk*sq");
         pop(w);
         w = Lapply1(nil, w1, w);
-        qcar(procstack) = w,
+        setcar(procstack, w),
         // error exit case
         return 1);
     return 0;
@@ -3355,8 +3515,8 @@ int PROC_simplify()
 
 static void PROC_standardise_gensyms(LispObject w)
 {   if (consp(w))
-    {   push(qcdr(w));
-        PROC_standardise_gensyms(qcar(w));
+    {   push(cdr(w));
+        PROC_standardise_gensyms(car(w));
         pop(w);
         PROC_standardise_gensyms(w);
         return;
@@ -3374,19 +3534,19 @@ int PROC_lisp_eval()
     C_stackbase = (uintptr_t *)&sp;
     if (procstack == nil) return 1; // stack is empty
     if_error(
-        w = eval(qcar(procstack), nil);
+        w = eval(car(procstack), nil);
         push(w);
         PROC_standardise_gensyms(w);
         pop(w),
         return 1);
-    qcar(procstack) = w;
+    setcar(procstack, w);
     return 0;
 }
 
 static LispObject PROC_standardise_printed_form(LispObject w)
 {   if (consp(w))
-    {   push(qcdr(w));
-        LispObject w1 = PROC_standardise_printed_form(qcar(w));
+    {   push(cdr(w));
+        LispObject w1 = PROC_standardise_printed_form(car(w));
         pop(w);
         push(w1);
         w =  PROC_standardise_printed_form(w);
@@ -3427,7 +3587,7 @@ int PROC_make_printable()
 //
     if_error(
         w = make_undefined_symbol("simp");
-        w = Lapply1(nil, w, qcar(procstack));
+        w = Lapply1(nil, w, car(procstack));
         push(w);
         w1 = make_undefined_symbol("prepsq");
         pop(w);
@@ -3439,7 +3599,7 @@ int PROC_make_printable()
 //
         w = PROC_standardise_printed_form(w),
         return 1);
-    qcar(procstack) = w;
+    setcar(procstack, w);
     return 0;
 }
 
@@ -3447,8 +3607,8 @@ PROC_handle PROC_get_value()
 {   LispObject w;
     if (procstack == nil) w = fixnum_of_int(0);
     else
-    {   w = qcar(procstack);
-        procstack = qcdr(procstack);
+    {   w = car(procstack);
+        procstack = cdr(procstack);
     }
     return (PROC_handle)w;
 }
@@ -3457,8 +3617,8 @@ PROC_handle PROC_get_raw_value()
 {   LispObject w;
     if (procstack == nil) w = nil;
     else
-    {   w = qcar(procstack);
-        procstack = qcdr(procstack);
+    {   w = car(procstack);
+        procstack = cdr(procstack);
     }
     return (PROC_handle)w;
 }
@@ -3539,7 +3699,7 @@ const char *PROC_symbol_name(PROC_handle p)
     w = qpname(w);
     n = length_of_byteheader(vechdr(w)) - CELL;
     if (n > (intptr_t)sizeof(PROC_name)-1) n = sizeof(PROC_name)-1;
-    strncpy(PROC_name, &celt(w, 0), n);
+    strncpy(PROC_name, (const char *)&celt(w, 0), n);
     PROC_name[n] = 0;
     return &PROC_name[0];
 }
@@ -3553,21 +3713,22 @@ const char *PROC_string_data(PROC_handle p)
 // of dealing with big numbers, so in due course I will need to fix it!
 //
     if (n > (intptr_t)sizeof(PROC_name)-1) n = sizeof(PROC_name)-1;
-    strncpy(PROC_name, &celt(w, 0), n);
+    strncpy(PROC_name, (const char *)&celt(w, 0), n);
     PROC_name[n] = 0;
     return &PROC_name[0];
 }
 
 //
-// First and rest allow list traversal.
+// First and rest allow list traversal. The two-levels of cast are to
+// dispose of std::atomic<> stuff.
 //
 
 PROC_handle PROC_first(PROC_handle p)
-{   return (PROC_handle)qcar((LispObject)p);
+{   return (PROC_handle)(LispObject)car((LispObject)p);
 }
 
 PROC_handle PROC_rest(PROC_handle p)
-{   return (PROC_handle)qcdr((LispObject)p);
+{   return (PROC_handle)(LispObject)cdr((LispObject)p);
 }
 
 // End of csl.cpp

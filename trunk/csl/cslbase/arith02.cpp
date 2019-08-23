@@ -1,4 +1,4 @@
-//  arith02.cpp                            Copyright (C) 1990-2017 Codemist
+//  arith02.cpp                            Copyright (C) 1990-2019 Codemist
 
 //
 // Arithmetic functions.
@@ -8,7 +8,7 @@
 //
 
 /**************************************************************************
- * Copyright (C) 2017, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -38,7 +38,7 @@
 
 
 
-// $Id: arith02.cpp 4983 2019-05-07 14:57:04Z arthurcnorman $
+// $Id: arith02.cpp 5074 2019-08-10 16:49:01Z arthurcnorman $
 
 #include "headers.h"
 #ifdef WITH_CILK
@@ -183,7 +183,7 @@ static LispObject timesib(LispObject a, LispObject b)
         bignum_digits(c)[i] = carry;
     }
     else
-    {   for (i=0; i<lenb; i++) bignum_digits(c)[i] = bignum_digits(b)[i];
+    {   for (i=0; i<lenb; i++) bignum_digits(c)[i] = vbignum_digits(b)[i];
     }
 //
 // Now c is a copy of b (negated if necessary) and I just want to
@@ -233,7 +233,7 @@ extend_by_one_word:
 // Here there was a padder word that I can expand into.
 //
     {   bignum_digits(c)[lenb] = aa;
-        numhdr(c) += pack_hdrlength(1);
+        setnumhdr(c, numhdr(c) + pack_hdrlength(1));
         return c;
     }
 //
@@ -243,7 +243,7 @@ extend_by_one_word:
     a = get_basic_vector(TAG_NUMBERS, TYPE_BIGNUM, CELL+4+4*lenb);
     pop(c);
     for (i=0; i<lenb; i++)
-        bignum_digits(a)[i] = bignum_digits(c)[i];
+        bignum_digits(a)[i] = vbignum_digits(c)[i];
     bignum_digits(a)[i] = aa;
     bignum_digits(a)[i+1] = 0;  // the padder word
     return a;
@@ -296,7 +296,7 @@ static LispObject timesif(LispObject a, LispObject b)
         case TYPE_LONG_FLOAT:
         {   float128_t x, z;
             i64_to_f128M(int_of_fixnum(a), &x);
-            f128M_mul(&x, long_float_addr(b), &z);
+            f128M_mul(&x, (float128_t *)long_float_addr(b), &z);
             return make_boxfloat128(z);
         }
 #endif // HAVE_SOFTFLOAT
@@ -334,7 +334,7 @@ static LispObject timessf(LispObject a, LispObject b)
         case TYPE_LONG_FLOAT:
             {   float128_t x, z;
                 x = float128_of_number(a);
-                f128M_mul(&x, long_float_addr(b), &z);
+                f128M_mul(&x, (float128_t *)long_float_addr(b), &z);
                 return make_boxfloat128(z);
             }
 #endif // HAVE_SOFTFLOAT
@@ -1096,10 +1096,10 @@ static LispObject timesbb(LispObject a, LispObject b)
     }
     pop(b, a);
     d = multiplication_buffer;
-    {   uint32_t *da = &bignum_digits(a)[0],
-                 *db = &bignum_digits(b)[0],
-                 *dc = &bignum_digits(c)[0],
-                 *dd = &bignum_digits(d)[0];
+    {   uint32_t *da = (uint32_t *)&bignum_digits(a)[0],
+                 *db = (uint32_t *)&bignum_digits(b)[0],
+                 *dc = (uint32_t *)&bignum_digits(c)[0],
+                 *dd = (uint32_t *)&bignum_digits(d)[0];
         long_times(dc, da, db, dd, lena, lenb, lenc);
     }
 //
@@ -1128,14 +1128,14 @@ static LispObject timesbb(LispObject a, LispObject b)
                     *(Header *)&bignum_digits(c)[newlenc+1] =
                         make_bighdr(lenc-newlenc-1);
                 lenc = newlenc;
-                numhdr(c) = make_bighdr(lenc+CELL/4);
+                setnumhdr(c, make_bighdr(lenc+CELL/4));
             }
         }
         else if (lenc != newlenc)    // i.e. I padded out somewhat
         {   *(Header *)&bignum_digits(c)[newlenc] =
                 make_bighdr(lenc-newlenc);
             lenc = newlenc;
-            numhdr(c) = make_bighdr(lenc+CELL/4);
+            setnumhdr(c, make_bighdr(lenc+CELL/4));
         }
     }
 //
@@ -1192,7 +1192,7 @@ static LispObject timesbb(LispObject a, LispObject b)
 // easily, and other times it involves forging a short bit of dummy data
 // to fill in a gap that gets left in the heap.
 //
-    numhdr(c) -= pack_hdrlength(1);
+    setnumhdr(c, numhdr(c) - pack_hdrlength(1));
     if ((SIXTY_FOUR_BIT && ((lenc & 1) == 0)) ||
         (!SIXTY_FOUR_BIT && ((lenc & 1) != 0)))
         bignum_digits(c)[lenc-1] = 0; // tidy up
@@ -1202,7 +1202,7 @@ chop2:
 //
 // Trim two words from the number c
 //
-    numhdr(c) -= pack_hdrlength(2);
+    setnumhdr(c, numhdr(c) - pack_hdrlength(2));
     lenc -= 2;
     bignum_digits(c)[lenc] = 0;
     if (SIXTY_FOUR_BIT) lenc = (lenc + 1) & ~1;
@@ -1334,7 +1334,7 @@ inline LispObject timesff(LispObject a, LispObject b)
 // multiplication.
 //
 
-#ifdef TEST_BIGNUM
+#ifdef DEBUG_TIMES
 
 //
 // If I have suspicions about the behaviour of the arithmetic code I can
@@ -1381,7 +1381,7 @@ LispObject times2(LispObject a, LispObject b)
 #endif
 
 LispObject times2(LispObject a, LispObject b)
-#ifdef TEST_BIGNUM
+#ifdef DEBUG
 {   validate_number("Arg1 for times", a, a, b);
     validate_number("Arg2 for times", b, a, b);
     extern LispObject times2a(LispObject a, LispObject b);    

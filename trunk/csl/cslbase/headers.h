@@ -32,7 +32,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: headers.h 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: headers.h 5053 2019-07-07 19:44:56Z arthurcnorman $
 
 //
 // #include the majority of the header files needed by CSL code.
@@ -42,14 +42,6 @@
 #include "config.h"
 #endif
 
-// On a temporary basis the "experiment" I am working on is a conservative
-// garbage collector. I want some of the conditionalization to be on the
-// symbol CONSERVATIVE so I arrange to force that to be defined in relevant
-// situations.
-
-#if defined EXPERIMENT && !defined CONSERVATIVE
-#define CONSERVATIVE 1
-#endif
 
 // There will be an hierarchy of degrees of generality in support for
 // user interfaces. If EMBEDDED is defined then there will be no attempt
@@ -214,9 +206,14 @@ inline double CSLpow(double x, double y)
 
 #include "int128_t.h"
 #include "tags.h"
+#include "thread_local.h"
 #include "cslerror.h"
 #include "externs.h"
+#ifdef CONSERVATIVE
+#include "newallocate.h"
+#else
 #include "allocate.h"
+#endif
 #include "syscsl.h"
 #include "arith.h"
 #include "entries.h"
@@ -225,6 +222,7 @@ inline double CSLpow(double x, double y)
 #include "cslread.h"
 #include "inthash.h"
 #include "lispthrow.h"
+#include "log.h"
 #include "version.h"
 
 namespace FX {
