@@ -24,13 +24,13 @@
 % POSSIBILITY OF SUCH DAMAGE.
 %
 
-% $Id: revision.red 5096 2019-08-21 10:57:31Z arthurcnorman $
+% $Id: revision.red 5257 2020-01-13 21:52:17Z schoepf $
 
 % This file will be automatically updated by the code in scripts/commit.sh
 % to show the latest subversion revision number.
 
 fluid '(revision!*);
 
-revision!* := 5096;
+revision!* := 5257;
 
 end;

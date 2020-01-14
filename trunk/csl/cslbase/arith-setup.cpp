@@ -40,7 +40,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: arith-setup.cpp 5096 2019-08-21 10:57:31Z arthurcnorman $
+// $Id: arith-setup.cpp 5189 2019-11-16 18:08:10Z arthurcnorman $
 
 
 #include "headers.h"
@@ -1264,7 +1264,7 @@ setup_type const arith_setup[] =
     {"newilogxor",           Nilogxor,           Nilogxor,           Nilogxor,           Nilogxor,           Nilogxor},
     {"newilogeqv",           Nilogeqv,           Nilogeqv,           Nilogeqv,           Nilogeqv,           Nilogeqv},
     {"newilognot",           G0W1,               Nilognot,           G2W1,               G3W1,               G4W1},
-    {"newilogcount",         G0W1,               Nilogcount,         G2W1,               G3W1,               G4W1},
+    {"newilogcount",         G0W1,               Nlogcount,          G2W1,               G3W1,               G4W1},
     {"newilshift",           G0W2,               G1W2,               Nileftshift,        G3W1,               G4W1},
     {"newirshift",           G0W2,               G1W2,               Nirightshift,       G3W1,               G4W1},
     {NULL,                   0, 0, 0, 0, 0}

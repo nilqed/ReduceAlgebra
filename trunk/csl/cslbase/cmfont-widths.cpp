@@ -7,16 +7,16 @@
 //
 
 
-// $Id: cmfont-widths.cpp 3897 2017-02-12 11:33:33Z arthurcnorman $
+// $Id: cmfont-widths.cpp 5179 2019-10-31 16:20:08Z arthurcnorman $
 
 
 #include <stdint.h>
 
 typedef struct font_width
 {   const char *name;
-    int32_t checksum;
-    int32_t designsize;
-    int32_t charwidth[128];
+    std::int32_t checksum;
+    std::int32_t designsize;
+    std::int32_t charwidth[128];
 } font_width;
 
 static font_width cm_font_width[] =

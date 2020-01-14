@@ -31,50 +31,16 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: lispthrow.h 5070 2019-08-04 22:39:21Z arthurcnorman $
+// $Id: lispthrow.h 5182 2019-11-02 21:47:16Z arthurcnorman $
 
 #ifndef __lispthrow_h
 #define __lispthrow_h 1
-
-// In C++ I ought to be able to have "extern thread_local" values where the
-// variable is defined in one compilation unit but refereed to from others.
-// However some versions of gcc from (at least) 2016 to 2018 give linker
-// errors "undefined reference to `TLS init function ..." in this case. That
-// is a wide enought range of gcc configurations that I need to do something!
-// So here I have what can only reasonably be described as a HACK that adds
-// an extra level of indirection. By removing the "#define" lines here this
-// hack can be removed rather easily. Something like this may be required for
-// all other extern thread_local variables! Yuk.
-// I rather hope that with the "const" pointer that the C++ compiler will
-// turn this into almost as good code as it would have been before.
-// Furthermore within the compilation unit that happens to define the
-// thread_local variable I undo the "#define" and refer to the variable
-// directly thereby avoiding the extra indirection.
-
-// BUT: "Oh dear" these changes led to an order of magnitude slowdown for
-// REDUCE, and so I am removing them. I will need to be rather careful before
-// I put more thread_local usage back. But one reason for hope here is that
-// when I have a conservative garbage collector I will not need the separate
-// Lisp stack that is at issue here!
-
-// Later (April 2019). Access to thread_local values has low overhead on
-// Linux and on Windows while compiling using msvc. On the Macintosh using
-// clang it is modest. However at the time of writing there are severe costs
-// on either Cygwin or compiling for native Windows using the mingw32
-// compilers. This seems to be because in the favourable cases the C++
-// system uses an x86 segment register, while with Cygwin and mingw a
-// nasty system call is made each time. On the Raspberry pi and on the
-// Macintosh there is an intermediate effect.
-// Exactly what happens may be senitive to the exact release of compiler
-// used etc, and so the report here should not be viewed as behaviour
-// guaranteed for the future! But merely declaring a few variables to be
-// thread_local can sometimes have dramatic consequences!
 
 
 //extern thread_local LispObject *stack;
 extern LispObject *stack;
 //extern thread_local jmp_buf *global_jb;
-extern  jmp_buf *global_jb;
+extern  std::jmp_buf *global_jb;
 
 //extern LispObject **get_stack_addr();
 //extern jmp_buf **get_global_jb_addr();
@@ -85,8 +51,6 @@ extern  jmp_buf *global_jb;
 //static thread_local jmp_buf **const global_jb_addr = get_global_jb_addr();
 //#define stack (*stack_addr)
 //#define global_jb (*global_jb_addr)
-
-// End of thread_local hack.
 
 inline void push(LispObject a)
 {   *++stack = a;
@@ -268,14 +232,14 @@ extern void respond_to_stack_event();
 
 inline void stackcheck0()
 {   if_check_stack();                                         
-    if (((uintptr_t)stack | event_flag.load()) >=
-        (uintptr_t)stacklimit) respond_to_stack_event();
+    if (((std::uintptr_t)stack | event_flag.load()) >=
+        (std::uintptr_t)stackLimit) respond_to_stack_event();
 }
 
 inline void stackcheck1(LispObject& a1)                                   
 {   if_check_stack();                                        
-    if (((uintptr_t)stack | event_flag.load()) >=
-        (uintptr_t)stacklimit)
+    if (((std::uintptr_t)stack | event_flag.load()) >=
+        (std::uintptr_t)stackLimit)
     {   push(a1);
         respond_to_stack_event();
         pop(a1);
@@ -284,8 +248,8 @@ inline void stackcheck1(LispObject& a1)
 
 inline void stackcheck2(LispObject& a1, LispObject& a2)                               
 {   if_check_stack();                                        
-    if (((uintptr_t)stack | event_flag.load()) >=
-        (uintptr_t)stacklimit)
+    if (((std::uintptr_t)stack | event_flag.load()) >=
+        (std::uintptr_t)stackLimit)
     {   push(a1, a2);
         respond_to_stack_event();
         pop(a2, a1);
@@ -294,8 +258,8 @@ inline void stackcheck2(LispObject& a1, LispObject& a2)
 
 inline void stackcheck3(LispObject& a1, LispObject& a2, LispObject& a3)                           
 {   if_check_stack();                                        
-    if (((uintptr_t)stack | event_flag.load()) >=
-        (uintptr_t)stacklimit)
+    if (((std::uintptr_t)stack | event_flag.load()) >=
+        (std::uintptr_t)stackLimit)
     {   push(a1, a2, a3);
         respond_to_stack_event();
         pop(a3, a2, a1);
@@ -304,8 +268,8 @@ inline void stackcheck3(LispObject& a1, LispObject& a2, LispObject& a3)
 
 inline void stackcheck4(LispObject& a1, LispObject& a2, LispObject& a3, LispObject& a4)                       
 {   if_check_stack();                                        
-    if (((uintptr_t)stack | event_flag.load()) >=
-        (uintptr_t)stacklimit)
+    if (((std::uintptr_t)stack | event_flag.load()) >=
+        (std::uintptr_t)stackLimit)
     {   push(a1, a2, a3, a4);
         respond_to_stack_event();
         pop(a4, a3, a2, a1);
@@ -316,14 +280,14 @@ inline void stackcheck4(LispObject& a1, LispObject& a2, LispObject& a3, LispObje
 
 inline void stackcheck()
 {   if_check_stack();                                         
-    if (((uintptr_t)stack | event_flag.load()) >=
-        (uintptr_t)stacklimit) respond_to_stack_event();
+    if (((std::uintptr_t)stack | event_flag.load()) >=
+        (std::uintptr_t)stackLimit) respond_to_stack_event();
 }
 
 inline void stackcheck(LispObject& a1)        
 {   if_check_stack();                                        
-    if (((uintptr_t)stack | event_flag.load()) >=
-        (uintptr_t)stacklimit)
+    if (((std::uintptr_t)stack | event_flag.load()) >=
+        (std::uintptr_t)stackLimit)
     {   push(a1);
         respond_to_stack_event();
         pop(a1);
@@ -332,8 +296,8 @@ inline void stackcheck(LispObject& a1)
 
 inline void stackcheck(LispObject& a1, LispObject& a2)                               
 {   if_check_stack();                                        
-    if (((uintptr_t)stack | event_flag.load()) >=
-        (uintptr_t)stacklimit)
+    if (((std::uintptr_t)stack | event_flag.load()) >=
+        (std::uintptr_t)stackLimit)
     {   push(a1, a2);
         respond_to_stack_event();
         pop(a2, a1);
@@ -342,8 +306,8 @@ inline void stackcheck(LispObject& a1, LispObject& a2)
 
 inline void stackcheck(LispObject& a1, LispObject& a2, LispObject& a3)                           
 {   if_check_stack();                                        
-    if (((uintptr_t)stack | event_flag.load()) >=
-        (uintptr_t)stacklimit)
+    if (((std::uintptr_t)stack | event_flag.load()) >=
+        (std::uintptr_t)stackLimit)
     {   push(a1, a2, a3);
         respond_to_stack_event();
         pop(a3, a2, a1);
@@ -353,8 +317,8 @@ inline void stackcheck(LispObject& a1, LispObject& a2, LispObject& a3)
 inline void stackcheck(LispObject& a1, LispObject& a2,
                        LispObject& a3, LispObject& a4)                       
 {   if_check_stack();                                        
-    if (((uintptr_t)stack | event_flag.load()) >=
-        (uintptr_t)stacklimit)
+    if (((std::uintptr_t)stack | event_flag.load()) >=
+        (std::uintptr_t)stackLimit)
     {   push(a1, a2, a3, a4);
         respond_to_stack_event();
         pop(a4, a3, a2, a1);
@@ -391,7 +355,7 @@ inline void respond_to_fringe_event(LispObject &r, const char *msg)
 // If an asynchronous event has arisen then event_flag has an interesting
 // value. I want to read and reset it atomically, and these two lines
 // using compare_exchange_weak() should achieve that.
-    uintptr_t f = event_flag.load();
+    std::uintptr_t f = event_flag.load();
     while (!event_flag.compare_exchange_weak(f, 0)) {}
 // Now one possibility is that this is a perfectly normal ordinary case
 // for garbage collection because event_flag had been zero. In that case
@@ -576,11 +540,11 @@ struct LispException : public std::exception
 // more agressive use of C++ features that I tends to be into, so I will
 // use uncaught_exceptions() in a rather naive manner.
 // I used to have code here that could verify (Lisp) stack consistency,
-// however C__17 deprecates std::uncaught_exception() and demands a change
+// however C++17 deprecates std::uncaught_exception() and demands a change
 // to use a new function std::uncaught_exceptions() not present in earlier
 // versions of the standard, while it is expected that C++20 will withdraw
 // the original function. I used it and rather than modify my code with ugly
-// checks for whether I have C++17 or not anbd rather that put up with the
+// checks for whether I have C++17 or not and rather that put up with the
 // torrent of warnings that GCC generates in response to deprecated features
 
 // If I build for debugging I will verify that the stack pointer is
@@ -637,7 +601,7 @@ public:
 };
 
 inline const char *tidy_filename(const char *a)
-{   const char *b = strrchr(a, '/');
+{   const char *b = std::strrchr(a, '/');
     return (b == NULL ? a : b+1);
 }
 
@@ -750,7 +714,7 @@ public:
 
 class RAIIsave_stack_and_jb
 {   LispObject *saveStack;
-    jmp_buf *jbsave;
+    std::jmp_buf *jbsave;
 public:
     RAIIsave_stack_and_jb()
     {   jbsave = global_jb;  // preserve the enclosing jmp_buff.
@@ -847,7 +811,7 @@ public:
 // costly one converts longjmp activations into throws of LispSignal.
 
 #define START_SETJMP_BLOCK                          \
-    jmp_buf jb;                                     \
+    std::jmp_buf jb;                                     \
     RAIIsave_stack_and_jb save_stack_Object;        \
     switch (setjmp(jb))                             \
     {   default:                                    \

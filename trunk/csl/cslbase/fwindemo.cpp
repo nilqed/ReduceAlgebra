@@ -68,7 +68,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: fwindemo.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
+// $Id: fwindemo.cpp 5181 2019-11-01 17:29:32Z arthurcnorman $
 
 
 //
@@ -206,8 +206,8 @@
 
 #include "config.h"
 
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 
 #ifdef HAVE_LIBWX
 #include "wxfwin.h"
@@ -221,7 +221,7 @@ int fwin_main(int argc, const char **argv)
     fwin_ensure_screen();
     for (;;)
     {   int c;
-        size_t i = 0, j;
+        std::size_t i = 0, j;
         while ((c = fwin_getchar()) != EOF && c != '\n')
         {   if (i < sizeof(line)-10) line[i++] = c;
         }
@@ -233,7 +233,7 @@ int fwin_main(int argc, const char **argv)
             else fwin_printf("%c", c);
         }
         fwin_printf(">\n");
-        if (c == EOF || strcmp(line, "quit") == 0) break;
+        if (c == EOF || std::strcmp(line, "quit") == 0) break;
     }
     fwin_printf("Done\n");
     // fwin_exit(0);
@@ -246,7 +246,7 @@ int fwin_main(int argc, const char **argv)
 //
 
 int main(int argc, const char *argv[])
-{   fflush(stdout);
+{   std::fflush(stdout);
     return fwin_startup(argc, argv, fwin_main);
 }
 

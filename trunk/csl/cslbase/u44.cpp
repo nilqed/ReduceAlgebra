@@ -1,8 +1,8 @@
-// u44.cpp                                 Copyright (C) 2016-2017 Codemist    
+// u44.cpp                                 Copyright (C) 2016-2019 Codemist    
 
 
 /**************************************************************************
- * Copyright (C) 2017, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -30,7 +30,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: u44.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
+// $Id: u44.cpp 5165 2019-10-10 14:22:18Z arthurcnorman $
 
 
 //

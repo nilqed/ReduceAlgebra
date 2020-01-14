@@ -33,7 +33,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: fontmap.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
+// $Id: fontmap.cpp 5179 2019-10-31 16:20:08Z arthurcnorman $
 
 //
 // The table here maps from the font name (as to be used with wxWidgets
@@ -69,18 +69,18 @@ const char *fontfilename[][2] =
 
 #include "coverage.c"
 
-uint32_t *find_glyphmap(const char *name)
+std::uint32_t *find_glyphmap(const char *name)
 {   unsigned int i, j;
     for (i=0; i<sizeof(fontfilename)/sizeof(fontfilename[0]); i++)
-        if (strcmp(name, fontfilename[i][0]) == 0) break;
+        if (std::strcmp(name, fontfilename[i][0]) == 0) break;
     if (i>=sizeof(fontfilename)/sizeof(fontfilename[0])) return NULL;
     for (j=0; j<sizeof(coverage)/sizeof(coverage[0]); j++)
-        if (strcmp(fontfilename[i][1], coverage[j].name) == 0)
+        if (std::strcmp(fontfilename[i][1], coverage[j].name) == 0)
             return coverage[j].map;
     return NULL;
 }
 
-int char_present(int c, uint32_t *map)
+int char_present(int c, std::uint32_t *map)
 {
 //
 // The treatment here must match that in glyphtable.c I take the view that

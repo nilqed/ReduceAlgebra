@@ -1,7 +1,7 @@
-% make-c-code.red                          Copyright (C) Codemist 2016-2017
+% make-c-code.red                          Copyright (C) Codemist 2016-2019
 
 %**************************************************************************
-%* Copyright (C) 2017, Codemist.                         A C Norman       *
+%* Copyright (C) 2019, Codemist.                         A C Norman       *
 %*                                                                        *
 %* Redistribution and use in source and binary forms, with or without     *
 %* modification, are permitted provided that the following conditions are *
@@ -29,7 +29,7 @@
 %* DAMAGE.                                                                *
 %*************************************************************************/
 
-% $Id: make-c-code.red 4191 2017-09-09 10:39:18Z arthurcnorman $
+% $Id: make-c-code.red 5165 2019-10-10 14:22:18Z arthurcnorman $
 
 on echo, backtrace;
 off int;

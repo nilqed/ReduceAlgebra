@@ -37,12 +37,12 @@
 //
 //                                    A C Norman, October 2015.
 
-// $Id: hopkar.cpp 5060 2019-07-30 10:33:38Z arthurcnorman $
+// $Id: hopkar.cpp 5181 2019-11-01 17:29:32Z arthurcnorman $
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cstdint>
 #include "cuckoo.h"
 
 #define MAXN1  50000   // limit size of first set (A)

@@ -1,5 +1,4 @@
-// newallocate.cpp                         Copyright (C) 1989-2019 Codemist
-
+// newallocate.cpp                         Copyright (C) 2018-2020 Codemist
 //
 // Code to deal with storage allocation, both grabbing memory at the start
 // or a run and significant aspects of garbage collection.
@@ -8,17 +7,13 @@
 
 // Development game-plan for this stuff - showing the steps or stages
 // to go through:
-// (1) Work towards being able to allocate vectors and lists and
-//     set up an initial large chunk of memory. Hope that the code in
-//     restart.cpp for a cold start can be got working again.
-// (2) Test a bit of execution that can happen eithout garbage collection.
-//     I rather hope that PRESERVE will then "just work", and that will
-//     let me build a csl.img
+// [Steps I have achieved are deleted from this list!]
+//
 // (3) Arrange that every garbage collection will be a major one and
 //     re-work the allocation and re-allocation of memory blocks for that.
 //     By keeping the code with precise list-bases for everything that
 //     matters the ambiguous pointers should never be the only reason
-//     for saving any data - they just pin things and hance mess up memory
+//     for saving any data - they just pin things and hence mess up memory
 //     layout. Get that version of GC working. Note that write barriers
 //     may collect information but it is never used!
 // (4) Make some collections minor ones, thus needing to cope with the
@@ -43,7 +38,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2019, Codemist.                         A C Norman       *
+ * Copyright (C) 2020, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -71,7 +66,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: newallocate.cpp 5096 2019-08-21 10:57:31Z arthurcnorman $
+// $Id: newallocate.cpp 5252 2020-01-10 21:25:01Z arthurcnorman $
 
 /*!!! csl
 */
@@ -85,32 +80,178 @@
 // support multiple mutator threads. I am NOT intending either to run
 // garbage collection concurrently with the mutator (so the GC is a "stop
 // the world" one, although most garbage collections should be "minor" ones
-// and hence not too disruptive). I am also not at present planning on having
-// garbage collection use more than one thread to do its work, although that
-// might be seriously easier to retrofit later then having the GC and the
-// mutator concurrent.
+// and hence not too disruptive). I have thought about using multiple threads
+// during garbage collection but will not attempt that in a first version -
+// and preliminary measurements of the overhead of atomic exchange
+// instructions on current computers make me suspect it may not be sensible.
 
-// In previous sketches relating to this I was considering using memory
-// protection and thus exceptions to implement a write barrier that is needed
-// to make the collector ephemeral/generational. My thoughts are now moving
-// to accepting that having the operating system handle exceptions is liable
-// to be unpleasantly expensive and that a software scheme can in fact have
-// almost modest overhead.
 
 // The design here has to mingle plans for global storage allocation,
 // the CONS operation as well as operations involving Lisp atoms, the
 // way that Lisp threads can access the values of variables, synchronization
 // matters and so on. In general it seems that almost all aspects from the
-// lowest to the most global level interact. So some of what I have here
-// are my CURRENT notes on how I think I will make it all work. The code
-// in this file is at present generall the OLD code and much of it will be
-// thrown away and replaced!
+// lowest to the most global level interact.
+
+// So here is an overview. Well I fear I may have written bits of this already
+// in several places, but writing it out helps me to plan. All of the numeric
+// values given here are indicative rather than guaanteed final.
+
+// Memory is grabbed from the operating system in large chunks, with a few
+// hundred megabytes for the first chunk and larger ones potentially sized
+// in geometric progression, so that with a maximum of 16 chunks I can end up
+// with as much memory as can ever be useful. The limit on the total number
+// of chunks used as so that given a value that might be a pointer it will
+// be possible to identify the chunk it might point within using a small
+// number of comparison operations. The mega-chunk allocation is such that the
+// system can start with fairly sane amounts of memory but expand on need.
+//
+// Each chunk is divided into 8Mbyte pages. At any one moment one page will
+// be "Current", a second will be "Previous", some others will be "Busy" and
+// the rest "Free". All mutator allocation happens within the Current page.
+// When that becomes full live data is evacuated from the Previous page into
+// Busy memory and what was Current becomes Previous. The old Previous page
+// becomes Free and a Free page is chosen to be the new Current. Note this
+// might be done by swapping the sense of Current and Previous, but if I
+// did that then if those two pages get severly fragmented that that situation
+// would persist, so I will want to arrange that pages get moved to be
+// extensions to the Busy pool from time to time. Which will tend to happen
+// naturally but may need forcing in pathological case!
+//
+// Because garbage collection is conservative there can be ambiguous pointers
+// that refer into Previous. Data at the locations so addressed must not be
+// moved: I will refer to it as "pinned". The Current and each Free page may
+// have some pinned items present. When a page becomes Current it will have
+// three pointers - gFringe, gLimit and gNext. gFringe identifies the first
+// point at which data could be allocated, gLimit points either one beyond
+// the end of the page or to the start address of the next pinned block.
+// If there is a pinned block then gNext points just beyond it, and the first
+// two words of the free region after that contain new values for gLimit and
+// gNext. If gLimit points to the end of the whole page then gNext will be
+// zero.
+// In Previous and Busy each page will be kept full by placement of padder
+// pseudo-objects anywhere where there could be gaps: that is so that it is
+// possible to perform a sequential scan of the page with each item within
+// it identifiable by inspection of its first (header) word. A challenge to
+// nots is that this means that only valid objects may be pinned, so that
+// sequential scans of a page can traverse past them without trouble.
+//
+// Allocation within Current is by incrementing gFringe and if necessary
+// skipping on to gNext. By making gFringe std::atomic this allocation can be
+// thread-safe.
+//
+// Within a page allocation (via gFringe) allocated 16Kbyte chunks to each
+// thread. The thread holds variable fringe and limit to allow it to perform
+// simple sequential allocation within the chunk with low overhead. During
+// garbage collection it is necessary to access and update fringe and limit
+// values for every thread, and to support that I have data such as the
+// array fringeBis[] that is indexed by a thread-number. Especially when
+// garbage collection is being triggered data can be moved from the simple
+// (albeit thread-local) variable into this array. Because each thread has
+// its own chunk most allocation within a chunk doe snot involve any locks.
+// When a chunk overflows a fresh one needs to be allocated. If the request
+// that triggered this was for n bytes of memory that the next chunk that is
+// grabbed is of size 16K+n so that 16Kbytes are left available after the
+// potentiallt large allocation. As regards space use the worst case for this
+// is if there are many sequential requests each needing just over 16Kbytes
+// apiece. In that case around 50% of memory in Current end up unused. This
+// space will remain unused in Previous, but when data is evacuated to Busy
+// it will be packed properly closely, so across the whole system the worst
+// possible "waste" that way will be 8Mbytes. Of course most allocations will
+// be of much smaller objects and so I am not worried in this area.
+//
+// The trigger for garbage collection is when at least one thread attempts
+// an allocation and moved gFringe on beyond gLimit. As a C pedant I ough to
+// worry if that led to a pointer beyond the range of the mega-chunk that
+// had been grabbed from the OS, or (worse) if it led to overflow in address
+// arithmetic. If I was super-cautious I would leave the top of each huge
+// chunk as unused buffer against just such concerns. The amount I would
+// need to reserve would be VECTOR_CHUNK_BYTES (2Mb) times the maximum number
+// of threads (64), and that may be way more that I am happy with! So just
+// for now I will duck that concern. But I will want the higgest-addressed
+// huge chunk to end at least 128M before the end of memory address space!
+//
+// When a thread (or several threads) overflows a page it must trigger garbage
+// collection. In the process it must synchronize with all the other threads.
+// To achieve that it sets the limit value in every (active) thread to zero.
+// The consequence will be that when the thread next tried to allocate memory
+// it will get the initial impression that its chunk was full and can go into
+// a more elaborate path which detects that actual situation. There are two
+// cases when a memory allocation request might not arise promptly. One is
+// code loops that do not allocate memory: each of those must contain a
+// polling request which will be implemented as a request for zero bytes of
+// memory - which in term will merely amount to a comparison between fringe
+// and limit. The other would be when the thread was perfroming some operation
+// that could or did block. That will obviously include when it uses range of
+// synchronization primitives. In such case before blocking it must remove
+// itself from the pool of active threads, and it can reinstate itself later.
+//
+// As garbage collection starts each thread must record its stack pointer and
+// ensure that all pointer-objects that it is using are recorded on the
+// stack (as well as potentially being in machine registers). The (C++) stack
+// will then be scanned with all values on it treated as potential or
+// ambiguous pointers.
+//
+// Given a potential pointer the system must be able to determine if it in
+// fact points within a properly allocated object. This process starts by
+// checking which mega-chunk is involved. From that information simple
+// arithmetic can identify a page. Pointers that are into the header sections
+// of a page or beyond its gLimit are certainly not references to live
+// objects. I will then use a bitmap associated with the relevant page to
+// let me identify that start of any object that the potential pointer lies
+// within. If this object is a padder the pointer was invalid.
+// Setting up the bitmaps is achieved by a linear scan of the page. This is
+// a reason for using padders so that the page as a whole is linearly
+// consistent. During a minor GC the only page that needs a bitmap is Previous.
+// During a major GC bitmaps can be created when one first observes a
+// potential pointer into the page. My expectation is that the vast majority
+// of (valid) potential pointers will be into Current, with the next higher
+// number into Previous. That is because fairly recently allocated objects
+// are most likely to have references to them on the stack. For older material
+// I think I expect a tendancy for clustering and with a large memory
+// configuration only a small fraction of the total number of pages will
+// be involved. So with lazy creation of the bitmaps it is likely that
+// the cost of bitmap creation will not be excessive. Searching a bitmap
+// is most expensive if a potential pointer refers to a high address in a
+// very large object. It is not yet clear whether there is any merit in
+// trying to take special action to speed up treatment of that case.
+//
+// A consequence of using a generational system is that I need to be able
+// to respond to updates to old data that lead to references to new data.
+// When I perform a major GC I will be scavanging everything and so no special
+// treatment is called for, but to support minor GCs I will arrange that any
+// use of RPLACD, RPLACD or PUTV (or derived operations such as PUTHASH, PUT
+// and NCONC) set a mark indicating a region of memory that must be treated
+// as roots. I make the map of dirty regions out of bytes, arguming that
+// updating a byte to atomically set it non-zero is likely to be cheaper than
+// the read-modify-write of an atomic bit update. I also expect that many
+// pages (at least when one is performing a large calculation) will not have
+// any dirty data, so each page has a flag marking whether any segment of it
+// has been updated. The dirty regions may not align neatly with object starts
+// and finishes, and so when I mark from them I will treat the pointers that
+// they contain as ambiguous. This will tend to lead to more pinned items
+// within Pending. Thus use of imperative features such as RPLACx carry two
+// costs - one the work of the write barrier as they execute and the second
+// some extra pinning and hence memory inflexibility withing Previous.
+// It may be worth noting that the issue of pinned items will not arise
+// when an updated reference is to Busy data, but that dirty marks can only
+// trivially be cancelled during a full GC, and that dirty bits can be needed
+// on pages that are Free apart from the fact that they contain some pinned
+// items. So for some purposes I will want to partition unused pages into
+// Free and MostlyFree!
+// When I scan a dirty region it will be cheap to check if any of the
+// pages that potential-pointers within it are either Current, Pending or
+// MostlyFree. If there are no such pointers then the dirty bit can be cleared
+// even though one is just within a minor GC. If MostlyFree pages are given
+// priority for use to extend the Busy region as data is evacuated from
+// Previous then there will be some tendancy for dirty markers to become
+// cancellable. It may made sense to monitor the number of dirty regions
+// and if it gets really excessive to trigger a major GC, but that is an
+// informal idea at present and will probably not be very useful!
 
 
 
-
-size_t pagesCount;
-size_t activePagesCount;
+std::size_t pagesCount;
+std::size_t activePagesCount;
 
 // Ha ha potentially clever idea. Have activeTheads an atomic<uint32_t> and use
 // the bottom 10 bits for the number of threads that are busy and the next
@@ -135,10 +276,12 @@ size_t activePagesCount;
 
 // Another though to be left as comments here until I implement it and comment
 // it where the code ends up:
-// The copying GC can probably be coded so as to use multiple threads to do the
-// copying! I have bits of that sketched in my mind, butil until I can sit down
-// quietly with a full sized keyboard and code some of it things are a bit
-// uncertain.
+// The copying GC can probably be coded so as to use multiple threads to do
+// the copying! I have bits of that sketched in my mind, util until I can sit
+// down quietly with a full sized keyboard and code some of it things are a
+// bit uncertain. In particular there will be issues about the cost of
+// the test-and-set operations I would need to use to keep threads from
+// entanglement.
 // A though is that when I am about to evactuate the item it address p I
 // start with a = atomic_store(p, TAG_FORWARD) where tht returns the
 // previous value at p. Then if that was TAG_FORWARD I will know that
@@ -161,7 +304,7 @@ size_t activePagesCount;
 //   consider the imlemention of v = cons(a,b) where v is some value that may
 // be shared across threads. Eg rplacd(V, cons(a, b)) is almost certainly
 // going to count. The natural implementation will be along the lines
-//    w = allocat1();
+//    w = allocate();
 //    w[0] = a;
 //    w[1] = b;
 //    v = w;
@@ -185,15 +328,12 @@ size_t activePagesCount;
 // also be horribly ponderous and clumsy.
 // 
 
-std::atomic<uint32_t> activeThreads;
+
+std::uintptr_t *C_stackbase;   // base of the main thread
+std::atomic<std::uint32_t> activeThreads;
 
 //  0x00 : total_threads : lisp_threads : still_busy_threads
 
-
-
-bool gc_started = false, gc_finished = false;
-std::mutex mutex_for_gc;
-std::condition_variable cv_for_gc_idling, cv_for_gc_busy;
 
 
 // All the heap memory I use here will be allocated within (up to) 32
@@ -269,25 +409,25 @@ std::condition_variable cv_for_gc_idling, cv_for_gc_busy;
 // header will overlap the beginning of the objstart[] bitmap, but because
 // objects only reside in the data[] part the first couple of kilobytes
 // of objstart[] will never be used.
-// In my first sketch here I have not put in all the data I expect to need
-// to put into the header - eg I will need more to let me allocate around
-// pinned items.
 
-std::atomic<uintptr_t> Afringe;
-std::atomic<uintptr_t> Alimit;
 
-Page *nurseryPage;       // where allocation is happening
-Page *pendingPage;
-Page *scavengablePage;
-Page *stablePages;
-Page *mostlyFreePages;
-Page *freePages;
-size_t freePagesCount;
+Page *currentPage;       // Where allocation is happening. The "nursery".
+Page *previousPage;      // A page that was recently the current one.
+Page *busyPages;         // Chained list of pages that contain live data.
+Page *doomedPages;       // Page from which live stuff is being evacuated.
+Page *mostlyFreePages;   // Chained list of pages that the GC has mostly
+                         // cleared but that have some pinned data left in
+                         // them.
+Page *freePages;         // Chained list of pages that are not currenty in
+                         // use and that contain no useful information.
+
+std::size_t busyPagesCount, mostlyFreePagesCount,
+            freePagesCount, doomedPagesCount;
 
 void *heapSegment[32];
 void *heapSegmentBase[32];
-size_t heapSegmentSize[32];
-size_t heapSegmentCount;
+std::size_t heapSegmentSize[32];
+std::size_t heapSegmentCount;
 
 
 
@@ -314,15 +454,15 @@ class MakeAssertions
 {
 public:
     MakeAssertions()
-    {   if (sizeof(std::atomic<uint8_t>) != 1)
+    {   if (sizeof(std::atomic<std::uint8_t>) != 1)
         {   std::cout << "Atomics bytes are too large" << std::endl;
             std::abort();
         }
-        if (!std::atomic<uint8_t>().is_lock_free())
+        if (!std::atomic<std::uint8_t>().is_lock_free())
         {   std::cout << "Atomic<uint8_t> not lock-free" << std::endl;
             std::abort();
         }
-        if (!std::atomic<uintptr_t>().is_lock_free())
+        if (!std::atomic<std::uintptr_t>().is_lock_free())
         {   std::cout << "Atomic<uintptr_t> not lock-free" << std::endl;
             std::abort();
         }
@@ -335,7 +475,7 @@ static MakeAssertions test_for_lockfree;
 // notes the start-point of objects. This function does that for one page.
 
 void recordObjectStarts(Page *x)
-{   memset(x->pageBody.pageBitmaps.maps.objstart, 0,
+{   std::memset(x->pageBody.pageBitmaps.maps.objstart, 0,
            sizeof(x->pageBody.pageBitmaps.maps.objstart));
     LispObject *p = x->pageBody.data;
 // @@ The version I have here does not yet allow fror the fact that the
@@ -343,9 +483,9 @@ void recordObjectStarts(Page *x)
 // will all need object start tags set - and that fringe may be the
 // current level of allocation but the way that interacts with interleaved
 // pinned items is not really considered.
-    while (reinterpret_cast<uintptr_t>(p) < x->pageHeader.fringe)
-    {   size_t os = (reinterpret_cast<uintptr_t>(p) -
-                     reinterpret_cast<uintptr_t>(x))/8;
+    while (reinterpret_cast<std::uintptr_t>(p) < x->pageHeader.fringe)
+    {   std::size_t os = (reinterpret_cast<std::uintptr_t>(p) -
+                     reinterpret_cast<std::uintptr_t>(x))/8;
         x->pageBody.pageBitmaps.maps.objstart[os/64] |= UINT64_C(1)<<(os%64);
         LispObject v = *p;
         if (!is_odds(v)) p += 2;
@@ -364,36 +504,36 @@ void recordObjectStarts(Page *x)
 // address lies within. This is perhaps the part of dealing with ambiguous
 // pointers that I view as having required most thought!
 
-uintptr_t findObjectStart(uintptr_t p, Page *x)
+std::uintptr_t findObjectStart(std::uintptr_t p, Page *x)
 {
 // First check if p is actually within the (active) data region in the page.
-    if (p < reinterpret_cast<uintptr_t>(x->pageBody.data) ||
-        p >= reinterpret_cast<uintptr_t>(x->pageHeader.fringe)) return 0;
+    if (p < reinterpret_cast<std::uintptr_t>(x->pageBody.data) ||
+        p >= reinterpret_cast<std::uintptr_t>(x->pageHeader.fringe)) return 0;
 // Now, and I have NOT done this yet, I shoule cope with the case where p
 // points within an item that had been pinned within page x by an earlier
 // GC.
 //  @@ unfinished work here
 // Next search for the nearest object start at a lower address than p,
 // using the objectstart bitmap to help.
-    size_t os = (p - reinterpret_cast<uintptr_t>(x))/8;
-    size_t word = os/64;
+    std::size_t os = (p - reinterpret_cast<std::uintptr_t>(x))/8;
+    std::size_t word = os/64;
     int bit = os%64;
 // I am going to expect that an especially common case will be when the
 // pointer p is just to the start of an object with at most a tag value
 // added. My division by 8 a few lines above disarded those low bits, so
 // I will see if what I end up with is in fact a proper object start.
     if ((x->pageBody.pageBitmaps.maps.objstart[word] & (UINT64_C(1)<<bit)) != 0)
-        return p & -(uintptr_t)8;
+        return p & -(std::uintptr_t)8;
 // The next case I will consider is if the object header is fairly close
 // to p, and the word in the bitmap that covers p includes mention of it.
     if (bit != 0)
-    {   uint64_t v = ((UINT64_C(1)<<bit) - 1) &
+    {   std::uint64_t v = ((UINT64_C(1)<<bit) - 1) &
                      x->pageBody.pageBitmaps.maps.objstart[word];
 // Now v records any headers just before p.
         if (v != 0)
         {   int n = 63-nlz(v);
 // Convert back from an address in the bitmap to the location in memory.
-            return reinterpret_cast<uintptr_t>(x) + 8*(word*64 + n);
+            return reinterpret_cast<std::uintptr_t>(x) + 8*(word*64 + n);
         }
     }
 // Now I can scan down 64 8-byte locations at a time, ie 512 bytes at a go.
@@ -419,22 +559,48 @@ uintptr_t findObjectStart(uintptr_t p, Page *x)
 // entry in the map the top bit it identifies the highest-addressed object
 // start, and that is what I want.
     int n = 63-nlz(x->pageBody.pageBitmaps.maps.objstart[word]);
-    return reinterpret_cast<uintptr_t>(x) + 8*(word*64 + n);
+    return reinterpret_cast<std::uintptr_t>(x) + 8*(word*64 + n);
 }
 
 // Here we have a function to call during a major garbage collection. It is
-// given an (ambiguous) pointer. If necessary it established an objectt-start
+// given an (ambiguous) pointer. If necessary it established an object-start
 // map for the page that addresses, and then it marks as pinned the object
 // referenced.
 
-void setPinnedMajor(uintptr_t p)
-{   Page *x = findPage(p);
-    if (x == NULL) return;
+bool isPinned(Page *x, std::uintptr_t os)
+{   os = (os - reinterpret_cast<std::uintptr_t>(x))/8;
+    return (x->pageBody.pageBitmaps.maps.pinned[os/64] &
+               (UINT64_C(1)<<(os%64))) != 0;
+}
+
+void setPinned(Page *x, std::uintptr_t os)
+{   os = (os - reinterpret_cast<std::uintptr_t>(x))/8;
+    x->pageBody.pageBitmaps.maps.pinned[os/64] |= UINT64_C(1)<<(os%64);
+}
+
+void setPinnedMajor(std::uintptr_t p)
+{
+//   If value could not be a pointer into A then ignore it.
+//   Ensure that object-starts bitmap in relevant page of A is set up.
+//   Identify the start of the object in A that the value might refer to.
+//   If that item is already pinned then no need to do more.
+//   If that object is part of pinsC (because the CAR field contains
+//     something tagged as FORWARD) do no more.
+//   Set pinned bit for the location concerned. Mark page as one that
+//     contains pinned items.
+//   Add the pinned item to the list pinsA, which is built in space C.
+    Page *x = findPage(p);
+    if (x == NULL) return;      // Not pointing at any page at all.
+    if (!pageIsBusy(x)) return; // not in A.
     if (!x->pageHeader.onstarts_present) recordObjectStarts(x);
-    uintptr_t os = findObjectStart(p, x);
-    if (os == 0) return;
-    os = (os - reinterpret_cast<uintptr_t>(scavengablePage))/8;
-    scavengablePage->pageBody.pageBitmaps.maps.pinned[os/64] |= UINT64_C(1)<<(os%64);
+    std::uintptr_t os = findObjectStart(p, x);
+    if (os == 0) return;               // Does not point within any object
+    if (is_forward(car(os))) return;   // part of pinsC
+    setPinned(x, os);
+    x->pageHeader.somePins = true;
+    p = get_n_bytes_new(2*CELL);
+    setcar(p, pinsA);
+    pinsA = os + TAG_FORWARD;
 }
 
 // At the start of a minor garbage collection it it is necessary to call
@@ -443,23 +609,23 @@ void setPinnedMajor(uintptr_t p)
 // conditionally on each case where a pointer (seems to) refer to that region.
 
 void recordObjectStartsMinor()
-{   recordObjectStarts(scavengablePage);
+{   recordObjectStarts(previousPage);
 }
 
 // Set a pinned bit for an address if it lies within the single scavengable
 // page that exists during a minor collection.
 
-void setPinnedMinor(uintptr_t p)
+void setPinnedMinor(std::uintptr_t p)
 {
 // If the address is not in the scavengable page I can ignore it.
-    if (!inScavengablePage(p)) return;
+    if (!inPreviousPage(p)) return;
 // Find the object within the page that it is within, or return NULL if none.
 // This will always return a value that is an address aligned zero mod 8.
-    uintptr_t os = findObjectStart(p, scavengablePage);
+    std::uintptr_t os = findObjectStart(p, previousPage);
     if (os == 0) return;
 // Now I set a bit in the pinned map.
-    os = (os - reinterpret_cast<uintptr_t>(scavengablePage))/8;
-    scavengablePage->pageBody.pageBitmaps.maps.pinned[os/64] |= UINT64_C(1)<<(os%64);
+    os = (os - reinterpret_cast<std::uintptr_t>(previousPage))/8;
+    previousPage->pageBody.pageBitmaps.maps.pinned[os/64] |= UINT64_C(1)<<(os%64);
 }
 
 // Just to provide a level of abstraction I provide a function that clears
@@ -468,7 +634,7 @@ void setPinnedMinor(uintptr_t p)
 // pages.
 
 void clearPinnedMap(Page *x)
-{   memset(x->pageBody.pageBitmaps.maps.pinned, 0,
+{   std::memset(x->pageBody.pageBitmaps.maps.pinned, 0,
            sizeof(x->pageBody.pageBitmaps.maps.pinned));
 }
 
@@ -476,7 +642,7 @@ LispObject get_symbol(bool gensymp)
 {   return get_basic_vector(TAG_SYMBOL, TYPE_SYMBOL, symhdr_length);
 }
 
-LispObject get_basic_vector(int tag, int type, size_t size)
+LispObject get_basic_vector(int tag, int type, std::size_t size)
 {
 // tag is the value (e.g. TAG_VECTOR) that will go in the low order
 // 3 bits of the pointer result.
@@ -488,7 +654,7 @@ LispObject get_basic_vector(int tag, int type, size_t size)
 // 32-bit or 64-bit representation. However it would be hard to unwind
 // that now!]
 //
-    size_t allocSize = (size_t)doubleword_align_up(size);
+    std::size_t allocSize = (std::size_t)doubleword_align_up(size);
 // Basic vectors must be smaller then the CSL page size.
     if (allocSize > (CSL_PAGE_SIZE - 32))
         aerror1("request for basic vector too big",
@@ -513,10 +679,6 @@ LispObject get_basic_vector(int tag, int type, size_t size)
     return (LispObject)(r + tag);
 }
 
-inline Header make_padding_header(size_t n)   // size is in bytes
-{   return TAG_HDR_IMMED + (n << (Tw+5)) + TYPE_PADDER;
-}
-
 // This takes a vector (which can be one represented using an INDEXVEC)
 // and reduces its size to a total value len. It returns the shorter
 // vector. Only used on simple vectors. This is ONLY used when a hash table
@@ -527,11 +689,11 @@ inline Header make_padding_header(size_t n)   // size is in bytes
 // put a padder in the vacated space so that it will still be possible to
 // do linear scans of memory.
 
-LispObject reduce_basic_vector_size(LispObject v, size_t len)
-{   size_t oldlen = doubleword_align_up(length_of_header(vechdr(v)));
+LispObject reduce_basic_vector_size(LispObject v, std::size_t len)
+{   std::size_t oldlen = doubleword_align_up(length_of_header(vechdr(v)));
     setvechdr(v, TYPE_SIMPLE_VEC + (len << (Tw+5)) + TAG_HDR_IMMED);
     len = doubleword_align_up(len);
-    if (len != oldlen) setvechdr(v + len, make_padding_header(oldlen-len));
+    if (len != oldlen) setvechdr(v + len, makePaddingHeader(oldlen-len));
     return v;
 }
 
@@ -539,8 +701,9 @@ LispObject reduce_basic_vector_size(LispObject v, size_t len)
 // space by allocating vectors (never lists) from the half of memory that
 // the copying garbage collector is not keeping live data in at present.
 // The protocol I have is that it goes
-//      prepare_for_borrowing();
-//      ... get_vector() ... get_vector() ...
+//      {   Borrowing borrowObject;
+//          ... get_vector() ... get_vector() ...
+//      }
 // and it MUST be coded so that it can not trigger garbage collection while
 // the "borrowed" vectors are in use. It does not have any specific way of
 // indicating when the space is no longer needed, save that a subsequent
@@ -557,6 +720,9 @@ LispObject reduce_basic_vector_size(LispObject v, size_t len)
 // but the code to borrow memory will in fact be very similar to that used
 // during garbage collection to allocate space in the new half-space when
 // a vector needs to be evacuated to there.
+// Note that other threads might be busy allocating memory during the
+// time that one is borrowing, so they can need garbage collection. It will
+// have to wait until the use of borrowed memory is over.
 
 // Perhaps I could invent and then use an alternative protocol so that each
 // thread could do its own borrowing without messy clashes. Perhaps the main
@@ -567,18 +733,53 @@ LispObject reduce_basic_vector_size(LispObject v, size_t len)
 // borrowed shadow ... that starts to sound sensible to me! I will get a LOT
 // more of this code working before I worry about that detail.
 
-void prepare_for_borrowing()
-{   my_abort();
+//thread_local Page *borrowPages;
+//thread_local std::uintptr_t borrowFringe;
+//thread_local std::uintptr_t borrowLimit;
+//thread_local std::uintptr_t borrowNext;
+
+// Here I need to arrange that if several threads each try to borrow memory
+// at the same (or overlapping) times that they end up with separate
+// chunks. I do this by letting each grab memort from mostlyFreePages and
+// freePages, but with a mutex to protect the allocation. Then when borrowing
+// is complete I push stuff back. I do not change the recorded counts of
+// free pages.
+
+LispObject borrow_n_bytes(std::size_t n)
+{   for (;;)
+    {   size_t gap=borrowLimit::get() - borrowFringe::get();
+        if (n <= gap)
+        {   uintptr_t r = borrowFringe::get();
+            borrowFringe::set(borrowFringe::get() + n);
+            return (LispObject)r;
+        }
+        if (borrowNext::get() != 0)
+        {   borrowFringe::set(borrowNext::get());
+            borrowLimit::set(((std::uintptr_t *)borrowFringe::get())[0]);
+            borrowNext::set(((std::uintptr_t *)borrowFringe::get())[1]);
+            continue;
+        }
+// here I need to allocate a new page....
+        std::lock_guard<std::mutex> lock(mutexForFreePages);
+        Page *w;
+        if (mostlyFreePages != NULL)
+        {   w = mostlyFreePages;
+            mostlyFreePages = mostlyFreePages->pageHeader.chain;
+        }
+        else
+        {   w = freePages;
+            freePages = freePages->pageHeader.chain;
+        }
+        w->pageHeader.chain = borrowPages::get();
+        borrowPages::set(w);
+        borrowFringe::set(w->pageHeader.fringe);
+        borrowLimit::set(w->pageHeader.heaplimit);
+        borrowNext::set(0);    // BAD....
+    }
 }
 
-// It would be a fatal error if there was not space for the borrow!
-
-LispObject borrow_n_bytes(size_t n)
-{   my_abort();
-}
-
-LispObject borrow_basic_vector(int tag, int type, size_t size)
-{   size_t allocSize = (size_t)doubleword_align_up(size);
+LispObject borrow_basic_vector(int tag, int type, std::size_t size)
+{   std::size_t allocSize = (std::size_t)doubleword_align_up(size);
     if (allocSize > (CSL_PAGE_SIZE - 32))
         aerror1("request for basic vector too big",
                 fixnum_of_int(allocSize/CELL-1));
@@ -589,15 +790,15 @@ LispObject borrow_basic_vector(int tag, int type, size_t size)
     return (LispObject)(r + tag);
 }
 
-LispObject borrow_vector(int tag, int type, size_t n)
+LispObject borrow_vector(int tag, int type, std::size_t n)
 {   if (n-CELL > VECTOR_CHUNK_BYTES)
-    {   size_t chunks = (n - CELL + VECTOR_CHUNK_BYTES - 1)/VECTOR_CHUNK_BYTES;
-        size_t lastSize = (n - CELL) % VECTOR_CHUNK_BYTES;
+    {   std::size_t chunks = (n - CELL + VECTOR_CHUNK_BYTES - 1)/VECTOR_CHUNK_BYTES;
+        std::size_t lastSize = (n - CELL) % VECTOR_CHUNK_BYTES;
         if (lastSize == 0) lastSize = VECTOR_CHUNK_BYTES;
         LispObject v =
             borrow_basic_vector(TAG_VECTOR, TYPE_INDEXVEC, CELL*(chunks+1));
-        for (size_t i=0; i<chunks; i++)
-        {   size_t k = i==chunks-1 ? lastSize : VECTOR_CHUNK_BYTES;
+        for (std::size_t i=0; i<chunks; i++)
+        {   std::size_t k = i==chunks-1 ? lastSize : VECTOR_CHUNK_BYTES;
             basic_elt(v, i) = borrow_basic_vector(tag, type, k+CELL);
         }
         return v;
@@ -612,11 +813,12 @@ LispObject borrow_vector(int tag, int type, size_t n)
 
 static_assert(spareBytes/64 > offsetof(Page, pageHeader.endOfHeader));
 
-void set_up_empty_page(Page *p)
-{   p->pageHeader.fringe = reinterpret_cast<uintptr_t>(&p->pageBody.data);
-    p->pageHeader.limit = reinterpret_cast<uintptr_t>(p) + sizeof(Page);
+void setUpEmptyPage(Page *p)
+{   p->pageHeader.fringe = reinterpret_cast<std::uintptr_t>(&p->pageBody.data);
+    p->pageHeader.heaplimit = reinterpret_cast<std::uintptr_t>(p) + sizeof(Page);
     p->pageHeader.dirtypage.store(false);
     p->pageHeader.onstarts_present = false;
+    p->pageHeader.somePins = false;
 // I would like to be able to set the dirty bitmap all zero other than by
 // using the store() method one byte at a time. It is also possible that
 // when I first allocate a page that page will not be put in the stable
@@ -628,22 +830,37 @@ void set_up_empty_page(Page *p)
 // I must not clobber memory earlier than that because the first bytes of the
 // page are always needed for the pageHeader! Well what I will do is zero
 // out everything from the end of pageHeader onwards.
-    for (size_t i=spareBytes/64; i<2*bytesForMap; i++)
-        p->pageBody.pageBitmaps.dirty[i].store(0);
+//
+// When I had the next 2 lines in place thet added a HUGE time to system
+// startup...
+//--    for (std::size_t i=spareBytes/64; i<2*bytesForMap; i++)
+//--        p->pageBody.pageBitmaps.dirty[i].store(0);
+// I am now going to argue that before an empty page is made available to
+// "other" threads I will have plenty of memory fences, so I can avoid
+// using ones here, and furthermore there is no need to have the bitmap
+// cleared until the page is about to be used.
 }
 
-void set_variables_from_page(Page *p)
+void setVariablesFromPage(Page *p)
 {
 // Set the variable that are used when allocating within the active page.
-    Afringe = p->pageHeader.fringe;
-    Alimit = p->pageHeader.limit;
+    uintptr_t pFringe = p->pageHeader.fringe;
+    uintptr_t pLimit = p->pageHeader.heaplimit;
+// Here I suppose there are no pinned items in the page. I set fringe and
+// limit such that on the very first allocation the code will grab a bit of
+// memory at gFringe.
+    fringe::set(limit[threadId::get()] = limitBis[threadId::get()] =
+        gFringe = pFringe);
+    gLimit = pLimit;
+    gNext = 0;
 }
 
-void save_variables_to_page(Page *p)
+void saveVariablesToPage(Page *p)
 {
-// Dump global variable values back into a page header.
-    p->pageHeader.fringe = Afringe;
-    p->pageHeader.limit  = Alimit;
+// Dump global variable values back into a page header. THIS IS NOT USEFUL
+// OR CORRECT YET!
+    p->pageHeader.fringe = fringe::get();
+    p->pageHeader.heaplimit  = limitBis[threadId::get()];
 }
 
 // This code allocates a segment by asking the operating system.
@@ -652,8 +869,10 @@ void save_variables_to_page(Page *p)
 // such that their addresses are in ascending order, and in consequence of
 // that allocating a new segment may shuffle existing ones in the tables.
 // So the index of a segment in the tables may not be viewed as permenant.
+//
+// Returns false and does nothing if it can not grab the memory.
 
-void allocate_segment(size_t n)
+bool allocateSegment(std::size_t n)
 {
 // I will round up the size to allocate so it is a multiple of the
 // page size. Note that this will be quite a large value!
@@ -663,17 +882,24 @@ void allocate_segment(size_t n)
 // If I have C++17 I can rely on alignment constraints and just allocate
 // using new[]
 #ifdef __cpp_aligned_new
-    r = new Page[n/pageSize];
-    my_assert(r != NULL);
+    try
+    {   r = new Page[n/pageSize];
+    } catch (std::bad_alloc &e)
+    {   return false;
+    }
     rbase = static_cast<void *>(r);
 #else // !__cpp_aligned_new
 // On older platforms I need to allocate extra memory and then use std::align
 // to get the address within the bigger block that I want.
 // In this case I will need to preserve the base of the full block because
 // that will be what I will be able to free at the end.
-    size_t N = n + pageSize - 1;
-    rbase = static_cast<void *>(new char[N]);
-    my_assert(rbase != NULL);
+    std::size_t N = n + pageSize - 1;
+    try
+    {   rbase = static_cast<void *>(new char[N]);
+    }
+    catch (std::bad_alloc &e)
+    {   return false;
+    }
     void *work = rbase;
     work = std::align(pageSize, n, work, N);
     my_assert(work != NULL);
@@ -685,10 +911,10 @@ void allocate_segment(size_t n)
     heapSegmentCount++;
 // Now I need to arrange that the segments are sorted in the tables
 // that record them.
-    for (size_t i=heapSegmentCount-1; i!=0; i--)
+    for (std::size_t i=heapSegmentCount-1; i!=0; i--)
     {   int j = i-1;
         void *h1 = heapSegment[i], *h2 = heapSegment[j];
-        if (reinterpret_cast<uintptr_t>(h2) < reinterpret_cast<uintptr_t>(h1))
+        if (reinterpret_cast<std::uintptr_t>(h2) < reinterpret_cast<std::uintptr_t>(h1))
             break; // Ordering is OK
 // The segment must sink a place in the tables.
         std::swap(heapSegment[i], heapSegment[j]);
@@ -697,16 +923,29 @@ void allocate_segment(size_t n)
     }
 // r now refers to a new segment of size n, I want to structure it into
 // pages.
-    for (size_t k=0; k<n; k+=CSL_PAGE_SIZE)
-    {   Page *p = reinterpret_cast<Page *>(reinterpret_cast<char *>(r) + k);
+//
+//  for (std::size_t k=0; k<n; k+=CSL_PAGE_SIZE)
+// Go forwards or backwards!
+    for (std::size_t k=n; k!=0; k-=CSL_PAGE_SIZE)
+    {   Page *p =
+            reinterpret_cast<Page *>(
+                reinterpret_cast<char *>(r) + k - CSL_PAGE_SIZE);
 // Keep a chain of all the pages.
-        set_up_empty_page(p);
+        setUpEmptyPage(p);
+        p->pageHeader.pageClass = freePageTag;
         p->pageHeader.chain = freePages;
         freePages = p;
         freePagesCount++;
     }
-    printf("%" PRIu64 " pages available\n", (uint64_t)freePagesCount);
+    std::printf("%" PRIu64 " pages available\n", (std::uint64_t)freePagesCount);
+    return true; // Success!
 }
+
+std::size_t pages_count = 0;
+std::size_t heap_pages_count = 0;
+std::size_t vheap_pages_count = 0;
+bool garbage_collection_permitted = true;
+bool force_verbos = false;
 
 // gc-forcer(a, b) should arrange that a garbage collection is triggered
 // when at most A cons-sized units of consing happens or when at most
@@ -716,21 +955,22 @@ void allocate_segment(size_t n)
 // storage management issues.
 
 bool next_gc_is_hard = false;
-uint64_t force_cons=0, force_vec = 0;
+std::uint64_t force_cons=0, force_vec = 0;
 
 LispObject Lgc_forcer(LispObject env, LispObject a, LispObject b)
 {   if (force_cons != 0 || force_vec != 0)
         trace_printf("Remaining CONS : %" PRIu64 " VEC : %" PRIu64 "\n",
             force_cons, force_vec);
 // If you pass a non-fixnum then that leaves the trigger-point unchanged.
-    if (is_fixnum(a)) force_cons = (uint64_t)sixty_four_bits(a);
-    if (is_fixnum(b)) force_vec = (uint64_t)sixty_four_bits(b);
+    if (is_fixnum(a)) force_cons = (std::uint64_t)sixty_four_bits(a);
+    if (is_fixnum(b)) force_vec = (std::uint64_t)sixty_four_bits(b);
     return onevalue(nil);
 }
 
 LispObject Lgc_forcer1(LispObject env, LispObject a)
 {   return Lgc_forcer(env, a, a);
 }
+
 // When a thread exhausts memory (to be more specific, when it fills up
 // the nursery page) it must arrange that all but one threads are stopped
 // with information about their stacks visible somewhere central and all
@@ -768,235 +1008,117 @@ LispObject Lgc_forcer1(LispObject env, LispObject a)
 
 std::jmp_buf *buffer_pointer;
 
-// The following need to be atomic because they get updates by one thread
-// and read by another. Without the std::atomic stuff the update could
-// remain in a local cache of the writer thread and not reach the one that
-// tries to read the information. Hmm that may not be the case if there are
-// uses of mutexes and condition variables along the way, since those may
-// activate suitable fences. However making these atomic will not be terribly
-// costly!
+// Each thread will need a thread_number and I need to be able to allocate
+// and release such identifying numbers. I will allow for up to 64 threads.
 
-std::atomic<void *> stack_bases[max_threads];
-std::atomic<void *> stack_fringes[max_threads];
-std::atomic<size_t> request_sizes[max_threads];
-std::atomic<std::atomic<uintptr_t> *> request_locations[max_threads];
+std::mutex threadStartingMutex;
+// threadMap will have a zero bit in places that correspond to thread
+// numbers that are allocated.
 
-void master_gc_work()
-{   std::printf("Hello, this is the master_GC\n");
-// set space in via request_sizes[] etc. Note that especially if I am
-// dealing with fragmented heap-space because of pinned items left over by
-// the conservative collector I may actually end up doing two or even more
-// garbage collections here before I can satisfy all the pending memory
-// requests. On a second or subsequent GC I must allow for the newly-
-// allocated blocks that are here.
-    fflush(stdout);
-    my_abort(); // give up for now
+std::uint64_t threadMap = -1;
+
+std::uint64_t threadBit(unsigned int n)
+{   return (std::uint64_t)1 << (63-n);
 }
 
-// I have multiple threads, and when a GC is needed they need to synchronize.
-// My plan is that one thread is selected as the key one, with that
-// being the last one to decrement an "activeThreads" counter. By virtue
-// of being last there the thread knows that all the other threads are
-// quiescent. All the others first wait on a condition variable until the
-// key one releases it, and then wait on a second condition variable until
-// that too is released.
-// The two variables are to let the underpinning variables get set up.
-// So outside GC-time a variable "gc_started" will be false, and all
-// non-key threads can go
-//      {   std::unique_lock<std::mutex> lock(mutex_for_gc);
-//          gc_start_cv.wait(lock, []{ return gc_started; });
-//      }
-// followed immediately  by
-//      activeThreads++;
-//      {   std::unique_lock<std::mutex> lock(mutex_for_gc);
-//          gc_end_cv.wait(lock, []{ return gc_finished; });
-//      }
-// The key thread on the other hand can go
-//      gc_finished = false;
-// MUST ensure that gc_finished will be seen as false by all other threads
-// before gc_started is seen as true, because otherwise spurious wake-ups
-// on gc_start_cv and gc_end_cv could let one of the other threads run
-// through improperly.
-//      {   std::lock_guard<std::mutex> lock(mutex_for_gc);
-//          gc_started = true;
-//      }
-//      gc_start_cv.notify_all();
-// At this point the key thread can perform garbage collection. It can not
-// tell if the other threads are still waiting to respond to the gc_start
-// notification or if they have gone on to wait for gc_finished! So to let
-// it know the subsidiary threads each increment activeThreads when they
-// have passed the first hurdle, and the one that brings that up to maximum
-// can notify yet another condition variable. At the end of GC the key thread
-// can wait on that CV until the thread count is high enough, and then it
-// can afford to clear gc_started and set gc_finished and finally notify
-// all other threads. Ught this feels heavy-handed and messy!
-
-void master_gc_thread()
-{
-// When I get here I know that actveThreads==0 and that all other threads
-// have just decremented that variable and are ready to wait on gc_started.
-// Before I release them from that I will ensure that gc_finished is false so
-// that they do not get over-enthusiastic!
-    {   std::lock_guard<std::mutex> guard(mutex_for_gc);
-        gc_finished = false;
-        gc_started = true;
-    }
-    cv_for_gc_idling.notify_all();
-// Now while the other threads chew on that I can perform some garbage
-// collection and fill in results via request_locations[] based on
-// request_sizes[].
-    master_gc_work();
-// Now I need to be confident that the other threads have all accessed
-// gc_started. When they have they will increment activeThreads and when the
-// last one does that it will notify me.
-    {   std::unique_lock<std::mutex> lock(mutex_for_gc);
-        cv_for_gc_busy.wait(lock,
-            []{   uint32_t n = activeThreads.load(std::memory_order_relaxed);
-                  return (n & 0xff) == ((n>>8) & 0xff) - 1;
-              });
-    }
-// OK, so now I know that all the other threads are ready to wait on
-// gc_finished, so I ensure that useful variables are set ready for next
-// time and release all the threads that have been idling.
-    {   std::lock_guard<std::mutex> guard(mutex_for_gc);
-        gc_started = false;
-        activeThreads.fetch_add(0x0000001);
-        gc_finished = true;
-        cv_for_gc_idling.notify_all();
-    }
+unsigned int allocateThreadNumber()
+{   my_assert(threadMap != 0); // I need at least one spare.
+    unsigned int n = nlz(threadMap);
+// Now n is 0 if the top bit is set, 1 for the next etc down to 63 when
+// the least bit is the only one se    threadMap &= ~threadBit(n);
+    return n;
 }
 
-void idle_during_gc()
-{
-// If I am a thread that will not myself perform garbage collection I need
-// to wait for the one that does. This needs to be done in two phases. During
-// the first I know that I have decremented activeThreads and determined that
-// I was the last, but I can not be certain that all other threads have done
-// that. I wait until gc_started gets set, and that happens when some thread
-// has found itself to be the last one. And so by construction that means that
-// all other threads will be able to reach here when they get a time-slice.
-// It will then of course be important that gc_started had been false before
-// that and that it then remains true until there is confirmation that each
-// idle thread has passed this gateway.
-    {   std::unique_lock<std::mutex> lock(mutex_for_gc);
-        cv_for_gc_idling.wait(lock, []{ return gc_started; });
-    }
-// To record that threads have paused they can then increment activeThreads
-// again. When one of them increments it to the value threadcount-1 I will
-// know that all the idle threads have got here, and I nofify the master GC
-// thread.
-    bool inform = false;
-    {   std::lock_guard<std::mutex> guard(mutex_for_gc);
-        uint32_t n = activeThreads.fetch_add(0x000001);
-        if ((n & 0xff) == ((n>>8) & 0xff) - 2) inform = true;
-    }
-    if (inform) cv_for_gc_busy.notify_one();
-// Once the master thread has been notified as above it can go forward and
-// in due course notify gc_finished. Before it does that it must ensure that
-// it has filled in results for everybody, incremented activeTHreads to
-// reflect that it is busy again and made certain that gc_started is false
-// again so that everything is tidily ready for next time.
-    {   std::unique_lock<std::mutex> lock(mutex_for_gc);
-        cv_for_gc_idling.wait(lock, []{ return gc_finished; });
-    }
+void releaseThreadNumber(unsigned int n)
+{   my_assert(n <=63);
+    threadMap |= threadBit(n);
 }
 
-// Here I have just attempted to allocate n bytes but the attempt failed
-// because it left fringe>=limit. I must synchronmize with all other
-// threads and one of the threads (it may not be me!) must garbage collect.
-// When they synchronize with me here the other threads will also have tried
-// an allocation, but the largest request any is allowed to make is
-// VECTOR_CHUNK_BYTES (at present 1 megabyte). If all the max_threads do
-// this they can have caused fringe to overshoot by about an amount
-// max_threads*VECTOR_CHUNK_BYTES and if that caused uintptr_t arithmetic to
-// overflow and wrap round then there could be big trouble. So when I
-// allocate chunks of memory I ought to ensure that none has an end-address
-// that close to UINTPTR_MAX! I think that on all realistic systems that is
-// a problem that will not actually arise.
-//
-// I must arrange that memory close to where the failed allocation arose is
-// left tidy. I will put in a padder item if needbe just to be cautious. And
-// I must arrange that whether I am the thread that does GO or one of the
-// others that I return a valid allocation address.
+ThreadStartup::ThreadStartup()
+{   // std::cout << "ThreadStartup" << std::endl;
+    std::lock_guard<std::mutex> lock(mutexForGc);
+    threadId::set(allocateThreadNumber());
+// The update here is just fine while I am in fact single threaded, but I
+// will need to review it when multiple threads can be in play.
+    activeThreads.fetch_add(0x00010101);
+}
 
-uintptr_t gc_and_allocate(uintptr_t r, size_t n)
-{   return with_clean_stack([&]
-    {   std::atomic<uintptr_t>rr;
-        rr.store(r);
-// The use of std::atomic for rr is so that it can be updated by one
-// thread and then read by another.
-        request_locations[thread_id].store(&rr);
-        request_sizes[thread_id].store(n);
-// The next line will count down the number of threads that have entered
-// this synchronization block. The last one to do so can serve as the
-// thread that performs garbage collection, the other will just need to wait.
-        int32_t a = activeThreads.fetch_sub(1);
-        if ((a & 0xff) == 1) master_gc_thread();
-        else idle_during_gc();
-// The thread that performs garbage collection must perform allocation on
-// behalf of every thread.
-        return rr.load();
-    });
+ThreadStartup::~ThreadStartup()
+{   // std::cout << "~ThreadStartup" << std::endl;
+    std::lock_guard<std::mutex> lock(mutexForGc);
+    releaseThreadNumber(threadId::get());
+    activeThreads.fetch_sub(0x00010101);
 }
 
 LispObject *nilSegmentBase, *stackSegmentBase;
 LispObject *nilSegment, *stackSegment;
-LispObject *stackBase;
+
 
 void initHeapSegments(double storeSize)
 //
 // This function just makes nil and the pool of page-frames available.
-// The store-size is passed in units of Kilobyte, and as a double not
-// an integer so that overflow is not an issue.
+// The store-size is passed in units of Kilobyte, and as a double rather
+// than as an integer so that overflow is not an issue.
 {
 // I will make the default initial store size around 64M on a 64-bit
 // machine and 512M on a 64-bit system. If the user specified a "-K" option
 // they can override this, and also the system will tend to allocate more
 // space (if it can) when its memory starts to get full.
-    size_t freeSpace = (SIXTY_FOUR_BIT ? 512 : 64)*1024*1024;
-    size_t request = (size_t)storeSize;
+    std::size_t freeSpace = (SIXTY_FOUR_BIT ? 512 : 64)*1024*1024;
+    std::size_t request = (std::size_t)storeSize;
     if (request != 0) freeSpace = 1024*request;
 // Now freeSpace is the amount I want to allocate. I will explicitly
 // set the variables that are associated with tracking memory allocation
 // to keep everything as clear as I can.
     heapSegmentCount = 0;
-    freePages = NULL;
-    printf("Allocate %" PRIu64 " Kbytes\n", (uint64_t)freeSpace/1024);
-    allocate_segment(freeSpace);
+    freePages = mostlyFreePages = NULL;
+    pinsA = pinsC = TAG_FORWARD;
+    std::printf("Allocate %" PRIu64 " Kbytes\n", (std::uint64_t)freeSpace/1024);
+    allocateSegment(freeSpace);
 
 // There are other bits of memory that I will grab manually for now...
 // and at present csl.cpp ALSO sets them up... @@@@
 #if defined __cpp_aligned_new && defined HAVE_ALIGNED_ALLOC
     nilSegment = nilSegmentBase =
         reinterpret_cast<LispObject *>(
-            aligned_alloc(16, NIL_SEGMENT_SIZE));
+            std::aligned_alloc(16, NIL_SEGMENT_SIZE));
 #else
-    nilSegment =
-       reinterpret_cast<LispObject *>(malloc(NIL_SEGMENT_SIZE+32));
-    nilSegment = static_cast<LispObject *>(
-        doubleword_align_up(static_cast<uintptr_t>(nilSegmentBase)));
+    nilSegmentBase =
+       reinterpret_cast<LispObject *>(std::malloc(NIL_SEGMENT_SIZE+32));
+    nilSegment = reinterpret_cast<LispObject *>(
+        doubleword_align_up(reinterpret_cast<std::uintptr_t>(nilSegmentBase)));
 #endif
     if (nilSegment == NULL) fatal_error(err_no_store);
-    nil = (LispObject)((uintptr_t)nilSegment + TAG_SYMBOL);
+    nil = (LispObject)((std::uintptr_t)nilSegment + TAG_SYMBOL);
 #if defined __cpp_aligned_new&& defined HAVE_ALIGNED_ALLOC
     stackSegment = stackSegmentBase =
         reinterpret_cast<LispObject *>(
-            aligned_alloc(16, CSL_PAGE_SIZE));
+            std::aligned_alloc(16, CSL_PAGE_SIZE));
 #else
-    stackSegment =
-        reinterpret_cast<LispObject *>(malloc(CSL_PAGE_SIZE+32));
-    stackSegment = static_cast<LispObject *>(
-        doubleword_align_up(static_cast<uintptr_t>(stackSegmentBase)));
+    stackSegmentBase =
+        reinterpret_cast<LispObject *>(std::malloc(CSL_PAGE_SIZE+32));
+    stackSegment = reinterpret_cast<LispObject *>(
+        doubleword_align_up(reinterpret_cast<std::uintptr_t>(stackSegmentBase)));
 #endif
     if (stackSegment == NULL) fatal_error(err_no_store);
     stackBase = (LispObject *)stackSegment;
 }
 
-void drop_heapSegments(void)
-{   for (size_t i=0; i<heapSegmentCount; i++)
+void dropHeapSegments(void)
+{
+#ifdef __cpp_aligned_new
+    for (std::size_t i=0; i<heapSegmentCount; i++)
         delete [] static_cast<Page *>(heapSegmentBase[i]);
-    free(nilSegmentBase);
-    free(stackSegmentBase);
+#else
+    for (std::size_t i=0; i<heapSegmentCount; i++)
+        delete [] static_cast<char *>(heapSegmentBase[i]);
+#endif
+    std::free(nilSegmentBase);
+    std::free(stackSegmentBase);
+}
+
+void drop_heap_segments()
+{   dropHeapSegments();
 }
 
 // This allocates another page of memory if that is allowed and if it is
@@ -1005,7 +1127,7 @@ void drop_heapSegments(void)
 bool allocate_more_memory()
 {   return false;
 //  if ((init_flags & INIT_EXPANDABLE) == 0) return false;
-//  void *page = (void *)aligned_alloc((size_t)CSL_PAGE_SIZE);
+//  void *page = (void *)std::aligned_alloc((size_t)CSL_PAGE_SIZE);
 //  if (page == NULL)
 //  {   init_flags &= ~INIT_EXPANDABLE;
 //      return false;
@@ -1016,9 +1138,9 @@ bool allocate_more_memory()
 //  }
 }
 
-extern double maxStoreSize;
+double maxStoreSize = 0.0;
 
-void grab_more_memory(size_t npages)
+void grab_more_memory(std::size_t npages)
 {
 // Here I grab more memory (if I am allowed to).
 // An initial version here, and one still suitable on machines that will
@@ -1034,14 +1156,14 @@ void grab_more_memory(size_t npages)
 // On systems where it is possible to measure the amount of available
 // real memory more sophisticated calculations may be possible.
     if (init_flags & INIT_EXPANDABLE)
-    {   size_t ideal = MAX_PAGES; //
+    {   std::size_t ideal = MAX_PAGES; //
 //@@@@ ok_to_grab_memory(heap_pagesCount + vheap_pagesCount);
-        size_t more;
+        std::size_t more;
         if (ideal > MAX_PAGES) ideal = MAX_PAGES;
         if (maxStoreSize != 0.0)
         {   double pageLimit = maxStoreSize*1024*1024/(double)CSL_PAGE_SIZE;
 // Limit memory to (about) the amount the user indicated with --max-mem
-            size_t plim = (size_t)pageLimit;
+            std::size_t plim = (std::size_t)pageLimit;
             if (ideal > plim) ideal = plim;
         }
         if (ideal > pagesCount)
@@ -1054,15 +1176,69 @@ void grab_more_memory(size_t npages)
     }
 }
 
+#ifdef WIN32
+#include <windows.h>
+#else
+#include <sys/sysinfo.h>
+#endif
+
+void init_heap_segments(double d)
+{   std::cout << "init_heap_segments " << d << std::endl;
+#ifdef WIN32
+    MEMORYSTATUSEX s;
+    s.dwLength = sizeof(s);
+    GlobalMemoryStatusEx(&s);
+    std::size_t mem = s.ullTotalPhys;
+#else
+    struct sysinfo s;
+    sysinfo(&s);
+    std::size_t mem = s.totalram*s.mem_unit;
+#endif
+    mem /= (1024*1024);    // Physical memory now in megabytes
+    size_t g3 = 3u*1024u;  // 3Gbytes
+    if (mem <= 2*g3) mem = g3;
+    else mem -= g3;
+// I think if my machine has at most 6GB I will default to using 3GB. If
+// has more than that I will use (physmem-3G) up to the stage that I
+// use a total of 16GB. All subject to any --maxmem that the user had
+// specified.
+    static const size_t K = 16384;
+    if (K < mem) mem = K;
+    if (d == 0.0) d = 1024.0*1024.0*mem; // back to bytes
+    if (maxStoreSize != 0.0 && maxStoreSize < d) d = maxStoreSize;
+// I have to pass the amount to initHeapSegments in kilobytes.
+    initHeapSegments(d/1024.0);
+}
+
+std::uintptr_t stackBases[maxThreads];
+std::uintptr_t stackFringes[maxThreads];
+extern std::atomic<std::uint32_t> threadCount;
+std::mutex mutexForGc;
+std::mutex mutexForFreePages;
+bool gc_started;
+std::condition_variable cv_for_gc_idling;
+std::condition_variable cv_for_gc_busy;
+bool gc_complete;
+std::condition_variable cv_for_gc_complete;
+// fringe::get() declared in newallocate.h, as is threadId.
+std::atomic<std::uintptr_t> limit[maxThreads];
+std::uintptr_t              limitBis[maxThreads];
+std::uintptr_t              fringeBis[maxThreads];
+std::size_t                 request[maxThreads];
+LispObject             result[maxThreads];
+std::size_t                 gIncrement[maxThreads];
+std::atomic<std::uintptr_t> gFringe;
+std::uintptr_t              gLimit;
+std::uintptr_t              gNext;
 
 #ifdef WIN32
 #include <conio.h>
 #endif
 
-int64_t gc_number = 0;
-int64_t reclaim_trap_count = -1;
-uintptr_t reclaim_stack_limit = 0;
-uint64_t reclaim_trigger_count = 0, reclaim_trigger_target = 0;
+std::int64_t gc_number = 0;
+std::int64_t reclaim_trap_count = -1;
+std::uintptr_t reclaim_stack_limit = 0;
+std::uint64_t reclaim_trigger_count = 0, reclaim_trigger_target = 0;
 
 //static intptr_t cons_cells, symbol_heads, strings, user_vectors,
 //       big_numbers, box_floats, bytestreams, other_mem,
@@ -1101,8 +1277,6 @@ LispObject Lverbos(LispObject env, LispObject a)
 
 bool volatile already_in_gc;
 bool volatile interrupt_pending;
-LispObject volatile saveheaplimit;
-LispObject *volatile savestacklimit;
 
 // static int stop_after_gc = 0;
 
@@ -1123,163 +1297,83 @@ LispObject *volatile savestacklimit;
 // {   return p;
 // }
 
+static unsigned int MEM=2u*1024u*1024u*1024u;
+bool pageFull;
 
-// I put the signal handler code in this file at a stage when I was
-// considering a write-barrier implemented using write-protected memory
-// pages. I think I have now come to believe that the operating system
-// overheads involved in memory-access exception handling would make that
-// even more expensive that the scheme I now have that is entirely in
-// software.
-
-#ifdef USE_SIGALTSTACK
-
-static unsigned char signal_stack_block[SIGSTKSZ];
-stack_t signal_stack;
-
-#endif
-
-#ifdef HAVE_SIGACTION
-static void low_level_signal_handler(int signo, siginfo_t *t, void *v);
-#else // !HAVE_SIGACTION
-static void low_level_signal_handler(int signo);
-#endif // !HAVE_SIGACTION
-
-void set_up_signal_handlers()
-{
-//
-#ifdef USE_SIGALTSTACK
-// If I get a SIGSEGV that is caused by a stack overflow then I am in
-// a world of pain because the regular stack does not have space to run my
-// exception handler. So where I can I will arrange that the exception
-// handler runs in its own small stack. This may itself lead to pain,
-// but perhaps less?
-    signal_stack.ss_sp = (void *)signal_stack_block;
-    signal_stack.ss_size = SIGSTKSZ;
-    signal_stack.ss_flags = 0;
-    sigaltstack(&signal_stack, (stack_t *)0);
-#endif
-    for (int i=0; i<32; i++)
-        heapSegment[i] = reinterpret_cast<void *>(UINTPTR_MAX);
-#ifdef HAVE_SIGACTION
-    struct sigaction sa;
-    sa.sa_sigaction = low_level_signal_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART | SA_SIGINFO; //???@@@ | SA_ONSTACK | SA_NODEFER;
-// (a) restart system calls after signal (if possible),
-// (b) use handler that gets more information,
-// (c) use alternative stack for the handler,
-// (d) leave the exception unmasked while the handler is active. This
-//     will be vital if then handler "exits" using longjmp, because as
-//     far as the exception system is concerned that leaves us within the
-//     handler. But after the  exit is caught by setjmp I want the
-//     exception to remain trapped.
-    if (sigaction(SIGSEGV, &sa, NULL) == -1) {}
-        /* I can not thing of anything useful to do if I fail here! */
-#ifdef SIGBUS
-    if (sigaction(SIGBUS, &sa, NULL) == -1) {}
-        /* I can not thing of anything useful to do if I fail here! */
-#endif
-#ifdef SIGILL
-    if (sigaction(SIGILL, &sa, NULL) == -1) {}
-        /* I can not thing of anything useful to do if I fail here! */
-#endif
-    if (sigaction(SIGFPE, &sa, NULL) == -1) {}
-        /* I can not thing of anything useful to do if I fail here! */
-#else // !HAVE_SIGACTION
-#ifndef WIN32
-#error All platforms other than Windows are expected to support sigaction.
-#endif // !WIN32
-    signal(SIGSEGV, low_level_signal_handler);
-#ifdef SIGBUS
-    signal(SIGBUS, low_level_signal_handler);
-#endif
-#ifdef SIGILL
-    signal(SIGILL, low_level_signal_handler);
-#endif
-    signal(SIGFPE, low_level_signal_handler);
-#endif // !HAVE_SIGACTION
-}
-
-// Elsewhere I worry about thread_local performance but here in the code that
-// recovers after an exception I am not worried about that.
-
-static volatile thread_local char signal_msg[32];
-
-static volatile char *int2str(volatile char *s, int n)
-{   unsigned int n1;
-// Even though I really only expect this to be called with small positive
-// arguments I will code it so it should support ANY integer value, including
-// the most negative one.
-    if (n >= 0) n1 = (unsigned int)n;
-    {   *s++ = '-';
-        n1 = -(unsigned int)n;
-    }
-    if (n1 >= 10)
-    {   s = int2str(s, n1/10);
-        n1 = n1 % 10;
-    }
-    *s++ = '0' + n1;
-    return s;
-}
-
-#ifdef HAVE_SIGACTION
-static void low_level_signal_handler(int signo, siginfo_t *si, void *v)
-#else // !HAVE_SIGACTION
-static void low_level_signal_handler(int signo)
-#endif // !HAVE_SIGACTION
-{
-// There are really very restrictive rules about what I can do in a
-// signal handler and remain safe. For a start I should only reference
-// variables that are of type atomic_t (or its friends) and that are
-// volatile, and there are fairly few system functions that are
-// "async signal safe" and generally permitted. However I am going to
-// stray well beyond the rules here! Well in most cases I will view this
-// as acceptable, because in most cases these low level signals will only
-// arise in case of a system-level bug, and so ANY recovery or diagnostic
-// I can produce will be better than nothing, and if things get confused
-// or crash again then that is not much worse than the exception having
-// arisen in the first case!
-    if (miscflags & HEADLINE_FLAG)
-    {   switch (signo)
-        {   default:
-                {   volatile char *p = signal_msg; // NB thread-local memory
-                    const char *m1 = "Signal (signo=";
-                    while (*m1) *p++ = *m1++;
-                    p = int2str(p, signo);
-                    *p++ = ')';
-                    *p = 0;
-                }
-                errorset_msg = signal_msg;
-                break;
-#ifdef SIGFPE
-            case SIGFPE:
-                errorset_msg = "Arithmetic exception";
-                break;
-#endif
-#ifdef SIGSEGV
-            case SIGSEGV:
-                errorset_msg = "Memory access violation";
-                break;
-#endif
-#ifdef SIGBUS
-            case SIGBUS:
-                errorset_msg = "Bus error";
-                break;
-#endif
-#ifdef SIGILL
-            case SIGILL:
-                errorset_msg = "Illegal instruction";
-                break;
-#endif
+LispObject Lgctest_0(LispObject env)
+{   LispObject a = nil;
+    for (unsigned int i=0; i<MEM/16u; i++)
+    {   a = cons(fixnum_of_int(i), a);
+        printf(":"); fflush(stdout);
+        if (i % 1000000 == 0)
+        {   printf("%u", i);
+            LispObject b = a;
+            for (unsigned int j=i; j!=(unsigned int)(-1); j--)
+            {   if (!is_cons(b)) my_abort();
+                if (car(b) != fixnum_of_int(j)) my_abort();
+                b = cdr(b);
+            }
+            if (b != nil) my_abort();
         }
     }
-// I am NOT ALLOWED TO USE THROW to exit from a signal handler in C++. I
-// can at best try use of longjmp, and that is not really legal
-// This has the malign consequence that destructors
-// associated with stack frames passed through will not be activated. And
-// I use destructors in a RAII style to tidy up bindings at times, so I
-// hope I never do a really long longjmp, because that would bypass things!
-    global_longjmp();
+    return nil;
+}
+
+LispObject Lgctest_1(LispObject env, LispObject a1)
+{   LispObject a = nil, b;
+    size_t n = int_of_fixnum(a1);
+    for (unsigned int i=0; i<n; i++)
+        a = cons(fixnum_of_int(i), a);
+    std::cout << "list created" << std::endl;
+    b = a;
+    for (unsigned int j=n-1; j!=(unsigned int)(-1); j--)
+    {   if (!is_cons(b)) goto failing2;
+        if (car(b) != fixnum_of_int(j))
+        {   std::cout << "Fail3 case with j = " << std::dec << j << std::endl
+                << " fixnum_of_int(j) = " << std::hex << fixnum_of_int(j) << std::endl
+                << " car(b) = " << car(b) << " which differs" << std::endl
+                << " " << (n-1-j) << " items down the list" << std::endl;
+            goto failing3; //<<<<<<<<<
+        }
+        b = cdr(b);
+    }
+    if (b != nil) goto failing4;
+    return nil;
+failing2:
+    std::cout << "Crashed2 " << std::hex << "b = " << b
+        << " car(b) = " << car(b) << std::endl;
+    std::cout << "n = " << n << std::endl;
+    for (int z=1; z<10; z++)
+    {   std::cout << std::dec << (car(b)/16) << " ";
+        b = cdr(b);
+    }
+    std::cout << std::endl;
+    return nil;
+failing3:
+    std::cout << "Crashed3 " << std::hex << "b = " << b
+        << " car(b) = " << car(b) << std::endl;
+    std::cout << "n = " << n << std::endl;
+    for (int z=1; z<10; z++)
+    {   std::cout << std::dec << (car(b)/16) << " ";
+        b = cdr(b);
+    }
+    std::cout << std::endl;
+    return nil;
+failing4:
+    std::cout << "Crashed4 " << std::hex << "b = " << b
+        << " car(b) = " << car(b) << std::endl;
+    std::cout << "n = " << n << std::endl;
+    for (int z=1; z<10; z++)
+    {   std::cout << std::dec << (car(b)/16) << " ";
+        b = cdr(b);
+    }
+    std::cout << std::endl;
+    return nil;
+}
+
+LispObject Lgctest_2(LispObject env, LispObject a1, LispObject a2)
+{
+    return nil;
 }
 
 // end of newallocate.cpp

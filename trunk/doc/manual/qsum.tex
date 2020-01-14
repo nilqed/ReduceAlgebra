@@ -24,10 +24,10 @@
 This package is an implementation of the $q$-analogues of Gosper's
 and Zeil\-berger's%
 %
-\footnote{The \texttt{ZEILBERG} package (see \cite{Koepf2})
+\footnote{The \texttt{ZEILBERG} package (see \cite{Koepf:95})
 contains the hypergeometric versions. Those algorithms are described in 
-\cite{Gosper},\cite{hyper_Zeilberger1},\cite{hyper_Zeilberger2}
-and \cite{Koepf1}.}
+\cite{Gosper:78},\cite{Zeilberger:91},\cite{Zeilberger:90}
+and \cite{Koepf:95e}.}
 %
 algorithm for indefinite, and definite summation of
 $q$-hypergeo\-metric terms, respectively.
@@ -76,7 +76,7 @@ $q$-functions:
 Furthermore it is possible to use an abbreviation for the
 {\sl generalized $q$-hypergeometric series}
 ({\sl basic generalized hypergeometric series}, 
-see e.\,g.\ \cite{GasperRahman}, Chapter 1) which is defined as:
+see e.\,g.\ \cite{GasperRahman:90}, Chapter 1) which is defined as:
 \begin{eqnarray*}
 	\qphihyp{r}{s}{a_1,a_2,\ldots,a_r}{b_1,b_2,\ldots,b_s}{z}:= 
 	\hspace{15em}\\ \hspace{10em}
@@ -99,7 +99,7 @@ With this factor one gets the simple formula:
 	{\qphihyp{r-1}{s}{a_1,a_2,\ldots,a_{r-1}}{b_1,b_2,\ldots,b_s}{z}}.
 \]
 Another variation is the {\sl bilateral basic hypergeometric
-series} (see e.\,g.\ \cite{GasperRahman}, Chapter 5) that is defined as
+series} (see e.\,g.\ \cite{GasperRahman:90}, Chapter 5) that is defined as
 \[
 	\qpsihyp{r}{s}{a_1,a_2,\ldots,a_r}{b_1,b_2,\ldots,b_s}{z}:=
 	\sum_{k=-\infty}^{\infty}{\frac{\qfac{a_1,a_2,\ldots,a_r}{k}}
@@ -120,7 +120,7 @@ respectively.
 \subsection{\textsl{q}-Gosper Algorithm}
 \label{qgosper}
 
-The $q$-Gosper algorithm\cite{Koornwinder} is a {\sl decision procedure}, that
+The $q$-Gosper algorithm\cite{Koornwinder:93} is a {\sl decision procedure}, that
 decides by algebraic calculations whether or not a given 
 $q$-hypergeometric term $a_k$ has a $q$-hypergeometric term 
 antidifference $g_k$, i.\,e.\ $a_k=g_{k}-g_{k-1}$ with 
@@ -160,7 +160,7 @@ $g$ at the boundary points like in the integration case:
 \subsection{\textsl{q}-Zeilberger Algorithm}
 \label{qzeilberger}
 
-The $q$-Zeilberger algorithm \cite{Koornwinder}
+The $q$-Zeilberger algorithm \cite{Koornwinder:93}
 deals with the {\sl definite summation} of 
 $q$-hyper\-geo\-metric terms $\fcn{f}{n,k}$ wrt.\ $n$ and $k$:
 \[
@@ -226,7 +226,7 @@ For a quite general class of $q$-hypergeometric terms
 always finds a recurrence equation, not necessarily of lowest
 order though. Unlike Zeilberger's original algorithm its
 $q$-analogue more often fails to determine the recursion of
-lowest possible order, however (see \cite{Paule1}).
+lowest possible order, however (see \cite{PauleRiese:95}).
 
 If the resulting recurrence equation is of first order
 \[
@@ -243,9 +243,9 @@ this information can be used for identification purposes:
 Any other expression satisfying the same recurrence equation, and the same
 initial values, represents the same function.
 
-Our implementation is mainly based on \cite{Koornwinder} and on the
-hypergeometric analogue described in \cite{Koepf1}. 
-More examples can be found in \cite{GasperRahman}, \cite{Gasper},
+Our implementation is mainly based on \cite{Koornwinder:93} and on the
+hypergeometric analogue described in \cite{Koepf:95e}. 
+More examples can be found in \cite{GasperRahman:90}, \cite{Gasper:95},
 some of which are contained in the test file 
 \texttt{qsum.tst}.
 
@@ -278,7 +278,7 @@ algorithm.
 \end{itemize}
 
 {\bf Examples}: The following two examples can be found in 
-	\cite{GasperRahman} ((II.3) and (2.3.4)).
+	\cite{GasperRahman:90} ((II.3) and (2.3.4)).
 
 \begin{redoutput}
 \redprompt qgosper(qpochhammer(a,q,k)*q^k/qpochhammer(q,q,k),q,k);
@@ -500,7 +500,7 @@ Thus we have proved the validity of the recurrence equation.
 
 As some other examples we want to consider some generalizations
 of orthogonal polynomials from the 
-Askey--Wilson--scheme \cite{KoekoekSwarttouw}: The $q$-Laguerre
+Askey--Wilson--scheme \cite{KoekoekSwarttouw:94}: The $q$-Laguerre
 (3.21), $q$-Charlier (3.23) and the continuous $q$-Jacobi (3.10)
 polynomials.
 
@@ -583,7 +583,7 @@ polynomials.
 
 The setting of \sw{qsum\_nullspace} 
 \ttindexswitch[QSUM]{QSUM\_NULLSPACE}
-(see \cite{Paule1} and \S~\ref{switches})
+(see \cite{PauleRiese:95} and \S~\ref{switches})
 results in a faster
 calculation of the recurrence equation for this example.
 
@@ -665,7 +665,7 @@ the \texttt{QSUM} package:
 		solving those equations. In general this method is slower.
 		However if the resulting recurrence equation is quite complicated
 		it might help to switch on \sw{qsum\_nullspace}.
-		See also \cite{Knuth} and \cite{Paule1}.
+		See also \cite{Knuth:TAoCP2} and \cite{PauleRiese:95}.
 	\item \sw{qgosper\_specialsol}, default setting is on. The
 		antidifference $\fcn{g}{k}$ which is determined by 
 		\texttt{qgosper} might not be unique. If this switch is turned on,
@@ -769,83 +769,4 @@ The following messages may occur:
 		\end{verbatim}
 %
 \end{itemize}
-
-% ----------------------------------------------------------------------
-
-\begin{thebibliography}{99}
-
-\bibitem{AskeyWilson}
-% check
-Askey R.\ and Wilson, J.:
-{\sl Some Basic Hypergeometric Orthogonal Polynomials that Generalize Jacobi
-Polynomials}. Memoirs Amer.\ Math.\ Soc.\ 319, Providence, RI, 1985.
-
-\bibitem{Gasper}
-Gasper, G.:
-{\sl Lecture Notes for an Introductory Minicourse on $q$-Series}.
-1995. To obtain from  
-ftp://unvie6.un.or.at/siam/opsf\_new/\linebreak 00index\_by\_author.html.
-
-\bibitem{GasperRahman}
-Gasper, G.\ and Rahman, M.:
-{\sl Basic Hypergeometric Series},
-Encyclopedia of Mathematics and its Applications, 
-{\bf 35}, (G.-C.\ Rota, ed.), Cambridge University Press,
-London and New York, 1990.
-
-\bibitem{Gosper}
-Gosper Jr., R.\ W.:
-Decision procedure for indefinite hypergeometric
-summation. Proc.\ Natl.\ Acad.\ Sci.\ USA {\bf 75}, 1978, 40--42.
-
-\bibitem{Knuth}
-Knuth, D.\ E.:
-{\sl The Art of Computer Programming, Seminumerical Algorithms}.
-2nd ed., 1981, Addison-Wesley Publishing Company.
-
-\bibitem{Koepf1}
-Koepf, W.:
-Algorithms for $m$-fold hypergeometric summation.
-Journal of Symbolic Computation {\bf 20}, 1995, 399--417.
-%(Zbl.\ Math.\ 851.68049, summary).
-
-\bibitem{Koepf2}
-Koepf, W.:
-REDUCE package for indefinite and definite summation.
-% Konrad-Zuse-Zentrum Berlin (ZIB), Technical Report TR 94-9, 1994.
-SIGSAM Bulletin {\bf 29}, 1995, 14--30.
-
-\bibitem{Koornwinder}
-Koornwinder, T.\ H.:
-On Zeilberger's algorithm and its $q$-analogue: a rigorous description.
-J.\ of Comput.\ and Appl.\ Math.\ {\bf 48}, 1993, 91--111.
-
-\bibitem{KoekoekSwarttouw}
-Koekoek, R.\ und Swarttouw, R.F.:
-{\sl The Askey-scheme of Hypergeometric Orthogonal
-Polynomials and its $q$-analogue}. Report 94--05, Tech\-nische Universiteit
-Delft, Faculty of Technical Mathematics and Informatics, Delft, 1994.
-
-
-\bibitem{Paule1}
-Paule, P.\ und Riese, A.:
-A Mathematica \textsl{q}-analogue of Zeilberger's\linebreak[4]
-algorithm based on an
-algebraically motivated approach to \textsl{q}-hyper\-geometric telescoping.
-Fields Proceedings of the Workshop `Special Functions, \textsl{q}-Series
-and Related Topics', organized by the Fields Institute for Research in
-Mathematical Sciences at Univerisity College,
-12-23 June 1995, Toronto, Ontario,179--210.
-
-\bibitem{hyper_Zeilberger1}
-Zeilberger, D.:
-A fast algorithm for proving terminating hypergeometric identities.
-Discrete Math.\ {\bf 80}, 1990, 207--211.
-
-\bibitem{hyper_Zeilberger2}
-Zeilberger, D.:
-The method of creative telescoping.
-J.\ Symbolic Computation {\bf 11}, 1991, 195--204.
-
-\end{thebibliography}
 

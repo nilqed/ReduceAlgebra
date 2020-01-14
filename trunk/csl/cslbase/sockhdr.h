@@ -1,4 +1,4 @@
-// sockhdr.h                               Copyright (C) 1997-2017 Codemist
+// sockhdr.h                               Copyright (C) 1997-2019 Codemist
 
 //
 // pull in headers suitable for socket-related code.
@@ -6,7 +6,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2017, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -35,7 +35,7 @@
  *************************************************************************/
 
 
-// $Id: sockhdr.h 4068 2017-05-29 21:33:13Z arthurcnorman $
+// $Id: sockhdr.h 5165 2019-10-10 14:22:18Z arthurcnorman $
 
 //
 // Some declarations for my own variables and functions.

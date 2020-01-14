@@ -32,184 +32,129 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: thread_local.h 5053 2019-07-07 19:44:56Z arthurcnorman $
+// $Id: thread_local.h 5189 2019-11-16 18:08:10Z arthurcnorman $
 
 
-// Cygwin and mingw32 both seem to use "emutls" to support the C++11
-// keyword "thread_local". This can have severe performance consequences
-// in the sort of use I wish to make of it where rather small leaf functions
-// access thread_local values.
+// There are time when I want to write
+//    inline thread_local T name = value;
+// where the use of the "inline" qualifier is so that I can put this in
+// a header file (including the case of a header-only library). The
+// "thread_local" is just there for what it normally means.
+//
+// I have two problems with this. The first is that inline variables are
+// only available from C++17 onwards and I still wish to support compilers
+// that are not that up to date. The second is that fine-grain use of items
+// declared thread_local leads to severe overheads under Cygwin and Mingw32.
+// However on those platforms there is a Microsoft-specific scheme for
+// thread-local support that has respectable performance, but which is
+// limited to storing values as "void ".
+//
+// The code here is to abstract over my responses to all this. I used to have
+// a more elaborate scheme where I had fallen into the C++ trap of using too
+// many of its facilities all at once - templates, overloading rather basic
+// operators etc etc. That version avoided use of "#define" and means that
+// in the end the thread-local values I introduced could be referenced (almost)
+// as if they were simmple variable. However when I came to debug code that
+// used it each reference to such a variable made single-stepping my code
+// really bad, and on at least one occasion it seemed to crash gdb. So this is
+// a simpler scheme that puts less strain on the compiler's optimizer and
+// is what I am trying now.  To use it one replaces the definition of any
+// thread-local with
+//     declare_thread_local(name, T);
+// or  declare_thread_local_ref(name, T);
+// and both of those are (more or less) substitutes for
+//     inline thread_local T name;
+// Note that in this scheme there is no support for initializing the variable
+// at its point of definition. Then in the first case where "name" would have
+// been used the rest of the code has to write name::get() or name::set(value),
+// and in the second case only name::get() is supported.
+// The first version van be used when the type T can be converted to and from
+// a "void *", and that covers (obviously) any sort of pointer type but
+// also intptr_t and uintptr_t. The second case is intended for use when the
+// type T is an array or class type, and so usage will be of the form
+//    name::get()[index]   or name::get().field   or name::get().member(..)
+//
+// The macros here may introduce a class called "name_Ref", and "name" will
+// end of the name of a class (with a static member get()) rather than a
+// normal symbol. Tha implementation does not always make it naturally easy
+// to access the value from a debugger, and so if the symbol DEBUG is defined
+// at compile-time and if C++17 inline variables are supported I will arrange
+// that "name::val" holds the value in the first case and a reference to it
+// in the second. If you do not have inline variables supported then
+// "name::val" will be a static function that has defined within itself a
+// value called Val.
+
+
+// What follows supports 3 cases:
+// (a) Cygwin/mingsw32 using the Microsoft thread-local API and assuming
+//     that the C++ compiler supports C++17 inline variables.
+// (b) Other platforms but making us of C++17 inline variables.
+// (c) A fallback for use with older C++ compilers and libraries.
 //
 
-#if defined __CYGWIN__ || defined __MINGW32__
-extern void *tls_load();
-extern void tls_store(void *v);
-#endif // __CYGWIN__ || __MINGW32__
 
-// All values that are to be thread-local are collected and kept within
-// a single class object.
+#if defined __cpp_inline_variables && \
+    (defined __CYGWIN__ || defined __MINGW32__)
 
-class ThreadLocals
+// With Cygwin and mingw32 (as of 2019) the support of thread-local variables
+// uses a mechanism "emutls". For code that makes extensive use of such
+// variables in many separate little functions this can add severe overhead.
+// Microsoft provides a scheme of rather different style to support
+// thread-local. Direct use of it just allows the storage of "void *" values,
+// and there is a limit to how many can be stored -- although for my purposes
+// the limit is plenty high enough. Here I have code fragments that activate
+// the Microsoft scheme. And I go beyond that and provide inline definitions
+// of machine code replacements for the low-level access procedures so that
+// unless the preprocessor symbol CAUTIOUS is defined you have a chance for
+// yet further savings.
+
+// Define some utility functions for the Microsoft case...
+
+extern "C"
 {
-public:
-    int thread_id;
-    size_t Xboffo_size;
-    size_t Xboffop;
-    char *Xboffo;
-   
-    size_t fluid_values_size;
-    size_t fluid_values_count;
-    LispObject *fluid_values[1]; // will in fact be much longer
 
-#if defined __CYGWIN__ || defined __MINGW32__
-// On Microsoft platforms the construction of this object causes its
-// address to be stored in an offset relative to a segment register. The
-// offset concerned gets allocated by the time tls_store makes use of it.
-    ThreadLocals()
-    {   tls_store(reinterpret_cast<void *>(this));
-    }
-#endif // __CYGWIN__ || __MINGW32__
-};
+// TlsAlloc() allocates a small integer that acts as a handle for a
+// fresh thread-local. Once such a handle has been allocated TlsSetValue and
+// TlsGetValue can save and load void * values from a location that it
+// refers to. This location will in fact by found relative to either the FS
+// or GS segment register. When the handle is no longer required it will be
+// proper to cell TlsFree to release it. One can certainly not allocate more
+// than 1088 handles (this value is 64+1024, and access via the first 64
+// handles will be slightly cheaper than via the remaining 1024). If a
+// value that you want to be thread-local can not be stored in a void * using
+// TlsSetValue then it is necessary to allocate space elsewhere and set the
+// Microsoft slot to point to it. I really do not want to go
+// "#include <windows.h>" because that can pollute my name-space with macros
+// and definitions that can clash with definitions that are otherwise
+// important, and so I put in my own version of the declarations that I need.
 
-#if defined __CYGWIN__ || defined __MINGW32__
-
-inline ThreadLocals *myThreadLocals()
-{   thread_local ThreadLocals mine;
-    return reinterpret_cast<ThreadLocals *>(tls_load());
-}
-
-#else // __CYGWIN__ || __MINGW32__
-
-// If I was certain that I had C++17 fully supported I would use
-//   inline thread_local ThreadLocals myThreadLocals;
-// here so I got just one instance of the structure. But until that is
-// universally available I will just wrap the definition of the instance
-// of the structure up within an inline function. This will guarantee that
-// just one copy of it exists even though this header may be included by
-// many compilation units. And with modern compilers there is amazingly
-// little overhead.
-
-inline ThreadLocals *myThreadLocals()
-{   thread_local ThreadLocals mine;
-    return &mine;
-}
-
-#endif // __CYGWIN__ || __MINGW32__
-
-// The collection of reference declarations here in effect leave the
-// plain names buffo_size and so on as aliases for the more elaborate
-// recipies needed to access them, so the bulk of the source code
-// can look clean and tidy. An ugly situation here is that I have to have
-// two copies of declarations - one set to establish members of the structure
-// and the other here to provide short-name access.
-
-// The C++ standard explicitly says that it is undefined whether a reference
-// uses storage. If on some platform refernces did use storage then perhaps
-// if this header was icnluded from multiple source files one could end up
-// with multiply defined items. By making the declarations here static
-// I should avoid that.
-
-#define thread_id          (myThreadLocals()->thread_id)
-#define Xboffo_size        (myThreadLocals()->Xboffo_size)
-#define Xboffop            (myThreadLocals()->Xboffop)
-#define Xboffo             (myThreadLocals()->Xboffo)
-#define fluid_values_size  (myThreadLocals()->fluid_values_size)
-#define fluid_values_count (myThreadLocals()->fluid_values_count)
-#define fluid_values       (myThreadLocals()->fluid_values)
-
-
-// Timings I collected for very tight loops accessing thread-local
-// values in various ways were as follows (on Windows 10):
-//     simple non-thread-local case     1
-//     inline code working via GS       1.5
-//     use of TlsGetValue()             3     (ie CAUTIOUS)
-//     use of C++11 thread_local       30 Cygwin, 15 Mingw
-
-
-// I have two versions of the code here - one uses the proper Windows API
-// calls. These do at least a bit of validity checking on their arguments
-// and will generally involve an out-of-line call into the Windows libraries.
-// The other expands what is intended to be just the same activity (sans
-// a couple of checks) in such a way that it can be compiled in-line, thus
-// saving a little.
-
-// The key to all this is that Windows maintains a segment register (FS for
-// 32-bit systems and GS for 64-bit ones) pointing to a vblock of memory
-// specific to the current thread. The layout within this block is not very
-// officially guaranteed, but has been stable for a long time and if it did
-// change it is believed that MANY applications would suffer!
-
-#if defined __CYGWIN__ || defined __MINGW32__
-#define ON_WINDOWS 1
-#if __SIZEOF_POINTER__ == 4
-#define ON_WINDOWS_32 1
+#ifdef __LP64__
+typedef unsigned int tls_handle;
+#else
+typedef unsigned long tls_handle;
 #endif
-#endif // __CYGWIN__ || __MINGW32__
 
-#ifdef ON_WINDOWS
-
-// I do not want to include <windows.h> here because if I do so it
-// defines various things that clash against some of my Cygwin code. So
-// I will put in relevant declarations individually and manually.
-
-#include <cinttypes>
-
-// The declarations for TlsAlloc and TlsFree given here are intended to
-// match what Windows will use, but without needing to include <windows.h>
-// to provide all the more elaborate names for the types and qualifiers
-// that are used.
-
-extern uint32_t myTlsAlloc();
-extern void myTlsFree(uint32_t);
-
-// This class exists so that its constructor and destructor can manage
-// allocation of a slot in the Windows vector of thread local values.
-
-class TLS_slot_container
-{
-public:
-    int32_t mine;
-    TLS_slot_container()
-    {   mine = myTlsAlloc();
-    }
-    ~TLS_slot_container()
-    {   myTlsFree(mine);
-    }
+extern __declspec(dllimport) tls_handle TlsAlloc(void);
+extern __declspec(dllimport) int TlsFree(tls_handle);
+extern __declspec(dllimport) void *TlsGetValue(tls_handle);
+extern __declspec(dllimport) int TlsSetValue(tls_handle, void *);
 };
-
-// On or before the first call of this the constructor for the
-// TLS_slot_container will be activated and that will allocate a slot.
-// These days I expect the C compiler to turn the implementation of this
-// into little more that a load from a static location in memory. It may
-// also have a test to see if the call is a first one so it can in that
-// case do the initialization.
-// Just one slot-number is needed for my entire program - the same value is
-// used by every thread.
-
-inline int get_my_TEB_slot()
-{   static TLS_slot_container w;
-    return w.mine;
-}
 
 #ifdef CAUTIOUS
-// The CAUTIOUS option uses the Microsoft API to access thread-local slots,
-// and so should be robust against potential changes in Windows.
 
-extern void *myTlsGetValue(uint32_t);
-extern void myTlsSetValue(uint32_t, void *);
-
-inline void *tls_load()
-{   return myTlsGetValue(get_my_TEB_slot());
+inline void *tls_load(tls_handle teb_slot)
+{   return TlsGetValue(teb_slot);
 }
 
-inline void tls_store(void *v)
-{   myTlsSetValue(get_my_TEB_slot(), v);
+inline void tls_store(tls_handle teb_slot, void *v)
+{   TlsSetValue(teb_slot, v);
 }
 
 #else // CAUTIOUS
-// The version is intended and expected to behave exactly like the version
+
+// The code here is intended and expected to behave exactly like a version
 // that calls the Microsoft-provided functions, except (1) it does not
-// do even basic sanity checks on the slot-number saved via get_my_TAB_slot()
+// do even basic sanity checks on the slot-number that is passed
 // and (b) it can expand into inline code that then runs faster that the
 // official version even if it does just the same thing.
 
@@ -218,83 +163,220 @@ inline void tls_store(void *v)
 // which has repeated comments about the long term stability of the memory
 // layout involved.
 
-#ifdef ON_WINDOWS_32
+// The basic concept is that Microsoft keep a segment register (FS on 32-bit
+// systems and GS on 64) pointing to a thread-specific block of memory.
+// Within that block there is a 64-bit region for user thread-locals and
+// then a pointer to a larger block that provides and extended number
+// of user thread-locals. TlsAlloc() allocates a "thread slot number" and
+// if that is less than 64 it refers to a word in the first block, otherwise
+// in the extended region.
 
-inline void *read_via_segment_register(uint32_t n)
-{   void *r;
-    asm volatile
-    (   "movl %%fs:(%1), %0"
-        : "=r" (r)
-        : "r" (n)
-        :
-    );
-    return r;
-}
-inline void write_via_segment_register(uint32_t n, void *v)
-{   asm volatile
-    (   "movl %0, %%fs:(%1)"
-        :
-        : "r" (v), "r" (n)
-        :
-    );
-}
-
+#if __SIZEOF_POINTER__ == 4
+#define MOVE_INSTRUCTION "movl"
+#define SEGMENT_REGISTER "%%fs"
 #define basic_TLS_offset           0xe10
 #define extended_TLS_offset        0xf94
+#else // Windows 32 vs 64 bit
+#define MOVE_INSTRUCTION "movq"
+#define SEGMENT_REGISTER "%%gs"
+#define basic_TLS_offset           0x1480
+#define extended_TLS_offset        0x1780
+#endif // Windows 32 vs 64 bit
 
-#else
-
-inline void *read_via_segment_register(uint32_t n)
+inline void *read_via_segment_register(tls_handle n)
 {   void *r;
     asm volatile
-    (   "movq %%gs:(%1), %0"
+    (   MOVE_INSTRUCTION "  " SEGMENT_REGISTER ":(%1), %0"
         : "=r" (r)
         : "r" (n)
         :
     );
     return r;
 }
-inline void write_via_segment_register(uint32_t n, void *v)
+
+inline void write_via_segment_register(tls_handle n, void *v)
 {   asm volatile
-    (   "movq %0, %%gs:(%1)"
+    (   MOVE_INSTRUCTION " %0, " SEGMENT_REGISTER ":(%1)"
         :
         : "r" (v), "r" (n)
         :
     );
 }
 
-#define basic_TLS_offset           0x1480
-#define extended_TLS_offset        0x1780
-
-#endif // Windows 32 vs 64 bit
-
-inline void *extended_tls_load()
+inline void *extended_tls_load(tls_handle teb_slot)
 {   void **a = (void **)read_via_segment_register(extended_TLS_offset);
-    return a[get_my_TEB_slot() - 64];
+    return a[teb_slot - 64];
 }
 
-inline void extended_tls_store(void *v)
+inline void extended_tls_store(tls_handle teb_slot, void *v)
 {   void **a = (void **)read_via_segment_register(extended_TLS_offset);
-    a[get_my_TEB_slot() - 64] = v;
+    a[teb_slot - 64] = v;
 }
 
-inline void *tls_load()
-{   if (get_my_TEB_slot() >= 64) return extended_tls_load();
+inline void *tls_load(tls_handle teb_slot)
+{   if (teb_slot >= 64) return extended_tls_load(teb_slot);
     else return (void *)read_via_segment_register(
-        basic_TLS_offset + sizeof(void *)*get_my_TEB_slot());
+        basic_TLS_offset + sizeof(void *)*teb_slot);
 }
 
-inline void tls_store(void *v)
-{   if (get_my_TEB_slot() >= 64) return extended_tls_store(v);
+inline void tls_store(tls_handle teb_slot, void *v)
+{   if (teb_slot >= 64) return extended_tls_store(teb_slot, v);
     else write_via_segment_register(
-        basic_TLS_offset + sizeof(void *)*get_my_TEB_slot(), v);
+        basic_TLS_offset + sizeof(void *)*teb_slot, v);
 }
 
 #endif // CAUTIOUS
-#endif // ON_WINDOWS
+
+// The purpose of this class is to encapsulate an allocation of a slot in
+// Microsoft's table of TLS locations. In declare_thread_local I create a
+// static instance of it. It is guaranteed that the constructor here gets
+// called before and use of the object, and that the object outlasts any
+// possible use of it.
+
+class TlsHandle
+{
+public:
+    tls_handle h;
+    TlsHandle()
+    {   h = TlsAlloc();
+    }
+    ~TlsHandle()
+    {   TlsFree(h);
+    }
+};
+
+// declare_thread_local() can be used when the type passed is convertable to
+// void *, so intptr_t, uintptr_t and any sort of pointer should be OK.
+// Simple integers should be widened to (u)intptr_t for use here.
+
+#ifdef DEBUG
+#define declare_thread_local(name, Type)                      \
+class name                                                    \
+{                                                             \
+    static inline TlsHandle H;                                \
+    static inline thread_local Type val;                      \
+public:                                                       \
+    static Type get()                                         \
+    {   return (Type)tls_load(H.h);                           \
+    }                                                         \
+    static void set(Type v)                                   \
+    {   tls_store(H.h, (void *)v);                            \
+        val = v;                                              \
+    }                                                         \
+};
+#else // DEBUG
+#define declare_thread_local(name, Type)                      \
+class name                                                    \
+{                                                             \
+    static inline TlsHandle H;                                \
+public:                                                       \
+    static Type get()                                         \
+    {   return (Type)tls_load(H.h);                           \
+    }                                                         \
+    static void set(Type v)                                   \
+    {   tls_store(H.h, (void *)v);                            \
+    }                                                         \
+};
+#endif // DEBUG
+
+#define declare_thread_local_ref(name, Type)                  \
+class name ## _Ref                                            \
+{                                                             \
+    static Type* get()                                        \
+    {   static thread_local Type val;                         \
+        return &val;                                          \
+    }                                                         \
+public:                                                       \
+    static inline TlsHandle H;                                \
+    name ## _Ref()                                            \
+    {   tls_store(H.h, (void *)get());                        \
+    }                                                         \
+};                                                            \
+class name                                                    \
+{                                                             \
+public:                                                       \
+    static Type &get()                                        \
+    {   static thread_local name ## _Ref val;                 \
+        return *(Type *)tls_load(val.H.h);                    \
+    }                                                         \
+};
+
+#elif defined __cpp_inline_variables
+
+// Here I have inline variables but I am not going to use any Microsoft
+// specialities - this is really just a simple wrapping of a plain
+//     inline thread_local T name;
+// declaration, with get() and set() methods solely to provide compatibility
+// with the other cases that have to be more complicated.
+
+#define declare_thread_local(name, Type)                      \
+class name                                                    \
+{                                                             \
+    static inline thread_local Type val;                      \
+public:                                                       \
+    static Type& get()                                        \
+    {   return val;                                           \
+    }                                                         \
+    static void set(Type v)                                   \
+    {   val = v;                                              \
+    }                                                         \
+};
+
+#define declare_thread_local_ref(name, Type)                  \
+class name                                                    \
+{                                                             \
+    static inline thread_local Type val;                      \
+public:                                                       \
+    static Type& get()                                        \
+    {   return val;                                           \
+    }                                                         \
+};
+
+#else 
+
+// Here I do not have C++17 inline variables, and I will assume that I
+// do not need to worry about Microsoft. I cope by wrapping variable
+// definitions within (inline) functions. Well all the methods in a class
+// are treated as inline without me needing to use that keyword.
+// This may have slightly inferior performance to the version that uses
+// inline variables in that the functions that encapsulate variable
+// definitions may feel the need to keep a "first time" flag and initialize
+// the variable on the first occasion that control traverses the definition.
+//
+// Well this case can also apply under Cygwin/mingw32 (and indeed elsewhere
+// if you do not specify "-std=c++17" as an option for g++. I view that as
+// possibly good since it lets me drop down to this simpler scheme if I
+// find it easier for use with a debugger!
+
+#define declare_thread_local(name, Type)                      \
+class name                                                    \
+{                                                             \
+    static Type& val()                                        \
+    {   static thread_local Type Val;                         \
+        return Val;                                           \
+    }                                                         \
+public:                                                       \
+    static Type& get()                                        \
+    {   return val();                                         \
+    }                                                         \
+    static void set(Type v)                                   \
+    {   val() = v;                                            \
+    }                                                         \
+};
+
+#define declare_thread_local_ref(name, Type)                  \
+class name                                                    \
+{                                                             \
+public:                                                       \
+    static Type& get()                                        \
+    {   static thread_local Type val;                         \
+        return val;                                           \
+    }                                                         \
+};
+
+#endif // __cpp_inline_variables
 
 #endif // header_thread_local_h
 
 // end of thread_local.h
-
 

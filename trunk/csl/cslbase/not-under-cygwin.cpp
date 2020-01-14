@@ -30,9 +30,10 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: not-under-cygwin.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
+// $Id: not-under-cygwin.cpp 5189 2019-11-16 18:08:10Z arthurcnorman $
 
 #include <windows.h>
+#include <cstring>
 
 //
 // The purpose of this tiny program is to return (as an error-code)
@@ -69,7 +70,7 @@ int main(int argc, char *argv[])
     int gcsbi = GetConsoleScreenBufferInfo(h1, &csbi);
     int dashdash = 0, i;
     for (i=1; i<argc; i++)
-    {   if (strcmp(argv[i], "--") == 0)
+    {   if (std::strcmp(argv[i], "--") == 0)
         {   dashdash = 1;
             break;
         }

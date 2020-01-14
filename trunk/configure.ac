@@ -13,7 +13,7 @@ fi
 
 AC_COPYRIGHT([The REDUCE project])
 
-# $Id: configure.ac 5096 2019-08-21 10:57:31Z arthurcnorman $
+# $Id: configure.ac 5179 2019-10-31 16:20:08Z arthurcnorman $
 
 # If necessary you can fetch source versions of autoconf and automake and
 # install private versions for use here. Following discussions with other
@@ -34,8 +34,17 @@ then
   d="${a#${b}}"
   c=`cygpath $b`
   abssrcdir="$c$d"
+  case "$abssrcdir" in
+  /cygdrive*)
+    short=`echo $abssrcdir | sed 's+^/cygdrive++'`
+    long=`readlink -f "$short"`
+    if test "$long" = "$abssrcdir"
+    then
+      abssrcdir="$short"
+    fi
+    ;;
+  esac
 fi
-
 
 AC_MSG_NOTICE([Absolute path to source directory = $abssrcdir])
 

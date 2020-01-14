@@ -1,24 +1,23 @@
-% This is an alternative source for the REDUCE Manual.
-% Normally mkman and mkman2 are used.
+% This is the source for the REDUCE Manual.
 
 \documentclass[11pt,a4paper]{book}
 
 \usepackage[T1]{fontenc}
-\usepackage[latin1]{inputenc}
+\usepackage[utf8]{inputenc}
 \usepackage{makeidx}
 \usepackage{alltt}
 \usepackage{times}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{amsthm}
-\usepackage{chapterbib}
+%\usepackage{chapterbib}
 \usepackage{graphicx}
 \usepackage{xspace}
 \usepackage{caption}
 
 \makeatletter
 
-\let\include=\cb@include
+%\let\include=\cb@include
 
 \let\oldtheindex=\theindex
 \def\theindex{\oldtheindex
@@ -27,9 +26,29 @@
 %   \addcontentsline{toc}{chapter}{Index}%
 }
 
+\renewenvironment{thebibliography}[1]
+     {\chapter{\bibname}%
+      \@mkboth{\MakeUppercase\bibname}{\MakeUppercase\bibname}%
+      \list{\@biblabel{\@arabic\c@enumiv}}%
+           {\settowidth\labelwidth{\@biblabel{#1}}%
+            \leftmargin\labelwidth
+            \advance\leftmargin\labelsep
+            \@openbib@code
+            \usecounter{enumiv}%
+            \let\p@enumiv\@empty
+            \renewcommand\theenumiv{\@arabic\c@enumiv}}%
+      \sloppy
+      \clubpenalty4000
+      \@clubpenalty \clubpenalty
+      \widowpenalty4000%
+      \sfcode`\.\@m}
+     {\def\@noitemerr
+       {\@latex@warning{Empty `thebibliography' environment}}%
+      \endlist}
+
 \@ifundefined{Configure}
  {\def\Includegraphics[#1]#2{\includegraphics[#1]{#2.pdf}}}
- {\def\Includegraphics[#1]#2{\includegraphics[#1]{#2.png}}}
+ {\def\Includegraphics[#1]#2{\includegraphics[#1]{#2.eps}}}
 
 \@ifpackageloaded{tex4ht}{
   \def\currentpdfbookmark{}
@@ -40,21 +59,21 @@
 \makeatother
 
 \let\subsubsubsection\paragraph
-\let\savedsectionbib\sectionbib
+%\let\savedsectionbib\sectionbib
 
-\sectionbib{\subsection*}{subsection}
+%\sectionbib{\subsection*}{subsection}
 
 %\usepackage{cmbright}
 %\usepackage{charter}
 %\renewcommand{\rmdefault}{uaq}
 %\renewcommand{\sfdefault}{ugq}
-\usepackage[]{hyperref}
+\usepackage[pdfencoding=auto]{hyperref}
 \hypersetup{
   colorlinks=true,linkbordercolor={1 1 1},
   linkcolor=blue,urlcolor=blue,
   bookmarksnumbered=true,
   pdftitle={REDUCE User's Manual, Free Version \today},
-  pdfauthor={\textcopyright Anthony C. Hearn and Rainer Sch\366pf},
+  pdfauthor={\textcopyright Anthony C. Hearn and Rainer Schöpf},
   pdfdisplaydoctitle=true,
 }
 
@@ -229,6 +248,10 @@
 \makeindex
 
 \begin{document}
+
+%\bibliographystyle{plain}
+\bibliographystyle{alpha}
+
 \pagestyle{empty}
 
 
@@ -268,7 +291,8 @@
 \include{util}
 \include{maintain}
 \include{appenda}
-\include{biblio}
+\bibliography{bibl,manual}
+%\include{biblio}
 \include{changes}
 
 \printindex

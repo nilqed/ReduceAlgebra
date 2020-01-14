@@ -42,7 +42,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: machine.h 5070 2019-08-04 22:39:21Z arthurcnorman $
+// $Id: machine.h 5189 2019-11-16 18:08:10Z arthurcnorman $
 
 
 #ifndef header_machine_h
@@ -135,24 +135,20 @@
 #define __has_cpp_attribute(name) 0
 #endif
 
+#ifndef MAYBE_UNUSED
 #if __has_cpp_attribute(maybe_unused)
 #define MAYBE_UNUSED [[maybe_unused]]
+#elif defined __GNUC__
+#define MAYBE_UNUSED [[gnu::unused]]
 #else
 #define MAYBE_UNUSED
 #endif
-
-// At some stage I might wish to move to "#include <cstdio>" etc however
-// that would put things in the std: namespace, and the killer for me is
-// that with g++ I can then not find putc_unlocked and getc_unlocked. Well
-// I bet that I can if I try a bit harder...
+#endif
 
 #ifdef WIN32
 // The aim here is to avoid use of the Microsoft versions of printf and
 // friends and (hence) allow g++ to parse and check format strings reliably.
 #define __USE_MINGW_ANSI_STDIO 1
-#endif
-
-#ifdef WIN32
 
 #include <winsock.h>
 #include <windows.h>
@@ -179,43 +175,50 @@
 
 #endif //WIN32
 
-// I should possibly migrate to use of <iostream> rather than <stdio.h>,
-// but doing so will involve changes across rather a latge swathe of the
-// code! But I will make the iostream stuff available...
+// I now include eg <cstdio> rather than <stdio.h>. The consequence is that
+// all the names that are declared are certain to be present in the std::
+// namespace. They MIGHT be present in the global namespace too, but there is
+// no guarantee of that.
+
+// The consequence is that I ought to go "using std::fopen;" and things like
+// that wherever I use a C library function, or as an alternative write the
+// calls as std::fopen(...) instead of just fopen(...). At present it is not
+// clear how I can police my adherence to this requirement!
+
+#include <cstdio>
+#include <cstdlib>
+#include <cstddef>
+#include <cmath>
+#include <cfloat>
+#include <cstdint>
+#include <cinttypes>
+#include <climits>
+#include <cstring>
+#include <cctype>
+#include <cwctype>
+#include <ctime>
+#include <cstdarg>
+#include <csetjmp>
+#include <csignal>
+#include <cerrno>
+
+// Now the C++ facilities that I use...
+
 #include <iostream>
-// I might also migrate from using <stdio.h> to using <cstdio> and face up to
-// any namespace issues that are caused that way... But not today.
-#include <stdio.h>
-// Similarly I should probably go either "#include <cstdlib>" or just
-// "#include <stdlib>" and in general migrate to be "more C++ than C"
-// with regard to all libraries. Maybe the main issue there will be that
-// I will need to fuss about namespaces at least a bit. That could be sensible
-// anyway!
-#include <stdlib.h>
-#include <stddef.h>
-#include <math.h>
-#include <float.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <limits.h>
-#include <string.h>
-#include <ctype.h>
-#include <wctype.h>
-#include <time.h>
-#include <stdarg.h>
-#include <setjmp.h>
-#include <signal.h>
 #include <exception>
-#include <errno.h>
-#include <assert.h>
-
-// As of May 2018 I will rely in C++11 for random number and thread support...
-
+#include <cassert>
+#include <map>
+#include <unordered_map>
+#include <vector>
+#include <iostream>
+#include <string>
+#include <algorithm>
 #include <random>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <functional>
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -312,32 +315,32 @@ extern "C"
 // "undefined" in that the optimiser has to preserve whetever semantics the
 // implementation settled on!
 
-inline int32_t ASR(int32_t a, int n)
-{   if (n<0 || n>=8*(int)sizeof(int32_t)) n=0;
+inline std::int32_t ASR(std::int32_t a, int n)
+{   if (n<0 || n>=8*(int)sizeof(std::int32_t)) n=0;
     return a >> n;
 }
 
-inline int64_t ASR(int64_t a, int n)
-{   if (n<0 || n>=8*(int)sizeof(int64_t)) n=0;
+inline std::int64_t ASR(std::int64_t a, int n)
+{   if (n<0 || n>=8*(int)sizeof(std::int64_t)) n=0;
     return a >> n;
 }
 
 #else // SIGNED_SHIFTS_ARE_ARITHMETIC
 
-inline int32_t ASR(int32_t a, int n)
-{   if (n<0 || n>=8*(int)sizeof(int32_t)) n=0;
-    uint32_t r = ((uint32_t)a) >> n;
-    uint32_t signbit = ((uint32_t)a) >> (8*sizeof(uint32_t)-1);
-    if (n != 0) r |= ((-signbit) << (8*sizeof(uint32_t) - n));
-    return (int32_t)r;
+inline std::int32_t ASR(std::int32_t a, int n)
+{   if (n<0 || n>=8*(int)sizeof(std::int32_t)) n=0;
+    std::uint32_t r = ((std::uint32_t)a) >> n;
+    std::uint32_t std::signbit = ((std::uint32_t)a) >> (8*sizeof(std::uint32_t)-1);
+    if (n != 0) r |= ((-std::signbit) << (8*sizeof(std::uint32_t) - n));
+    return (std::int32_t)r;
 }
 
-inline int64_t ASR(int64_t a, int n)
-{   if (n<0 || n>=8*(int)sizeof(int64_t)) n=0;
-    uint64_t r = ((uint64_t)a) >> n;
-    uint64_t signbit = ((uint64_t)a) >> (8*sizeof(uint64_t)-1);
-    if (n != 0) r |= ((-signbit) << (8*sizeof(uint64_t) - n));
-    return (int64_t)r;
+inline std::int64_t ASR(std::int64_t a, int n)
+{   if (n<0 || n>=8*(int)sizeof(std::int64_t)) n=0;
+    std::uint64_t r = ((std::uint64_t)a) >> n;
+    std::uint64_t std::signbit = ((std::uint64_t)a) >> (8*sizeof(std::uint64_t)-1);
+    if (n != 0) r |= ((-std::signbit) << (8*sizeof(std::uint64_t) - n));
+    return (std::int64_t)r;
 }
 
 #endif // SIGNED_SHIFTS_ARE_ARITHMETIC
@@ -348,18 +351,18 @@ inline int64_t ASR(int64_t a, int n)
 // I need to work in an unsigned type. Rather than messing with templates
 // again I will have versions for each possible width that I might use.
 
-inline int32_t ASL(int32_t a, int n)
-{   if (n < 0 || n>=8*(int)sizeof(uint32_t)) n = 0;
-    return (int32_t)(((uint32_t)a) << n);
+inline std::int32_t ASL(std::int32_t a, int n)
+{   if (n < 0 || n>=8*(int)sizeof(std::uint32_t)) n = 0;
+    return (std::int32_t)(((std::uint32_t)a) << n);
 }
 
-inline int64_t ASL(int64_t a, int n)
-{   if (n < 0 || n>=8*(int)sizeof(uint64_t)) n = 0;
-    return (int64_t)(((uint64_t)a) << n);
+inline std::int64_t ASL(std::int64_t a, int n)
+{   if (n < 0 || n>=8*(int)sizeof(std::uint64_t)) n = 0;
+    return (std::int64_t)(((std::uint64_t)a) << n);
 }
 
-inline uint64_t ASL(uint64_t a, int n)
-{   if (n < 0 || n>=8*(int)sizeof(uint64_t)) n = 0;
+inline std::uint64_t ASL(std::uint64_t a, int n)
+{   if (n < 0 || n>=8*(int)sizeof(std::uint64_t)) n = 0;
     return a << n;
 }
 
@@ -396,11 +399,11 @@ typedef __int128 int128_t;
 // up all the space, but I do not mind) pointing at the original start of
 // the block.
 
-inline void *aligned_malloc(size_t n)
-{   void *p = (void *)malloc(n + 32);
+inline void *aligned_malloc(std::size_t n)
+{   void *p = (void *)std::malloc(n + 32);
     if (p == NULL) return p;
-    void *r = (void *)((((uintptr_t)p + 15) & -(uint64_t)16) + 16);
-    (void *)((uintptr_t)r - 16) = p;
+    void *r = (void *)((((std::uintptr_t)p + 15) & -(std::uint64_t)16) + 16);
+    (void *)((std::uintptr_t)r - 16) = p;
     return r;
 }
 
@@ -409,19 +412,19 @@ inline void *aligned_malloc(size_t n)
 
 inline void aligned_free(void *p)
 {   if (p == NULL) return;
-    free(*(void *)((uintptr_t)p - 16));
+    std::free(*(void *)((std::uintptr_t)p - 16));
 }
 #else // MAXALING4
 
 // In the hugely more common case where malloc does align things to at least
 // 8 byte boundaries I can use malloc() and free() directly.
 
-inline void *aligned_malloc(size_t n)
-{   return (void *)malloc(n);
+inline void *aligned_malloc(std::size_t n)
+{   return (void *)std::malloc(n);
 }
 
 inline void aligned_free(void *p)
-{   free(p);
+{   std::free(p);
 }
 
 #endif // MAXALING4

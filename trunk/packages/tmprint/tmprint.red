@@ -16,7 +16,7 @@ module tmprint; % Output module for TeXmacs interface
 
 
 % ----------------------------------------------------------------------
-% $Id: tmprint.red 4856 2019-01-11 16:40:27Z schoepf $
+% $Id: tmprint.red 5188 2019-11-12 21:12:26Z eschruefer $
 % ----------------------------------------------------------------------
 % Copyright (c) 1993-1994, 1999, 2003-2005 A. Dolzmann, T. Hearn, A.
 % Grozin, H. Melenk, W. Neun, A. Norman, A. Seidl, and T. Sturm
@@ -495,10 +495,11 @@ symbolic procedure fancy!-output(mode,l);
          if getd 'math!-display and
             math!-display 0 and
             math!-display 1 then <<
-            assgnpri(l,nil,nil) where outputhandler!* = nil >>;
-         most_recent_fancy := l . most_recent_fancy;
+            assgnpri(car l,nil,nil) where outputhandler!* = nil >>;
+         most_recent_fancy := car l . most_recent_fancy;
 #endif
-         fancy!-assgnpri l >>
+         fancy!-assgnpri car l;
+         fancy!-flush() >>
       else <<
 #if (memq 'csl lispsystem!*)
          if getd 'math!-display and

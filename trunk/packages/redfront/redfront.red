@@ -1,6 +1,6 @@
 module redfront;
 
-revision('redfront, "$Id: redfront.red 4854 2019-01-10 19:16:07Z schoepf $");
+revision('redfront, "$Id: redfront.red 5188 2019-11-12 21:12:26Z eschruefer $");
 
 copyright('redfront, "(c) 1999-2009 A. Dolzmannm, T. Sturm, 2010-2017 T. Sturm");
 
@@ -49,7 +49,7 @@ procedure redfront_oh(m,l);
          terpri!* l
       else if m eq 'assgnpri then <<
             redfront_on();
-	    assgnpri(l,nil,nil);
+	    assgnpri(car l,nil,nil);
             redfront_off()
          >>
       else

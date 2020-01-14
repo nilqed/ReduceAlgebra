@@ -32,7 +32,7 @@
  *************************************************************************/
 
 
-/* $Id: showmathdemo.cpp 4935 2019-03-10 17:01:42Z arthurcnorman $ */
+/* $Id: showmathdemo.cpp 5181 2019-11-01 17:29:32Z arthurcnorman $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -42,19 +42,19 @@
 
 #ifndef HAVE_LIBFOX
 
-#include <stdio.h>
+#include <cstdio>
 
 int main(int argc, char *argv[])
 {
-    printf("FOX library not detected and so this demo is unavailable\n");
+    std::printf("FOX library not detected and so this demo is unavailable\n");
     return 0;
 }
 
 #else
 
-#include <ctype.h>
-#include <string.h>
-#include <stdio.h>
+#include <cctype>
+#include <cstring>
+#include <cstdio>
 
 #ifndef WIN32
 #ifdef HAVE_LIBXFT
@@ -272,7 +272,7 @@ int main(int argc,char *argv[])
 
     while (argc-- > 1)
     {   const char *a = *argv++;
-        unsigned int n = atoi(a);
+        unsigned int n = std::atoi(a);
         switch (whichArg++)
         {
     case 0:
@@ -305,8 +305,8 @@ int main(int argc,char *argv[])
     topBox = parseTeX(nextChar, 0);
 
     if (topBox == NULL)
-    {   printf("Failed to parse this example\n");
-        exit(1);
+    {   std::printf("Failed to parse this example\n");
+        std::exit(1);
     }
 
     measureBox(topBox);

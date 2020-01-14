@@ -222,7 +222,7 @@ if length u neq 3 then rederr("3 arguments required for symmetrize")
 else
 begin scalar uu,x,res,oper,fn,bool,boolfn; integer n;
   fn:= caddr u;
-  if not(gettype fn eq 'procedure) then typerr(fn,"procedure");
+  if not(gettype fn memq '(procedure algebraic_procedure)) then typerr(fn,"procedure");
   uu:=(if flagp(fn,'opfn) then <<boolfn:=t; reval x>>
           else cdr reval x) where x=car u;
   n:=length uu;
@@ -239,16 +239,16 @@ begin scalar uu,x,res,oper,fn,bool,boolfn; integer n;
   if flagp(fn,'opfn) then x:=alg_to_symb x;
   n:=length x -1;
   if not bool then <<
- res:=( oper . car x) .** 1 .* 1 .+ nil;
- for i:=1:n do << uu:=cadr x; aconc(res,(oper . uu) .** 1 .* 1 );
+ res:=!*kk2f( oper . car x);
+ for i:=1:n do << uu:=cadr x; aconc(res,mksp(oper . uu, 1) . 1 );
                                        delqip(uu,x);>>;
            >>
   else
- << res:=(oper . list('list .
-      for each i in car x collect mk!*sq simp!* i)) .** 1 .* 1 .+ nil;
+ << res:=!*kk2f(oper . list('list .
+      for each i in car x collect mk!*sq simp!* i));
     for i:=1:n do << uu:=cadr x;
-    aconc(res,(oper . list('list .
-          for each i in uu collect mk!*sq simp!* i)) .** 1 .* 1 );
+    aconc(res,mksp(oper . list('list .
+          for each i in uu collect mk!*sq simp!* i), 1) . 1 );
      delqip(uu,x);>>;
   >>;
   if get(oper,'opmtch) or flagp(oper,'opfn) then

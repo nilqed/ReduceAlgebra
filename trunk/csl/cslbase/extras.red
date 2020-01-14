@@ -1,4 +1,4 @@
-% extras.red                               Copyright (C) Codemist 2004-2017
+% extras.red                               Copyright (C) Codemist 2004-2019
 %
 % Additional useful functions to have in a Lisp environment.
 %
@@ -7,7 +7,7 @@
 %
 %
 %/**************************************************************************
-% * Copyright (C) 2017, Codemist.                         A C Norman       *
+% * Copyright (C) 2019, Codemist.                         A C Norman       *
 % *                                                                        *
 % * Redistribution and use in source and binary forms, with or without     *
 % * modification, are permitted provided that the following conditions are *
@@ -37,7 +37,7 @@
 %
 %
 
-% $Id: extras.red 4208 2017-09-15 10:56:54Z arthurcnorman $
+% $Id: extras.red 5165 2019-10-10 14:22:18Z arthurcnorman $
 
 % CSL does not support user-defined special forms! So
 %    (df name (u) body)

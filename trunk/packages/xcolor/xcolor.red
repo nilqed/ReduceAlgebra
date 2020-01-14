@@ -172,7 +172,7 @@ symbolic procedure cerror u$
   << terpri!* t$
      for each x in "***** xCOLOR:" . u do <<
        prin2!* " "$
-       varpri(x,x,nil)
+       maprin x
     >>$
     terpri!* t$
     error1()

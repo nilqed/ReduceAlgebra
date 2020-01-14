@@ -5,7 +5,7 @@
 # I guess that this file scan be subject to the same BSD license that
 # applies to almost all other parts of the code here.
 
-# $Id: configure.ac 5067 2019-08-02 21:31:46Z arthurcnorman $
+# $Id: configure.ac 5246 2020-01-04 21:15:15Z arthurcnorman $
 
 #
 # Special flags that can be used here:
@@ -538,6 +538,7 @@ case $host in
   AC_MSG_NOTICE([Assuming a Unix-like environment, including Linux])
   AC_MSG_NOTICE([host=$host, target=$target])
   AC_DEFINE(UNIX,[1],[True if we are running on Unix, Linux, BSD etc])
+  linux_build="yes"
   if test "x$target" = "x"
   then
     xtarget="$host"
@@ -790,8 +791,8 @@ if test "x$GCC" = "xyes"
 then
   OLDLDFLAGS="$LDFLAGS"
   LDFLAGS="$LDFLAGS -Wl,--hash-style=both"
-  AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]],
-                                  [[printf("\n");]])],
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cstdio>]],
+                                  [[std::printf("\n");]])],
     [AC_MSG_NOTICE(Will use --hash-style=both)],
     [LDFLAGS="$OLDLDFLAGS"
      AC_MSG_NOTICE(--hash-style=both not available)])
@@ -909,6 +910,21 @@ AC_LINK_IFELSE(
      ])
   ])
 
+if test "x$linux_build" = "xyes"
+then
+# This is done on ALL Linux (etc) hosts, and that is potentially dodgy.
+# So let me explain what it is about. If one builds on Ubuntu without this
+# then libtinfo (used by ncurses) is linked dynamically. If you take the
+# resulting binary to a Fedora machine it works OK but you get an annoying
+# warning about whether the library has a proper version number. This hack
+# will link in libtinfo statically and ought to avoid that ugly warning at
+# a rather modest increase in the size of the shipped binary.
+  if test -f /usr/lib/*/libtinfo.a
+  then
+    LIBS="-l:libtinfo.a $LIBS"
+  fi
+fi
+
 
 # The sad news is that some 32-bit systems only set maxalign to 4, so for
 # instance even double precision floats can be aligned only that well. A
@@ -938,7 +954,7 @@ then
   AC_DEFINE([MAXALIGN4], [1], [alignof(max_align_t)==4])
 fi
 
-AC_CHECK_FUNCS([aligned_alloc])
+AC_CHECK_FUNCS([std::aligned_alloc])
 
 
 # I have alternative ways of doing things on Windows and Macintosh, but
@@ -962,8 +978,8 @@ then
     then
       OLDLDFLAGS="$LDFLAGS"
       LDFLAGS="$LDFLAGS -rdynamic"
-      AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]],
-                                      [[printf("\n");]])],
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cstdio>]],
+                                      [[std::printf("\n");]])],
         [rdynamic_available="yes"],
 # This test behaves as if it succeeded if gcc did not actually refuse to
 # work if given a flag "-rdynamic", but it seems that it also lets through
@@ -988,8 +1004,8 @@ fi
 # want to comment out this adjustment.
 OLDCPPFLAGS="$CPPFLAGS"
 CPPFLAGS="$CPPFLAGS -fno-diagnostic-color"
-AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]],
-                                [[printf("\n");]])],
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cstdio>]],
+                                [[std::printf("\n");]])],
   [],
   [CPPFLAGS="$OLDCPPFLAGS"])
 AC_MSG_NOTICE([CPPFLAGS now = $CPPFLAGS])
@@ -1023,8 +1039,8 @@ i386* | i486* | i586* | i686*)
   *)
    OLDCPPFLAGS="$CPPFLAGS"
    CPPFLAGS="$CPPFLAGS -msse2 -mfpmath=sse"
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]],
-                                   [[printf("\n");]])],
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cstdio>]],
+                                   [[std::printf("\n");]])],
      [sse2math_available="yes"],
      [CPPFLAGS="$OLDCPPFLAGS"
      sse2math_available="no"])
@@ -1043,8 +1059,8 @@ then
   then
     OLDLDFLAGS="$LDFLAGS"
     LDFLAGS="$LDFLAGS -framework Carbon -framework CoreServices -framework ApplicationServices"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]],
-                                    [[printf("\n");]])],
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cstdio>]],
+                                    [[std::printf("\n");]])],
       [framework_available="yes"],
       [LDFLAGS="$OLDLDFLAGS"
       framework_available="no"])
@@ -1072,8 +1088,8 @@ then
   then
     OLDCFLAGS="$CFLAGS"
     CFLAGS="$CFLAGS -fPIC"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]],
-                                     [[printf("\n");]])],
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cstdio>]],
+                                     [[std::printf("\n");]])],
        [fpic_available="yes"],
        [fpic_available="no"])
     CFLAGS="$OLDCFLAGS"
@@ -1094,8 +1110,8 @@ then
 # such a flag is accepted and if so I will use it.
   OLDCFLAGS="$CFLAGS"
   CFLAGS="$CFLAGS -mt"
-  AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]],
-                                  [[printf("\n");]])],
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cstdio>]],
+                                  [[std::printf("\n");]])],
                  [CXXFLAGS="$CXXFLAGS -mt"],
                  [CFLAGS="$OLDCFLAGS"])
 fi
@@ -1109,8 +1125,8 @@ then
     OLDLDFLAGS="$LDFLAGS"
     CFLAGS="$CFLAGS -flto"
     LDFLAGS="$LDFLAGS -flto"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]],
-                                    [[printf("\n");]])],
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cstdio>]],
+                                    [[std::printf("\n");]])],
       [CXXFLAGS="$CXXFLAGS -flto"
        HIGHOPT="-O3"
        AC_MSG_NOTICE(Will use link-time optimisation and -O3)],
@@ -1286,7 +1302,10 @@ then
 # where there were hot-spots. If I get keen I will put in extra tests here to
 # check if the "-pg" option is at least acceptable to the compiler... but
 # for now it is something that one puts in by manually editing this file or
-# the eventual Makefile.
+# the eventual Makefile. Well if --enable-conservative is set I will use it!
+# That is because the extra costs of atomic access to memory can be extreme
+# and the impact of that hard to predict (at least for me) so I feel I need
+# profiling while I develop.
 #
 #   PROFILE="-pg"
     PROFILE=""
@@ -1294,6 +1313,13 @@ then
     CXXFLAGS="${CXXFLAGS} ${NSA} ${LOWOPT} -g ${PROFILE} -DDEBUG=1 -Wall"
     DLL_CFLAGS="${DLL_CFLAGS} ${NSA} ${LOWOPT} -g ${PROFILE} -DDEBUG=1 -Wall"
     LDFLAGS="${LDFLAGS} -g ${PROFILE}"
+    if test "x$enable_conservative" = "xyes"
+    then
+      CFLAGS="${CFLAGS} -pg"
+      CXXFLAGS="${CXXFLAGS} -pg"
+      DLL_CFLAGS="${DLL_CFLAGS} -pg"
+      LDFLAGS="${LDFLAGS} -pg"
+    fi
   else
     CFLAGS="$CFLAGS ${NSA} ${HIGHOPT} -Wall"
     CXXFLAGS="$CXXFLAGS ${NSA} ${HIGHOPT} -Wall"
@@ -1477,7 +1503,7 @@ AC_CHECK_HEADER([inttypes.h],
 
 AC_CHECK_HEADERS([complex.h])
 
-AC_CHECK_HEADERS([fcntl.h float.h malloc.h memory.h stdio.h])
+AC_CHECK_HEADERS([fcntl.h float.h malloc.h memory.h cstdio])
 AC_CHECK_HEADERS([stddef.h stdlib.h string.h sys/resource.h time.h])
 AC_CHECK_HEADERS([sys/param.h sys/time.h sys/times.h unistd.h utime.h])
 AC_CHECK_HEADERS([arpa/inet.h netdb.h netinet/in.h sys/socket.h sys/stat.h])
@@ -1578,8 +1604,8 @@ fi
 
 save_cross=cross_compiling
 cross_compiling=no
-AC_RUN_IFELSE([AC_LANG_PROGRAM([[#include <stdio.h>]],
-                               [[printf("\n"); return 0;]])],
+AC_RUN_IFELSE([AC_LANG_PROGRAM([[#include <cstdio>]],
+                               [[std::printf("\n"); return 0;]])],
               [can_run_executables="yes"],
               [can_run_executables="no"],
               [can_run_executables="no"])
@@ -1730,7 +1756,7 @@ AC_SUBST(LOCALCYG)
 AC_SUBST(CYG32)
 AC_SUBST(CYG64)
 
-if test "x$exeext" = "xyes"
+if test "x$windows_build" = "xyes"
 then
   absolute_cyg32=`pwd -P`/cyg32
   AC_SUBST(absolute_cyg32)

@@ -45,7 +45,7 @@
 %                                                        M A Dmitriev
 %                                                        A C Norman
 
-% $Id: i86comp.red 3884 2017-02-05 19:17:16Z arthurcnorman $
+% $Id: i86comp.red 5182 2019-11-02 21:47:16Z arthurcnorman $
 
 global '(i_machine);
 
@@ -3190,7 +3190,7 @@ symbolic procedure c!:optimise_flowgraph(startpoint, all_blocks,
     if does_call then <<
 
        lab1 := c!:my_gensym();
-       i!:gopcode(cmp,ebx,'stacklimit, jl,lab1);
+       i!:gopcode(cmp,ebx,'stackLimit, jl,lab1);
 % This is slightly clumsy code to save all args on the stack across the
 % call to reclaim(), but it is not executed often...
        c!:pushpop('push, args);

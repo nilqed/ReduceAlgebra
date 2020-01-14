@@ -1,8 +1,8 @@
-// entries.h                               Copyright (C) Codemist 1991-2018
+// entries.h                               Copyright (C) Codemist 1991-2019
 
 
 /**************************************************************************
- * Copyright (C) 2018, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -30,7 +30,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: entries.h 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: entries.h 5198 2019-11-29 11:16:18Z arthurcnorman $
 
 #ifndef header_entries_h
 #define header_entries_h 1
@@ -38,6 +38,10 @@
 //
 // things with no args...
 //
+
+#ifdef CONSERVATIVE
+extern void poll();
+#endif
 
 // Use C linkage so that if CSL/Reduce is used as a DLL there is still an
 // easy way to access these.

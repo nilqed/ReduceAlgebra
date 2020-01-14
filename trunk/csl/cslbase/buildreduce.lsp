@@ -1,4 +1,4 @@
-% "buildreduce.lsp"                        Copyright (C) Codemist 2016-2017
+% "buildreduce.lsp"                        Copyright (C) Codemist 2016-2019
 %
 % Build a CSL REDUCE.
 %
@@ -26,7 +26,7 @@
 
 % Author: Anthony C. Hearn, Stanley L. Kameny and Arthur Norman
 
-% $Id: buildreduce.lsp 4980 2019-05-06 12:08:42Z arthurcnorman $
+% $Id: buildreduce.lsp 5165 2019-10-10 14:22:18Z arthurcnorman $
 
 (verbos 3)
 

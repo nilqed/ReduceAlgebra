@@ -12,9 +12,9 @@
 
 //                                         Arthur Norman, April 2009-15
 
-// $Id: testprogram.cpp 3297 2015-12-14 20:30:04Z arthurcnorman $
+// $Id: testprogram.cpp 5181 2019-11-01 17:29:32Z arthurcnorman $
 
-#include <stdio.h>
+#include <cstdio>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"

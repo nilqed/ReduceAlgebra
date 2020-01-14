@@ -1,4 +1,4 @@
-// stream.h                              Copyright (C) Codemist, 1995-2017
+// stream.h                              Copyright (C) Codemist, 1995-2019
 
 //
 // Header defining the structure of stream objects in CSL, and also
@@ -7,7 +7,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2017, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -36,17 +36,17 @@
  *************************************************************************/
 
 
-// $Id: stream.h 5067 2019-08-02 21:31:46Z arthurcnorman $
+// $Id: stream.h 5189 2019-11-16 18:08:10Z arthurcnorman $
 
 #ifndef header_stream_h
 #define header_stream_h 1
 
-extern FILE *non_terminal_input;
+extern std::FILE *non_terminal_input;
 extern int terminal_pushed;
 
 typedef int character_stream_reader(LispObject);
 typedef int character_stream_writer(int, LispObject);
-typedef int32_t other_stream_op(int32_t, LispObject);
+typedef std::int32_t other_stream_op(std::int32_t, LispObject);
 
 extern LispObject Lopen(LispObject env, LispObject name, LispObject dir);
 
@@ -77,17 +77,17 @@ extern int char_to_math(int c, LispObject f);
 extern int char_to_spool(int c, LispObject f);
 #endif
 
-extern int32_t write_action_terminal(int32_t c, LispObject f);
-extern int32_t write_action_file(int32_t c, LispObject f);
-extern int32_t write_action_pipe(int32_t c, LispObject f);
-extern int32_t write_action_synonym(int32_t c, LispObject f);
-extern int32_t write_action_broadcast(int32_t c, LispObject f);
-extern int32_t write_action_twoway(int32_t c, LispObject f);
-extern int32_t write_action_illegal(int32_t c, LispObject f);
-extern int32_t write_action_list(int32_t c, LispObject f);
+extern std::int32_t write_action_terminal(std::int32_t c, LispObject f);
+extern std::int32_t write_action_file(std::int32_t c, LispObject f);
+extern std::int32_t write_action_pipe(std::int32_t c, LispObject f);
+extern std::int32_t write_action_synonym(std::int32_t c, LispObject f);
+extern std::int32_t write_action_broadcast(std::int32_t c, LispObject f);
+extern std::int32_t write_action_twoway(std::int32_t c, LispObject f);
+extern std::int32_t write_action_illegal(std::int32_t c, LispObject f);
+extern std::int32_t write_action_list(std::int32_t c, LispObject f);
 #if defined HAVE_LIBFOX || defined HAVE_LIBWX
-extern int32_t write_action_math(int32_t c, LispObject f);
-extern int32_t write_action_spool(int32_t c, LispObject f);
+extern std::int32_t write_action_math(std::int32_t c, LispObject f);
+extern std::int32_t write_action_spool(std::int32_t c, LispObject f);
 #endif
 
 extern int char_from_terminal(LispObject f);
@@ -100,16 +100,16 @@ extern int char_from_illegal(LispObject f);
 extern int char_from_list(LispObject f);
 extern int char_from_vector(LispObject f);
 
-extern int32_t read_action_terminal(int32_t c, LispObject f);
-extern int32_t read_action_file(int32_t c, LispObject f);
-extern int32_t read_action_output_file(int32_t c, LispObject f);
-extern int32_t read_action_synonym(int32_t c, LispObject f);
-extern int32_t read_action_concatenated(int32_t c, LispObject f);
-extern int32_t read_action_echo(int32_t c, LispObject f);
-extern int32_t read_action_twoway(int32_t c, LispObject f);
-extern int32_t read_action_illegal(int32_t c, LispObject f);
-extern int32_t read_action_list(int32_t c, LispObject f);
-extern int32_t read_action_vector(int32_t c, LispObject f);
+extern std::int32_t read_action_terminal(std::int32_t c, LispObject f);
+extern std::int32_t read_action_file(std::int32_t c, LispObject f);
+extern std::int32_t read_action_output_file(std::int32_t c, LispObject f);
+extern std::int32_t read_action_synonym(std::int32_t c, LispObject f);
+extern std::int32_t read_action_concatenated(std::int32_t c, LispObject f);
+extern std::int32_t read_action_echo(std::int32_t c, LispObject f);
+extern std::int32_t read_action_twoway(std::int32_t c, LispObject f);
+extern std::int32_t read_action_illegal(std::int32_t c, LispObject f);
+extern std::int32_t read_action_list(std::int32_t c, LispObject f);
+extern std::int32_t read_action_vector(std::int32_t c, LispObject f);
 
 #define MAX_PROMPT_LENGTH 80
 extern char memory_print_buffer[MAX_PROMPT_LENGTH];
@@ -155,16 +155,16 @@ extern char memory_print_buffer[MAX_PROMPT_LENGTH];
 #define BUFFERED_STREAM_SIZE  (STREAM_SIZE+STREAM_BUFFER_SIZE)
 
 inline std::atomic<LispObject> &stream_type(LispObject v)
-{   return elt(v, 0);
+{   return basic_elt(v, 0);
 }
 inline std::atomic<LispObject> &stream_write_data(LispObject v)
-{   return elt(v, 1);
+{   return basic_elt(v, 1);
 }
 inline std::atomic<LispObject> &stream_read_data(LispObject v)
-{   return elt(v, 2);
+{   return basic_elt(v, 2);
 }
-inline std::atomic<FILE *> &stream_file(LispObject v)
-{   return (std::atomic<FILE *>&)elt(v, 3);
+inline std::atomic<std::FILE *> &stream_file(LispObject v)
+{   return (std::atomic<std::FILE *>&)elt(v, 3);
 }
 inline std::atomic<character_stream_writer *> &stream_write_fn(LispObject v)
 {   return (std::atomic<character_stream_writer *>&)elt(v, 4);
@@ -173,13 +173,13 @@ inline std::atomic<other_stream_op *> &stream_write_other(LispObject v)
 {   return (std::atomic<other_stream_op *>&)elt(v,5);
 }
 inline std::atomic<LispObject> &stream_line_length(LispObject v)
-{   return elt(v, 6);
+{   return basic_elt(v, 6);
 }
 inline std::atomic<LispObject> &stream_byte_pos(LispObject v)
-{   return elt(v, 7);
+{   return basic_elt(v, 7);
 }
 inline std::atomic<LispObject> &stream_char_pos(LispObject v)
-{   return elt(v, 8);
+{   return basic_elt(v, 8);
 }
 inline std::atomic<character_stream_reader *> &stream_read_fn(LispObject v)
 {   return (std::atomic<character_stream_reader *>&)elt(v, 9);
@@ -188,13 +188,13 @@ inline std::atomic<other_stream_op *> &stream_read_other(LispObject v)
 {   return (std::atomic<other_stream_op *>&)elt(v,10);
 }
 inline std::atomic<LispObject> &stream_pushed_char(LispObject v)
-{   return elt(v, 11);
+{   return basic_elt(v, 11);
 }
 inline std::atomic<LispObject> &stream_spare(LispObject v)
-{   return elt(v, 12);
+{   return basic_elt(v, 12);
 }
 
-inline LispObject set_stream_file(LispObject v, FILE *x)
+inline LispObject set_stream_file(LispObject v, std::FILE *x)
 {   return (elt(v, 3) = (LispObject)x);
 }
 inline LispObject set_stream_write_fn(LispObject v, character_stream_writer *x)
@@ -227,12 +227,12 @@ inline int getc_stream(LispObject f)
     return (*fn)(f);
 }
 
-inline int32_t other_write_action(int32_t c, LispObject f)
+inline std::int32_t other_write_action(std::int32_t c, LispObject f)
 {   other_stream_op *fn = stream_write_other(f);
     return (*fn)(c, f);
 }
 
-inline int32_t other_read_action(int32_t c, LispObject f)
+inline std::int32_t other_read_action(std::int32_t c, LispObject f)
 {   other_stream_op *fn = stream_read_other(f);
     return (*fn)(c, f);
 }
@@ -291,111 +291,7 @@ extern bool use_wimp;
 extern character_reader *procedural_input;
 extern character_writer *procedural_output;
 
-//
-// Now support for the structure of image files....
-//
-
-
-//
-// This version of the directory structure can cope with up to 2047
-// modules in any single library. It can also cope with a directory
-// being mapped onto an operating-system directory rather than my own
-// sub-structure packed within a file.
-//
-
-#define IMAGE_FORMAT_VERSION       '5'
-
-#define DIRECTORY_SIZE              8    // Initial directory size
-
-typedef struct directory_header
-{   char C, S, L, version;  // Identification
-    unsigned char dirext,   // Extra bits for dirused, dirsize
-             dirsize,  // Number of directory entries provided
-             dirused,  // Number currently in use
-             updated;  // In need of compaction & other flags
-    char eof[4];            // fseek/ftell location of end of file
-} directory_header;
-
-#define get_dirused(d) ((int)((d).dirused + (((d).dirext & 0x0f)<<8)))
-#define get_dirsize(d) ((int)((d).dirsize + (((d).dirext & 0xf0)<<4)))
-
-typedef struct directory_entry
-{   char data[44];
-//
-//  char newline;                * Makes file easier to read as a text file! *
-//  char name[12];               * blank padded to 12 characters             *
-//                               * but with special rules for root image etc *
-//  char date[24];
-//  char position[4];            * Machine byte-order insensitive format     *
-//  char size[3];                * Ditto                                     *
-//
-} directory_entry;
-
-//
-// I use these macros rather than just the structure definition shown above
-// so that the behaviour of the code is not sensitive to attempts by a C
-// compiler to align things for me.  Think C 5.0 on the Macintosh (and
-// probably many other C compilers) put padder bytes in the original
-// structure to give word-alignment.
-//
-#define D_newline     data[0]
-#define D_name        data[1]
-#define D_space       data[12]
-#define D_date        data[13]
-#define D_position    data[37]
-#define D_size        data[41]
-
-#define name_size     12
-#define date_size     24
-
-//
-// The limit set here to the length of the name of a directory should only
-// have an effect on cosmetics not functionality.
-//
-#define DIRNAME_LENGTH  256
-#define NEWLINE_CHAR    0x0a
-
-//
-// The D_newline location in a directory originally held a newline,
-// because doing so resulted in image files being a little bit easier
-// to interpret when looked at with a simple text editor. But then
-// it turned out that the C value `\n' was not the same on all computers,
-// and so I used a literal hex value 0x0a instead, expecting it to
-// be the same as '\n' on "most" systems.
-//
-
-typedef struct directory
-{   directory_header h;
-    FILE *f;
-    const char *full_filename;    // NULL unless native directory
-//
-// It is unexpectedly and unpleasantly the case that the "filename"
-// field here must be the last one before the array of directory
-// entries. This is because in the case where an image file is
-// left pending at startup the structure is extended overlapping where the
-// directory entries will end up to hold a full-length file name not merely
-// one truncated to DIRNAME_LENGTH.
-//
-    char filename[DIRNAME_LENGTH];
-    directory_entry d[1];   // Will usually have many more entries
-} directory;
-
-#ifdef COMMON
-#  define MIDDLE_INITIAL   'C'
-#else
-#  define MIDDLE_INITIAL   'S'
-#endif
-
-//
-// Flags for the UPDATED field
-//
-
-#define D_WRITE_OK  1
-#define D_UPDATED   2
-#define D_COMPACT   4
-#define D_PENDING   8
-
-extern directory *fasl_files[MAX_FASL_PATHS], *rootDirectory;
+extern directory *rootDirectory;
 #define PDS_INPUT   0
 #define PDS_OUTPUT  1
 #define PDS_PENDING 2

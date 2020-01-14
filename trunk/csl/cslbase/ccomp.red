@@ -1,4 +1,4 @@
-% "ccomp.red"                                Copyright 1991-2017,  Codemist
+% "ccomp.red"                                Copyright 1991-2019,  Codemist
 %
 % Compiler that turns Lisp code into C++ in a way that fits in
 % with the conventions used with CSL.
@@ -7,7 +7,7 @@
 
 
 %%
-%% Copyright (C) 2017, following the master REDUCE source files.          *
+%% Copyright (C) 2019, following the master REDUCE source files.          *
 %%                                                                        *
 %% Redistribution and use in source and binary forms, with or without     *
 %% modification, are permitted provided that the following conditions are *
@@ -35,7 +35,7 @@
 %% DAMAGE.                                                                *
 %%
 
-% $Id: ccomp.red 5096 2019-08-21 10:57:31Z arthurcnorman $
+% $Id: ccomp.red 5209 2019-12-08 10:41:31Z arthurcnorman $
 
 symbolic;
 
@@ -994,13 +994,13 @@ princ "C file = "; print name;
     else c!:printf("\n// %s.c %tMachine generated C code\n\n", name, 25);
     c!:printf("// $I");
     c!:printf("d: $\n\n");
-    c!:printf "#include <stdio.h>\n";
-    c!:printf "#include <stdlib.h>\n";
-    c!:printf "#include <string.h>\n";
-    c!:printf "#include <ctype.h>\n";
-    c!:printf "#include <stdarg.h>\n";
-    c!:printf "#include <time.h>\n";
-    c!:printf "#include <setjmp.h>\n";
+    c!:printf "#include <cstdio>\n";
+    c!:printf "#include <cstdlib>\n";
+    c!:printf "#include <cstring>\n";
+    c!:printf "#include <cctype>\n";
+    c!:printf "#include <cstdarg>\n";
+    c!:printf "#include <ctime>\n";
+    c!:printf "#include <csetjmp>\n";
     c!:printf "#include <exception>\n";
 % The stuff I put in the file here includes written-in copies of header
 % files. The main "csl_headers" should be the same for all systems built
@@ -1025,18 +1025,18 @@ symbolic procedure c!:print!-init();
    c!:printf "\n";
    c!:printf "LispObject *nilp;\n";
    c!:printf "LispObject **stackp;\n";
-   c!:printf "LispObject * volatile * stacklimitp;\n";
+   c!:printf "LispObject * volatile * stackLimitp;\n";
    c!:printf "\n";
    c!:printf "void init(LispObject *a, LispObject **b, LispObject * volatile *c)\n";
    c!:printf "{\n";
    c!:printf "    nilp = a;\n";
    c!:printf "    stackp = b;\n";
-   c!:printf "    stacklimitp = c;\n";
+   c!:printf "    stackLimitp = c;\n";
    c!:printf "}\n";
    c!:printf "\n";
    c!:printf "#define nil (*nilp)\n";
    c!:printf "#define stack  (*stackp)\n";
-   c!:printf "#define stacklimit (*stacklimitp)\n";
+   c!:printf "#define stackLimit (*stackLimitp)\n";
    c!:printf "\n"
   >>;
 
@@ -1452,61 +1452,61 @@ put('fixp, 'c!:opcode_printer, function c!:pfixp);
 flag('(fixp), 'c!:uses_nil);
 
 symbolic procedure c!:piminusp(op, r1, r2, r3);
-   c!:printf("    %v = ((intptr_t)(%v) < 0 ? lisp_true : nil);\n", r1, r3);
+   c!:printf("    %v = ((std::intptr_t)(%v) < 0 ? lisp_true : nil);\n", r1, r3);
 
 put('iminusp, 'c!:opcode_printer, function c!:piminusp);
 flag('(iminusp), 'c!:uses_nil);
 
 symbolic procedure c!:pilessp(op, r1, r2, r3);
-   c!:printf("    %v = ((intptr_t)%v < (intptr_t)%v) ? lisp_true : nil;\n",
+   c!:printf("    %v = ((std::intptr_t)%v < (std::intptr_t)%v) ? lisp_true : nil;\n",
              r1, r2, r3);
 
 put('ilessp, 'c!:opcode_printer, function c!:pilessp);
 flag('(ilessp), 'c!:uses_nil);
 
 symbolic procedure c!:pigreaterp(op, r1, r2, r3);
-   c!:printf("    %v = ((intptr_t)%v > (intptr_t)%v) ? lisp_true : nil;\n",
+   c!:printf("    %v = ((std::intptr_t)%v > (std::intptr_t)%v) ? lisp_true : nil;\n",
              r1, r2, r3);
 
 put('igreaterp, 'c!:opcode_printer, function c!:pigreaterp);
 flag('(igreaterp), 'c!:uses_nil);
 
 symbolic procedure c!:piminus(op, r1, r2, r3);
-   c!:printf("    %v = (LispObject)(2*TAG_FIXNUM-((intptr_t)(%v)));\n", r1, r3);
+   c!:printf("    %v = (LispObject)(2*TAG_FIXNUM-((std::intptr_t)(%v)));\n", r1, r3);
 
 put('iminus, 'c!:opcode_printer, function c!:piminus);
 
 symbolic procedure c!:piadd1(op, r1, r2, r3);
-   c!:printf("    %v = (LispObject)((intptr_t)(%v) + 0x10);\n", r1, r3);
+   c!:printf("    %v = (LispObject)((std::intptr_t)(%v) + 0x10);\n", r1, r3);
 
 put('iadd1, 'c!:opcode_printer, function c!:piadd1);
 
 symbolic procedure c!:pisub1(op, r1, r2, r3);
-   c!:printf("    %v = (LispObject)((intptr_t)(%v) - 0x10);\n", r1, r3);
+   c!:printf("    %v = (LispObject)((std::intptr_t)(%v) - 0x10);\n", r1, r3);
 
 put('isub1, 'c!:opcode_printer, function c!:pisub1);
 
 symbolic procedure c!:piplus2(op, r1, r2, r3);
- << c!:printf("    %v = (LispObject)(intptr_t)((intptr_t)%v +", r1, r2);
-    c!:printf(" (intptr_t)%v - TAG_FIXNUM);\n", r3) >>;
+ << c!:printf("    %v = (LispObject)(std::intptr_t)((std::intptr_t)%v +", r1, r2);
+    c!:printf(" (std::intptr_t)%v - TAG_FIXNUM);\n", r3) >>;
 
 put('iplus2, 'c!:opcode_printer, function c!:piplus2);
 
 symbolic procedure c!:pidifference(op, r1, r2, r3);
- << c!:printf("    %v = (LispObject)(intptr_t)((intptr_t)%v - (intptr_t)%v", r1, r2, r3);
+ << c!:printf("    %v = (LispObject)(std::intptr_t)((std::intptr_t)%v - (std::intptr_t)%v", r1, r2, r3);
     c!:printf(" + TAG_FIXNUM);\n") >>;
 
 put('idifference, 'c!:opcode_printer, function c!:pidifference);
 
 symbolic procedure c!:pitimes2(op, r1, r2, r3);
- << c!:printf("    %v = fixnum_of_int((intptr_t)(int_of_fixnum(%v) *", r1, r2);
+ << c!:printf("    %v = fixnum_of_int((std::intptr_t)(int_of_fixnum(%v) *", r1, r2);
     c!:printf(" int_of_fixnum(%v)));\n", r3) >>;
 
 put('itimes2, 'c!:opcode_printer, function c!:pitimes2);
 
 symbolic procedure c!:pmodular_plus(op, r1, r2, r3);
  <<
-    c!:printf("    {   intptr_t w = int_of_fixnum(%v) + int_of_fixnum(%v);\n",
+    c!:printf("    {   std::intptr_t w = int_of_fixnum(%v) + int_of_fixnum(%v);\n",
                     r2, r3);
     c!:printf("        if (w >= current_modulus) w -= current_modulus;\n");
     c!:printf("        %v = fixnum_of_int(w);\n", r1);
@@ -1517,7 +1517,7 @@ put('modular!-plus, 'c!:opcode_printer, function c!:pmodular_plus);
 
 symbolic procedure c!:pmodular_difference(op, r1, r2, r3);
  <<
-    c!:printf("    {   intptr_t w = int_of_fixnum(%v) - int_of_fixnum(%v);\n",
+    c!:printf("    {   std::intptr_t w = int_of_fixnum(%v) - int_of_fixnum(%v);\n",
                     r2, r3);
     c!:printf("        if (w < 0) w += current_modulus;\n");
     c!:printf("        %v = fixnum_of_int(w);\n", r1);
@@ -1528,7 +1528,7 @@ put('modular!-difference, 'c!:opcode_printer, function c!:pmodular_difference);
 
 symbolic procedure c!:pmodular_minus(op, r1, r2, r3);
  <<
-    c!:printf("    {   intptr_t w = int_of_fixnum(%v);\n", r3);
+    c!:printf("    {   std::intptr_t w = int_of_fixnum(%v);\n", r3);
     c!:printf("        if (w != 0) w = current_modulus - w;\n");
     c!:printf("        %v = fixnum_of_int(w);\n", r1);
     c!:printf("    }\n")
@@ -1578,14 +1578,14 @@ put('get, 'c!:opcode_printer, function c!:pget);
 symbolic procedure c!:pqgetv(op, r1, r2, r3);
  << c!:printf("    %v = *(LispObject *)((char *)%v + (CELL-TAG_VECTOR) +",
               r1, r2);
-    c!:printf(" (((intptr_t)%v-TAG_FIXNUM)/(16/CELL)));\n", r3) >>;
+    c!:printf(" (((std::intptr_t)%v-TAG_FIXNUM)/(16/CELL)));\n", r3) >>;
 
 put('qgetv, 'c!:opcode_printer, function c!:pqgetv);
 
 symbolic procedure c!:pqputv(op, r1, r2, r3);
  <<
   c!:printf("    *(LispObject *)((char *)%v + (CELL-TAG_VECTOR) +", r2);
-  c!:printf(" (((intptr_t)%v-TAG_FIXNUM)/(16/CELL))) = %v;\n", r3, r1) >>;
+  c!:printf(" (((std::intptr_t)%v-TAG_FIXNUM)/(16/CELL))) = %v;\n", r3, r1) >>;
 
 put('qputv, 'c!:opcode_printer, function c!:pqputv);
 
@@ -1648,10 +1648,14 @@ symbolic procedure c!:pcall(op, r1, r2, r3);
           c!:printf("%v", car r2);
           for each a in cdr r2 do c!:printf(", %v", a) >>;
        c!:printf(");\n") >>
+!#if 0
+% The qsum package redefines simpexpt while executing a function by that
+% name in a way that might be interacting really basly with this!
     else if car r3 = c!:current_procedure then <<
        c!:printf("    %v = %s(basic_elt(env, 0)", r1, c!:current_c_name);
        for each a in r2 do c!:printf(", %v", a);
        c!:printf(");\n") >>
+!#endif
     else if w := get(car r3, 'c!:c_entrypoint) then <<
 % For things that have a C entrypoint I will rather improperly pass NIL where
 % the code really expects its own name. This should only have a bad
@@ -1757,12 +1761,12 @@ symbolic procedure c!:pifequal s;
 put('ifequal, 'c!:exit_helper, function c!:pifequal);
 
 symbolic procedure c!:pifilessp s;
-  c!:printf("((intptr_t)(%v)) < ((intptr_t)(%v))", car s, cadr s);
+  c!:printf("((std::intptr_t)(%v)) < ((std::intptr_t)(%v))", car s, cadr s);
 
 put('ifilessp, 'c!:exit_helper, function c!:pifilessp);
 
 symbolic procedure c!:pifigreaterp s;
-  c!:printf("((intptr_t)(%v)) > ((intptr_t)(%v))", car s, cadr s);
+  c!:printf("((std::intptr_t)(%v)) > ((std::intptr_t)(%v))", car s, cadr s);
 
 put('ifigreaterp, 'c!:exit_helper, function c!:pifigreaterp);
 
@@ -2057,7 +2061,7 @@ symbolic procedure c!:insert_tailcall b;
        if car cadddr fcall = c!:current_procedure and
           length c!:current_args < 4 then <<
 % If a tail call to self then copy args for the call into the local
-% variables used at the head of the procedure.
+% variables used at the head of the procedure. I will leave this in place!
           for each p in pair(c!:current_args, caddr fcall) do
              contents := c!:assign(car p, cdr p, contents);
 % Replace the block with a itself sans the call
@@ -2247,15 +2251,21 @@ symbolic procedure c!:optimise_flowgraph(c!:startpoint, c!:all_blocks,
 % I will not do a stack check if I have a leaf procedure, and I hope
 % that this policy will speed up code a bit.
     if does_call then <<
+% The conservative GC version will (eventually!) hardly use the Lisp stack
+% and so checking for overflow will not be needed, however it should poll()
+       c!:printf("#ifdef CONSERVATIVE\n");
+       c!:printf("    poll();\n");
+       c!:printf("#else // CONSERVATIVE\n");
        c!:printf("    if (++reclaim_trigger_count == reclaim_trigger_target ||\n");
-       c!:printf("        stack >= stacklimit)\n");
+       c!:printf("        stack >= stackLimit)\n");
        c!:printf "    {\n";
 % This is slightly clumsy code to save all args on the stack across the
 % call to reclaim(), but it is not executed often...
        c!:pushpop('push, args);
        c!:printf "        env = reclaim(env, \qstack\q, GC_STACK, 0);\n";
        c!:pushpop('pop, reverse args);
-       c!:printf "    }\n" >>;
+       c!:printf "    }\n";
+       c!:printf("#endif // CONSERVATIVE\n") >>;
 % Now I will allocate space for everything that has to go on the stack.
 % and record in the c!:location property where on the stack the variable
 % will live.

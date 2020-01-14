@@ -1,8 +1,8 @@
-// bigvector.h                                    Copyright A C Norman 2017
+// bigvector.h                                    Copyright A C Norman 2019
 
 
 /**************************************************************************
- * Copyright (C) 2017, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -30,7 +30,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: bigvector.h 4146 2017-08-10 13:18:11Z arthurcnorman $
+// $Id: bigvector.h 5165 2019-10-10 14:22:18Z arthurcnorman $
 
 #ifndef __bigvector_h
 #define __bigvector_h 1

@@ -1,4 +1,4 @@
-// openmath.h                                    Copyright (C) 2017 NAG Ltd
+// openmath.h                                    Copyright (C) 2019 NAG Ltd
 
 #ifndef header_openmath_h
 #define header_openmath_h
@@ -6,7 +6,7 @@
 
 
 /**************************************************************************
- * Copyright (C) 2017, Codemist and NAG Ltd.             A C Norman       *
+ * Copyright (C) 2019, Codemist and NAG Ltd.             A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -35,7 +35,7 @@
  *************************************************************************/
 
 
-// $Id: openmath.h 3901 2017-02-15 22:17:00Z arthurcnorman $
+// $Id: openmath.h 5165 2019-10-10 14:22:18Z arthurcnorman $
 
 //
 // OpenMath primitives map to Lisp objects in the following way:

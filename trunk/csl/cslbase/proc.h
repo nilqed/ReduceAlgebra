@@ -34,7 +34,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: proc.h 4980 2019-05-06 12:08:42Z arthurcnorman $
+// $Id: proc.h 5180 2019-10-31 23:30:57Z arthurcnorman $
 
 
 //
@@ -229,7 +229,7 @@ extern int PROC_push_string(const char *data);
 //      PROC_push_big_integer("-12345678901234567890");
 //
 
-extern int PROC_push_small_integer(int32_t n);
+extern int PROC_push_small_integer(std::int32_t n);
 
 extern int PROC_push_big_integer(const char *n);
 
@@ -332,7 +332,7 @@ extern PROC_handle PROC_rest(PROC_handle p);
 // and big numbers, but release 1 of those code concentrates on the basics.
 //
 
-extern int32_t PROC_integer_value(PROC_handle p);
+extern std::int32_t PROC_integer_value(PROC_handle p);
 extern double PROC_floating_value(PROC_handle p);
 extern const char *PROC_symbol_name(PROC_handle p);
 extern const char *PROC_string_data(PROC_handle p);
@@ -369,15 +369,15 @@ extern volatile int my_return_code;
 // The following would normally be picked up from "lispthrow.h" but to make
 // stuff here more free-stannding I have my own copy.
 
-#include <stdint.h>
-#include <setjmp.h>
+#include <cstdint>
+#include <csetjmp>
 #include <exception>
 
-typedef intptr_t LispObject;
-extern  jmp_buf *global_jb;
+typedef std::intptr_t LispObject;
+extern  std::jmp_buf *global_jb;
 extern LispObject *stack;
 [[noreturn]] extern void global_longjmp();
-extern intptr_t exit_reason, miscflags;
+extern std::intptr_t exit_reason, miscflags;
 extern void err_printf(const char *fmt, ...);
 extern const volatile char *errorset_msg;
 
@@ -390,7 +390,7 @@ extern const volatile char *errorset_msg;
 
 class RAIIsave_stack_and_jb
 {   LispObject *saveStack;
-    jmp_buf *jbsave;
+    std::jmp_buf *jbsave;
 public:
     RAIIsave_stack_and_jb()
     {   jbsave = global_jb;  // preserve the enclosing jmp_buff.
@@ -425,7 +425,7 @@ struct LispSignal : public LispError
 #define LISPEXCEPTION_DEFINED 1
 
 #define START_SETJMP_BLOCK                          \
-    jmp_buf jb;                                     \
+    std::jmp_buf jb;                                     \
     RAIIsave_stack_and_jb save_stack_Object;        \
     switch (setjmp(jb))                             \
     {   default:                                    \

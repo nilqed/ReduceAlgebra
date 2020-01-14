@@ -33,7 +33,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: eval2.cpp 5075 2019-08-10 20:45:42Z arthurcnorman $
+// $Id: eval2.cpp 5202 2019-12-01 20:59:49Z arthurcnorman $
 
 #include "headers.h"
 
@@ -123,11 +123,11 @@ LispObject apply(LispObject fn, LispObject args,
             push(fn);
             char name_of_caller[32];
             from = qpname(from);
-            size_t len = length_of_byteheader(vechdr(from)) - CELL;
+            std::size_t len = length_of_byteheader(vechdr(from)) - CELL;
             if (len >= sizeof(name_of_caller)) len = sizeof(name_of_caller)-1;
-            memcpy(name_of_caller, &celt(from, 0), len);
+            std::memcpy(name_of_caller, &celt(from, 0), len);
             name_of_caller[len] = 0;
-            sprintf(message, "Bad function called from %s: ",
+            std::sprintf(message, "Bad function called from %s: ",
                     name_of_caller);
             aerror1(message, fn);
         }
@@ -158,11 +158,11 @@ LispObject apply(LispObject fn, LispObject args,
     char message[64];
     char name_of_caller[32];
     from = qpname(from);
-    size_t len = length_of_byteheader(vechdr(from)) - CELL;
+    std::size_t len = length_of_byteheader(vechdr(from)) - CELL;
     if (len >= sizeof(name_of_caller)) len = sizeof(name_of_caller)-1;
-    memcpy(name_of_caller, &celt(from, 0), len);
+    std::memcpy(name_of_caller, &celt(from, 0), len);
     name_of_caller[len] = 0;
-    sprintf(message, "Bad function called from %s: ",
+    std::sprintf(message, "Bad function called from %s: ",
             name_of_caller);
     aerror1(message, fn);
 }
@@ -779,17 +779,16 @@ static LispObject letstar_fn(LispObject args, LispObject ienv)
 {   if (!consp(args)) return onevalue(nil);
     STACK_SANITY;
     stackcheck(args, ienv);
-    push(car(args), cdr(args), ienv);
-    push5(nil, nil,                 // p, q
-          ienv, nil, nil);          // env1, specenv, local_decs
-    LispObject &local_decs = stack[0];
+    push(car(args), cdr(args), ienv); // bvl, body, env
+    push4(nil, nil,                   // p, q
+          nil, nil);                  // specenv, local_decs
+    LispObject &local_decs = stack[ 0];
     LispObject &specenv    = stack[-1];
-    LispObject &env1       = stack[-2];  // Unused it seems!
-    LispObject &p          = stack[-3];
-    LispObject &q          = stack[-4];
-    LispObject &env        = stack[-5];
-    LispObject &body       = stack[-6];
-    LispObject &bvl        = stack[-7];
+    LispObject &p          = stack[-2];
+    LispObject &q          = stack[-3];
+    LispObject &env        = stack[-4];
+    LispObject &body       = stack[-5];
+    LispObject &bvl        = stack[-6];
     for (;;)
     {   if (!consp(body)) break;
         p = macroexpand(car(body), env);
@@ -827,8 +826,7 @@ static LispObject letstar_fn(LispObject args, LispObject ienv)
             {   error(1, err_bad_bvl, q);
             }
             else
-            {
-                Header h = qheader(q);
+            {   Header h = qheader(q);
                 if (z != nil)
                 z = eval(z, env);
                 if (h & SYM_GLOBAL_VAR)
@@ -870,7 +868,7 @@ static LispObject letstar_fn(LispObject args, LispObject ienv)
             setvalue(v, z);
         }
         {   LispObject bodyx = body;
-            popv(8);
+            popv(7);
             return bodyx;
         }
     }
@@ -879,7 +877,7 @@ static LispObject letstar_fn(LispObject args, LispObject ienv)
         {   LispObject w = car(bvl), v = car(w), z = cdr(w);
             setvalue(v, z);
         }
-        popv(8);
+        popv(7);
         throw;
     }
 }

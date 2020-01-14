@@ -1,11 +1,11 @@
-// uninames.h                                   Copyright (C) 2017 Codemist
+// uninames.h                                   Copyright (C) 2019 Codemist
 
 
-// $Id: uninames.h 3884 2017-02-05 19:17:16Z arthurcnorman $
+// $Id: uninames.h 5165 2019-10-10 14:22:18Z arthurcnorman $
 
 
 /**************************************************************************
- * Copyright (C) 2017, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *

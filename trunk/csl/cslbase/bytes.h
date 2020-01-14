@@ -1,9 +1,9 @@
-// bytes.h                                 Copyright (C) Codemist 1993-2018
+// bytes.h                                 Copyright (C) Codemist 1993-2019
 
 
 
 /**************************************************************************
- * Copyright (C) 2018, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -31,7 +31,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: bytes.h 4684 2018-07-02 16:36:00Z arthurcnorman $
+// $Id: bytes.h 5165 2019-10-10 14:22:18Z arthurcnorman $
 
 
 //

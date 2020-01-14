@@ -21,7 +21,7 @@
 * License along with this library; if not, write to the Free Software           *
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.    *
 *********************************************************************************
-* $Id: FXApp.cpp 4937 2019-03-10 19:59:30Z arthurcnorman $                          *
+* $Id: FXApp.cpp 5240 2020-01-01 17:22:50Z arthurcnorman $                          *
 ********************************************************************************/
 #ifdef WIN32
 #if _WIN32_WINNT < 0x0400
@@ -4458,9 +4458,11 @@ Alt key seems to repeat.
 
 #endif
 
+extern void setEOF();
 
 // Handle quit
 long FXApp::onCmdQuit(FXObject*,FXSelector,void*){
+  setEOF();
   exit(0);
   return 1;
   }

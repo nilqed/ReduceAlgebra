@@ -34,9 +34,9 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: dynmodule.cpp 3884 2017-02-05 19:17:16Z arthurcnorman $
+// $Id: dynmodule.cpp 5181 2019-11-01 17:29:32Z arthurcnorman $
 
-#include <stdio.h>
+#include <cstdio>
 
 extern "C"
 {
@@ -56,9 +56,9 @@ extern "C" int callme(int x)
 //  It is not valid to test or rely on the address of a function.
 //
 //
-    printf("variable in base = %.8x @ %p\n",
+    std::printf("variable in base = %.8x @ %p\n",
            variable_in_base, &variable_in_base);
-    printf("function in base = %p\n",
+    std::printf("function in base = %p\n",
            function_in_base);
     return 3*function_in_base(x) + 1;
 }

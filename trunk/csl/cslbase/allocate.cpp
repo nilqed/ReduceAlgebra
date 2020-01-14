@@ -34,7 +34,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: allocate.cpp 5074 2019-08-10 16:49:01Z arthurcnorman $
+// $Id: allocate.cpp 5209 2019-12-08 10:41:31Z arthurcnorman $
 
 /*!!! csl
 */
@@ -48,9 +48,14 @@
 #include <sys/mman.h>
 #endif // !WIN32
 
-LispObject fringe, heaplimit;
-LispObject vfringe, vheaplimit;
-uintptr_t *C_stackbase;
+#if !defined THREAD_LOCAL && !defined WINDOWS_THREAD && !defined ATOMIC
+std::uintptr_t fringe;
+std::uintptr_t heaplimit;
+std::uintptr_t vfringe;
+std::uintptr_t vheaplimit;
+#endif
+
+std::uintptr_t *C_stackbase;
 
 
 void garbage_collect()
@@ -68,7 +73,7 @@ void **pages,
 void **new_heap_pages,
      **new_vheap_pages;
 
-size_t pages_count,
+std::size_t pages_count,
        heap_pages_count,
        vheap_pages_count,
        new_heap_pages_count,
@@ -82,14 +87,14 @@ void *allocate_page(const char *why)
 void init_heap_segments(double store_size)
 //
 // This function just makes nil and the pool of page-frames available.
-// The store-size is passed in units of Kilobyte, and as a double not
+// The store-size is passed in units bytes, and as a double not
 // an integer so that overflow is not an issue.
 //
-{   pages = (void **)malloc(MAX_PAGES*sizeof(void *));
-    heap_pages = (void **)malloc(MAX_PAGES*sizeof(void *));
-    vheap_pages = (void **)malloc(MAX_PAGES*sizeof(void *));
-    new_heap_pages = (void **)malloc(MAX_PAGES*sizeof(void *));
-    new_vheap_pages = (void **)malloc(MAX_PAGES*sizeof(void *));
+{   pages = (void **)std::malloc(MAX_PAGES*sizeof(void *));
+    heap_pages = (void **)std::malloc(MAX_PAGES*sizeof(void *));
+    vheap_pages = (void **)std::malloc(MAX_PAGES*sizeof(void *));
+    new_heap_pages = (void **)std::malloc(MAX_PAGES*sizeof(void *));
+    new_vheap_pages = (void **)std::malloc(MAX_PAGES*sizeof(void *));
     if (pages == NULL ||
         new_heap_pages == NULL ||
         new_vheap_pages == NULL ||
@@ -98,21 +103,21 @@ void init_heap_segments(double store_size)
     {   fatal_error(err_no_store);
     }
 
-    {   size_t free_space = SIXTY_FOUR_BIT ? 128000000 : 32000000;
-        size_t request = (size_t)store_size;
+    {   std::size_t free_space = SIXTY_FOUR_BIT ? 128000000 : 32000000;
+        std::size_t request = (std::size_t)store_size;
 // By doing this in size_t I should avoid overflow
-        if (request != 0) free_space = 1024*request;
+        if (request != 0) free_space = request;
         free_space = free_space/(CSL_PAGE_SIZE+4);
         if (free_space > MAX_PAGES) free_space = MAX_PAGES;
         pages_count = heap_pages_count = vheap_pages_count = 0;
         nilsegment = NULL;
-        {   size_t n = (size_t)(NIL_SEGMENT_SIZE+free_space*CSL_PAGE_SIZE);
+        {   std::size_t n = (std::size_t)(NIL_SEGMENT_SIZE+free_space*CSL_PAGE_SIZE);
 //
 // I try to get the whole of the initial hunk of memory that I need in
 // one gulp since that (maybe) gives me the best chance to obtain all
 // the memory in just one half of my address space.
 //
-            char *pool = (char *)malloc(n);
+            char *pool = (char *)std::malloc(n);
             if (pool != NULL)
             {   big_chunk_start = (char *)pool;
                 big_chunk_end = big_chunk_start + (n-1);
@@ -120,9 +125,9 @@ void init_heap_segments(double store_size)
                 pool = pool + NIL_SEGMENT_SIZE;
 #ifdef COMMON
 // NB here that NIL is tagged as a CONS not as a symbol
-                nil = (LispObject)((uintptr_t)nilsegment + TAG_CONS + 8);
+                nil = (LispObject)((std::uintptr_t)nilsegment + TAG_CONS + 8);
 #else
-                nil = (LispObject)((uintptr_t)nilsegment + TAG_SYMBOL);
+                nil = (LispObject)((std::uintptr_t)nilsegment + TAG_SYMBOL);
 #endif
 // If at the end of the run I am going to free some space I had better not
 // free these pages. When I free the nilsegment they all get discarded at
@@ -134,7 +139,7 @@ void init_heap_segments(double store_size)
 // there was an integer overflow in the subscript calculation leading to
 // reasonably obscure disaster.
                         (void *)&pool[pages_count*
-                                      (size_t)CSL_PAGE_SIZE];
+                                      (std::size_t)CSL_PAGE_SIZE];
                     pages[pages_count++] = page;
                 }
             }
@@ -152,10 +157,10 @@ void init_heap_segments(double store_size)
         else stacksegment = (LispObject *)pages[--pages_count];
     }
     else
-    {   printf("pages_count <= 0 = %d\n", (int)pages_count);
+    {   std::printf("pages_count <= 0 = %d\n", (int)pages_count);
         fatal_error(err_no_store);
     }
-    stackbase = (LispObject *)stacksegment;
+    stackBase = (LispObject *)stacksegment;
 }
 
 inline bool is_in_big_chunk(void *p)
@@ -163,7 +168,7 @@ inline bool is_in_big_chunk(void *p)
             (char *)p <= big_chunk_end);
 }
 
-static void abandon(void *p[], int32_t n)
+static void abandon(void *p[], std::int32_t n)
 {   while (n != 0)
     {   void *w = p[--n];
 // The test here that avoids calling free on a NULL pointer is
@@ -182,8 +187,8 @@ void drop_heap_segments(void)
 {   abandon(pages,           pages_count);
     abandon(heap_pages,      heap_pages_count);
     abandon(vheap_pages,     vheap_pages_count);
-    if (!is_in_big_chunk(stacksegment)) free(stacksegmentbase);
-    free(nilsegmentbase);
+    if (!is_in_big_chunk(stacksegment)) std::free(stacksegmentbase);
+    std::free(nilsegmentbase);
 }
 
 // This allocates another page of memory if that is allowed and if it is
@@ -191,7 +196,16 @@ void drop_heap_segments(void)
 
 bool allocate_more_memory()
 {   if ((init_flags & INIT_EXPANDABLE) == 0) return false;
-    void *page = (void *)malloc((size_t)CSL_PAGE_SIZE);
+    if (max_store_size != 0.0)
+        {   double page_limit =
+                max_store_size/(double)CSL_PAGE_SIZE;
+            if (pages_count+heap_pages_count+vheap_pages_count >=
+                (std::size_t)page_limit)
+            {   init_flags &= ~INIT_EXPANDABLE;
+                return false;
+            }
+        }
+    void *page = (void *)std::malloc((std::size_t)CSL_PAGE_SIZE);
     if (page == NULL)
     {   init_flags &= ~INIT_EXPANDABLE;
         return false;
@@ -202,7 +216,7 @@ bool allocate_more_memory()
     }
 }
 
-void grab_more_memory(size_t npages)
+void grab_more_memory(std::size_t npages)
 {
 // Here I grab more memory (if I am allowed to).
 // An initial version here, and one still suitable on machines that will
@@ -217,22 +231,25 @@ void grab_more_memory(size_t npages)
 // adjusted on the basis of experience with this code.
 // On systems where it is possible to measure the amount of available
 // real memory more sophisticated calculations may be possible.
-    if (init_flags & INIT_EXPANDABLE)
-    {   size_t ideal = ok_to_grab_memory(heap_pages_count + vheap_pages_count);
-        size_t more;
-        if (ideal > MAX_PAGES) ideal = MAX_PAGES;
+    if ((init_flags & INIT_EXPANDABLE) != 0)
+    {   std::size_t ideal =
+            ok_to_grab_memory(heap_pages_count + vheap_pages_count);
+// ideal is now liable to be about 3 times the amount of current active
+// memory, and is the amount that I would like to have free at the end
+// of this GC.
+        ideal += heap_pages_count + vheap_pages_count; // ideal total space
+// I have an architectural limit (well one based on the size of a vector..).
+// On a 32-bit system I could cope with up to 2GB (but almost certainly I can
+// not allocate that much, while on a 64-bit platform I allow for up to
+// 2TB which is larger than I expect to encounter for a few years yet (2019).
+        if (ideal > MAX_PAGES) ideal=MAX_PAGES;
+// Also the user may have set a limit.
         if (max_store_size != 0.0)
-        {   double page_limit = max_store_size*1024*1024/(double)CSL_PAGE_SIZE;
-// Limit memory to (about) the amount the user indicated with --max-mem
-            size_t plim = (size_t)page_limit;
+        {   std::size_t plim = (size_t)(max_store_size/(double)CSL_PAGE_SIZE);
             if (ideal > plim) ideal = plim;
         }
-        if (ideal > pages_count)
-        {   more = ideal - pages_count;
-            while (more > 0)
-            {   if (!allocate_more_memory()) break;
-                more--;
-            }
+        while (ideal > pages_count+heap_pages_count+vheap_pages_count)
+        {   if (!allocate_more_memory()) break;
         }
     }
 }
@@ -250,15 +267,15 @@ void grab_more_memory(size_t npages)
 // storage management issues.
 
 bool next_gc_is_hard = false;
-uint64_t force_cons=0, force_vec = 0;
+std::uint64_t force_cons=0, force_vec = 0;
 
 LispObject Lgc_forcer(LispObject env, LispObject a, LispObject b)
 {   if (force_cons != 0 || force_vec != 0)
         trace_printf("Remaining CONS : %" PRIu64 " VEC : %" PRIu64 "\n",
             force_cons, force_vec);
 // If you pass a non-fixnum then that leaves the trigger-point unchanged.
-    if (is_fixnum(a)) force_cons = (uint64_t)sixty_four_bits(a);
-    if (is_fixnum(b)) force_vec = (uint64_t)sixty_four_bits(b);
+    if (is_fixnum(a)) force_cons = (std::uint64_t)sixty_four_bits(a);
+    if (is_fixnum(b)) force_vec = (std::uint64_t)sixty_four_bits(b);
     return onevalue(nil);
 }
 
@@ -272,219 +289,321 @@ LispObject Lgc_forcer1(LispObject env, LispObject a)
 // "relaxed". So setcar/set
 
 LispObject cons(LispObject a, LispObject b)
-{   LispObject r = (LispObject)((char *)fringe - sizeof(Cons_Cell));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= sizeof(Cons_Cell));
+#endif
+// As coded here I MUST have a safety margin such that at least 4 CONS
+// cells can always be allocated. If I put the heaplimit check before the
+// code to write car and cdr fields in I would not need that, but then
+// I would need to arrange (or be confident that) the arguments a and b
+// would be safe across the garbage collection and I would need to write
+// them in place after it.
+    r += TAG_CONS;
     setcar(r, a);
-
-// The one line change here can have a DRAMATIC impact on overall performance!
-// Well changing the line above from "car(r) = 1;" to "setcar(r,a);" which
-// uses relaxed memory order make a big difference, and then removing the
-// memory fence from setting the CDR helps even more.
-
-//    cdr(r) = b;
     setcdr(r, b);
-    std::atomic_thread_fence(std::memory_order_release);
-    fringe = r;
+// cons_forced() always returns false unless this is a debug build. When it
+// is a debug build the extra cost does not worry me. The scheme can then be
+// used to trigger a full garbage collection after exactly some known number
+// of CONS operations have been performed, and that may be a valuable
+// capability when garbage collector bugs might relate to the exact place
+// where the garbage collector was called from.
     if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)r <= (char *)heaplimit || cons_forced(1))
-        return reclaim((LispObject)((char *)r + TAG_CONS),
-                       "internal cons", GC_CONS, 0);
-    else return (LispObject)((char *)r + TAG_CONS);
+        (std::uintptr_t)r < (std::uintptr_t)heaplimit ||
+        cons_forced(1))
+        return reclaim(r, "internal cons", GC_CONS, 0);
+    else return r;
 }
 
 LispObject cons_no_gc(LispObject a, LispObject b)
-{   LispObject r = (LispObject)((char *)fringe - sizeof(Cons_Cell));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
     setcar(r, a);
     setcdr(r, b);
-    fringe = r;
-    return (LispObject)((char *)r + TAG_CONS);
+    return r;
 }
 
 // cons_gc_test() MUST be called after any sequence of cons_no_gc() calls.
 
 LispObject cons_gc_test(LispObject p)
 {   if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)fringe <= (char *)heaplimit)
+        (std::uintptr_t)fringe <= (std::uintptr_t)heaplimit)
         return reclaim(p, "cons gc test", GC_CONS, 0);
     else return p;
 }
 
 LispObject ncons(LispObject a)
-{   LispObject r = (LispObject)((char *)fringe - sizeof(Cons_Cell));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
     setcar(r, a);
     setcdr(r, nil);
-    fringe = r;
     if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)r <= (char *)heaplimit || cons_forced(1))
-        return reclaim((LispObject)((char *)r + TAG_CONS),
-                       "internal ncons", GC_CONS, 0);
-    else return (LispObject)((char *)r + TAG_CONS);
+        (std::uintptr_t)r < (std::uintptr_t)heaplimit || cons_forced(1))
+        return reclaim(r, "internal ncons", GC_CONS, 0);
+    else return r;
 }
 
 LispObject list2(LispObject a, LispObject b)
 {
 // Note that building two cons cells at once saves some overhead here
-    LispObject r = (LispObject)((char *)fringe - 2*sizeof(Cons_Cell));
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(2*sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        2*sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= 2*sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
     setcar(r, a);
-    setcdr(r, (LispObject)((char *)r + sizeof(Cons_Cell) + TAG_CONS));
-    setcar((LispObject)((char *)r+sizeof(Cons_Cell)), b);
-    setcdr((LispObject)((char *)r+sizeof(Cons_Cell)), nil);
-    fringe = r;
+    setcdr(r, r + sizeof(Cons_Cell));
+    setcar(r+sizeof(Cons_Cell), b);
+    setcdr(r+sizeof(Cons_Cell), nil);
     if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)r <= (char *)heaplimit || cons_forced(2))
-        return reclaim((LispObject)((char *)r + TAG_CONS),
-                       "internal list2", GC_CONS, 0);
-    else return (LispObject)((char *)r + TAG_CONS);
+        (std::uintptr_t)r < (std::uintptr_t)heaplimit || cons_forced(2))
+        return reclaim(r, "internal list2", GC_CONS, 0);
+    else return r;
 }
 
 LispObject list2star(LispObject a, LispObject b, LispObject c)
-{   LispObject r = (LispObject)((char *)fringe - 2*sizeof(Cons_Cell));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(2*sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        2*sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= 2*sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
     setcar(r, a);
-    setcdr(r,  (LispObject)((char *)r + sizeof(Cons_Cell) + TAG_CONS));
-    setcar((LispObject)((char *)r+sizeof(Cons_Cell)), b);
-    setcdr((LispObject)((char *)r+sizeof(Cons_Cell)), c);
-    fringe = r;
+    setcdr(r,  r + sizeof(Cons_Cell));
+    setcar(r+sizeof(Cons_Cell), b);
+    setcdr(r+sizeof(Cons_Cell), c);
     if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)r <= (char *)heaplimit || cons_forced(2))
-        return reclaim((LispObject)((char *)r + TAG_CONS),
-                       "internal list2*", GC_CONS, 0);
-    else return (LispObject)((char *)r + TAG_CONS);
+        (std::uintptr_t)r < (std::uintptr_t)heaplimit || cons_forced(2))
+        return reclaim(r, "internal list2*", GC_CONS, 0);
+    else return r;
 }
 
 LispObject list2starrev(LispObject c, LispObject b, LispObject a)
-{   LispObject r = (LispObject)((char *)fringe - 2*sizeof(Cons_Cell));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(2*sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        2*sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= 2*sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
     setcar(r, a);
-    setcdr(r, (LispObject)((char *)r + sizeof(Cons_Cell) + TAG_CONS));
-    setcar((LispObject)((char *)r+sizeof(Cons_Cell)), b);
-    setcdr((LispObject)((char *)r+sizeof(Cons_Cell)), c);
-    fringe = r;
+    setcdr(r, r + sizeof(Cons_Cell));
+    setcar(r+sizeof(Cons_Cell), b);
+    setcdr(r+sizeof(Cons_Cell), c);
     if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)r <= (char *)heaplimit || cons_forced(2))
-        return reclaim((LispObject)((char *)r + TAG_CONS),
-                       "internal list2*", GC_CONS, 0);
-    else return (LispObject)((char *)r + TAG_CONS);
+        (std::uintptr_t)r < (std::uintptr_t)heaplimit || cons_forced(2))
+        return reclaim(r, "internal list2*", GC_CONS, 0);
+    else return r;
 }
 
 LispObject list3star(LispObject a, LispObject b, LispObject c, LispObject d)
-{   LispObject r = (LispObject)((char *)fringe - 3*sizeof(Cons_Cell));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(3*sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        3*sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= 3*sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
     setcar(r, a);
-    setcdr(r, (LispObject)((char *)r + sizeof(Cons_Cell) + TAG_CONS));
-    setcar((LispObject)((char *)r+sizeof(Cons_Cell)), b);
-    setcdr((LispObject)((char *)r+sizeof(Cons_Cell)),
-        (LispObject)((char *)r + 2*sizeof(Cons_Cell) + TAG_CONS));
-    setcar((LispObject)((char *)r+2*sizeof(Cons_Cell)), c);
-    setcdr((LispObject)((char *)r+2*sizeof(Cons_Cell)), d);
-    fringe = r;
+    setcdr(r, r + sizeof(Cons_Cell));
+    setcar(r+sizeof(Cons_Cell), b);
+    setcdr(r+sizeof(Cons_Cell),
+           r + 2*sizeof(Cons_Cell));
+    setcar(r+2*sizeof(Cons_Cell), c);
+    setcdr(r+2*sizeof(Cons_Cell), d);
     if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)r <= (char *)heaplimit || cons_forced(3))
-        return reclaim((LispObject)((char *)r + TAG_CONS),
-                       "internal list3*", GC_CONS, 0);
-    else return (LispObject)((char *)r + TAG_CONS);
+        (std::uintptr_t)r < (std::uintptr_t)heaplimit || cons_forced(3))
+        return reclaim(r, "internal list3*", GC_CONS, 0);
+    else return r;
 }
 
 LispObject list4(LispObject a, LispObject b, LispObject c, LispObject d)
-{   LispObject r = (LispObject)((char *)fringe - 4*sizeof(Cons_Cell));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(4*sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        4*sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= 4*sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
     setcar(r, a);
-    setcdr(r, (LispObject)((char *)r + sizeof(Cons_Cell) + TAG_CONS));
-    setcar((LispObject)((char *)r+sizeof(Cons_Cell)), b);
-    setcdr((LispObject)((char *)r+sizeof(Cons_Cell)),
-        (LispObject)((char *)r + 2*sizeof(Cons_Cell) + TAG_CONS));
-    setcar((LispObject)((char *)r+2*sizeof(Cons_Cell)), c);
-    setcdr((LispObject)((char *)r+2*sizeof(Cons_Cell)),
-        (LispObject)((char *)r + 3*sizeof(Cons_Cell) + TAG_CONS));
-    setcar((LispObject)((char *)r +3*sizeof(Cons_Cell)), d);
-    setcdr((LispObject)((char *)r + 3*sizeof(Cons_Cell)), nil);
-    fringe = r;
+    setcdr(r, r + sizeof(Cons_Cell));
+    setcar(r+sizeof(Cons_Cell), b);
+    setcdr(r+sizeof(Cons_Cell),
+           r + 2*sizeof(Cons_Cell));
+    setcar(r+2*sizeof(Cons_Cell), c);
+    setcdr(r+2*sizeof(Cons_Cell),
+           r + 3*sizeof(Cons_Cell));
+    setcar(r + 3*sizeof(Cons_Cell), d);
+    setcdr(r + 3*sizeof(Cons_Cell), nil);
     if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)r <= (char *)heaplimit || cons_forced(4))
-        return reclaim((LispObject)((char *)r + TAG_CONS),
-                       "internal list4", GC_CONS, 0);
-    else return (LispObject)((char *)r + TAG_CONS);
+        (std::uintptr_t)r < (std::uintptr_t)heaplimit || cons_forced(4))
+        return reclaim(r, "internal list4", GC_CONS, 0);
+    else return r;
 }
 
 
 
 LispObject acons(LispObject a, LispObject b, LispObject c)
-{   LispObject r = (LispObject)((char *)fringe - 2*sizeof(Cons_Cell));
-    setcar(r, (LispObject)((char *)r + sizeof(Cons_Cell) + TAG_CONS));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(2*sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        2*sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= 2*sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
+    setcar(r, r + sizeof(Cons_Cell));
     setcdr(r, c);
-    setcar((LispObject)((char *)r+sizeof(Cons_Cell)), a);
-    setcdr((LispObject)((char *)r+sizeof(Cons_Cell)), b);
-    fringe = r;
+    setcar(r+sizeof(Cons_Cell), a);
+    setcdr(r+sizeof(Cons_Cell), b);
     if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)r <= (char *)heaplimit || cons_forced(2))
-        return reclaim((LispObject)((char *)r + TAG_CONS),
-                       "internal acons", GC_CONS, 0);
-    else return (LispObject)((char *)r + TAG_CONS);
+        (std::uintptr_t)r < (std::uintptr_t)heaplimit || cons_forced(2))
+        return reclaim(r, "internal acons", GC_CONS, 0);
+    else return r;
 }
 
 LispObject acons_no_gc(LispObject a, LispObject b, LispObject c)
-{   LispObject r = (LispObject)((char *)fringe - 2*sizeof(Cons_Cell));
-    setcar(r, (LispObject)((char *)r + sizeof(Cons_Cell) + TAG_CONS));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(2*sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        2*sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= 2*sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
+    setcar(r, r + sizeof(Cons_Cell));
     setcdr(r, c);
-    setcar((LispObject)((char *)r+sizeof(Cons_Cell)), a);
-    setcdr((LispObject)((char *)r+sizeof(Cons_Cell)), b);
-    fringe = r;
-    return (LispObject)((char *)r + TAG_CONS);
+    setcar(r+sizeof(Cons_Cell), a);
+    setcdr(r+sizeof(Cons_Cell), b);
+    return r;
 }
 
 LispObject list3(LispObject a, LispObject b, LispObject c)
-{   LispObject r = (LispObject)((char *)fringe - 3*sizeof(Cons_Cell));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(3*sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        3*sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= 3*sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
     setcar(r, a);
-    setcdr(r, (LispObject)((char *)r + sizeof(Cons_Cell) + TAG_CONS));
-    setcar((LispObject)((char *)r+sizeof(Cons_Cell)), b);
-    setcdr((LispObject)((char *)r+sizeof(Cons_Cell)),
-        (LispObject)((char *)r + 2*sizeof(Cons_Cell) + TAG_CONS));
-    setcar((LispObject)((char *)r+2*sizeof(Cons_Cell)), c);
-    setcdr((LispObject)((char *)r+2*sizeof(Cons_Cell)), nil);
-    fringe = r;
+    setcdr(r, r + sizeof(Cons_Cell));
+    setcar(r+sizeof(Cons_Cell), b);
+    setcdr(r+sizeof(Cons_Cell),
+           r + 2*sizeof(Cons_Cell));
+    setcar(r + 2*sizeof(Cons_Cell), c);
+    setcdr(r + 2*sizeof(Cons_Cell), nil);
     if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)r <= (char *)heaplimit || cons_forced(3))
-        return reclaim((LispObject)((char *)r + TAG_CONS),
-                       "internal list3", GC_CONS, 0);
-    else return (LispObject)((char *)r + TAG_CONS);
+        (std::uintptr_t)r < (std::uintptr_t)heaplimit || cons_forced(3))
+        return reclaim(r, "internal list3", GC_CONS, 0);
+    else return r;
 }
 
 LispObject list3rev(LispObject c, LispObject b, LispObject a)
-{   LispObject r = (LispObject)((char *)fringe - 3*sizeof(Cons_Cell));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(3*sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        3*sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= 3*sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
     setcar(r, a);
-    setcdr(r, (LispObject)((char *)r + sizeof(Cons_Cell) + TAG_CONS));
-    setcar((LispObject)((char *)r+sizeof(Cons_Cell)), b);
-    setcdr((LispObject)((char *)r+sizeof(Cons_Cell)),
-        (LispObject)((char *)r + 2*sizeof(Cons_Cell) + TAG_CONS));
-    setcar((LispObject)((char *)r+2*sizeof(Cons_Cell)), c);
-    setcdr((LispObject)((char *)r+2*sizeof(Cons_Cell)), nil);
-    fringe = r;
+    setcdr(r, r + sizeof(Cons_Cell));
+    setcar(r + sizeof(Cons_Cell), b);
+    setcdr(r + sizeof(Cons_Cell),
+          r + 2*sizeof(Cons_Cell));
+    setcar(r + 2*sizeof(Cons_Cell), c);
+    setcdr(r + 2*sizeof(Cons_Cell), nil);
     if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)r <= (char *)heaplimit || cons_forced(3))
-        return reclaim((LispObject)((char *)r + TAG_CONS),
-                       "internal list3", GC_CONS, 0);
-    else return (LispObject)((char *)r + TAG_CONS);
+        (std::uintptr_t)r < (std::uintptr_t)heaplimit || cons_forced(3))
+        return reclaim(r, "internal list3", GC_CONS, 0);
+    else return r;
 }
 
 LispObject Lcons(LispObject, LispObject a, LispObject b)
-{   LispObject r;
-    r = (LispObject)((char *)fringe - sizeof(Cons_Cell));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
     setcar(r, a);
     setcdr(r, b);
-    fringe = r;
     if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)r <= (char *)heaplimit || cons_forced(1))
-        return onevalue(reclaim((LispObject)((char *)r + TAG_CONS),
-                                "cons", GC_CONS, 0));
-    else return onevalue((LispObject)((char *)r + TAG_CONS));
+        (std::uintptr_t)r < (std::uintptr_t)heaplimit || cons_forced(1))
+        return onevalue(reclaim(r, "cons", GC_CONS, 0));
+    else return onevalue(r);
 }
 
 LispObject Lxcons(LispObject, LispObject a, LispObject b)
-{   LispObject r;
-    r = (LispObject)((char *)fringe - sizeof(Cons_Cell));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
     setcar(r, b);
     setcdr(r, a);
-    fringe = r;
     if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)r <= (char *)heaplimit || cons_forced(1))
-        return onevalue(reclaim((LispObject)((char *)r + TAG_CONS),
-                                "xcons", GC_CONS, 0));
-    else return onevalue((LispObject)((char *)r + TAG_CONS));
+        (std::uintptr_t)r < (std::uintptr_t)heaplimit || cons_forced(1))
+        return onevalue(reclaim(r, "xcons", GC_CONS, 0));
+    else return onevalue(r);
 }
 
 LispObject Lnilfn(LispObject)
@@ -492,23 +611,29 @@ LispObject Lnilfn(LispObject)
 }
 
 LispObject Lncons(LispObject env, LispObject a)
-{   LispObject r;
-    r = (LispObject)((char *)fringe - sizeof(Cons_Cell));
+{
+#ifdef ATOMIC
+    LispObject r =
+        (LispObject)fringe.fetch_sub(sizeof(Cons_Cell),
+                                     std::memory_order_relaxed) -
+        sizeof(Cons_Cell);
+#else
+    LispObject r = (LispObject)(fringe -= sizeof(Cons_Cell));
+#endif
+    r += TAG_CONS;
     setcar(r, a);
     setcdr(r, nil);
-    fringe = r;
     if (++reclaim_trigger_count == reclaim_trigger_target ||
-        (char *)r <= (char *)heaplimit || cons_forced(1))
-        return onevalue(reclaim((LispObject)((char *)r + TAG_CONS),
-                                "ncons", GC_CONS, 0));
-    else return onevalue((LispObject)((char *)r + TAG_CONS));
+        (std::uintptr_t)r < (std::uintptr_t)heaplimit || cons_forced(1))
+        return onevalue(reclaim(r, "ncons", GC_CONS, 0));
+    else return onevalue(r);
 }
 
 LispObject get_symbol(bool gensymp)
 {   return get_basic_vector(TAG_SYMBOL, TYPE_SYMBOL, symhdr_length);
 }
 
-LispObject get_basic_vector(int tag, int type, size_t size)
+LispObject get_basic_vector(int tag, int type, std::size_t size)
 {
 // tag is the value (e.g. TAG_VECTOR) that will go in the low order
 // 3 bits of the pointer result.
@@ -520,17 +645,18 @@ LispObject get_basic_vector(int tag, int type, size_t size)
 // 32-bit or 64-bit representation. However it would be hard to unwind
 // that now!]
 //
-    for (;;)
-    {   char *r = (char *)vfringe;
-        size_t free = (size_t)((char *)vheaplimit - r);
-        size_t alloc_size = (size_t)doubleword_align_up(size);
+    std::size_t alloc_size = (std::size_t)doubleword_align_up(size);
 // Basic vectors must be smaller then the CSL page size.
-        if (alloc_size > (CSL_PAGE_SIZE - 32))
-            aerror1("request for basic vector too big",
-                    fixnum_of_int(alloc_size/CELL-1));
+    if (alloc_size > (CSL_PAGE_SIZE - 32))
+        aerror1("request for basic vector too big",
+                fixnum_of_int(alloc_size/CELL-1));
+    for (;;)
+    {   std::uintptr_t r = (vfringe += alloc_size) - alloc_size;
         if (++reclaim_trigger_count == reclaim_trigger_target ||
-            alloc_size > free || vec_forced(alloc_size/CELL))
-        {   char msg[40];
+            (r + alloc_size) > vheaplimit ||
+            vec_forced(alloc_size/CELL))
+        {   vfringe = r;
+            char msg[40];
 //
 // I go to a whole load of trouble here to tell the user what sort of
 // vector request provoked this garbage collection.  I wonder if the user
@@ -538,15 +664,15 @@ LispObject get_basic_vector(int tag, int type, size_t size)
 //
             switch (tag)
             {   case TAG_SYMBOL:
-                    sprintf(msg, "symbol header");
+                    std::sprintf(msg, "symbol header");
                     break;
                 case TAG_NUMBERS:
                     switch (type)
                     {   case TYPE_BIGNUM:
-                            sprintf(msg, "bignum(%ld)", (long)size);
+                            std::sprintf(msg, "bignum(%ld)", (long)size);
                             break;
                         default:
-                            sprintf(msg, "numbers(%lx,%ld)", (long)type, (long)size);
+                            std::sprintf(msg, "numbers(%lx,%ld)", (long)type, (long)size);
                             break;
                     }
                     break;
@@ -557,30 +683,30 @@ LispObject get_basic_vector(int tag, int type, size_t size)
                         case TYPE_STRING_2:
                         case TYPE_STRING_3:
                         case TYPE_STRING_4:
-                            sprintf(msg, "string(%ld)", (long)size);
+                            std::sprintf(msg, "string(%ld)", (long)size);
                             break;
                         case TYPE_BPS_1:
                         case TYPE_BPS_2:
                         case TYPE_BPS_3:
                         case TYPE_BPS_4:
-                            sprintf(msg, "BPS(%ld)", (long)size);
+                            std::sprintf(msg, "BPS(%ld)", (long)size);
                             break;
                         case TYPE_SIMPLE_VEC:
-                            sprintf(msg, "simple vector(%ld)", (long)size);
+                            std::sprintf(msg, "simple vector(%ld)", (long)size);
                             break;
                         case TYPE_HASH:
-                            sprintf(msg, "hash table(%ld)", (long)size);
+                            std::sprintf(msg, "hash table(%ld)", (long)size);
                             break;
                         default:
-                            sprintf(msg, "vector(%lx,%ld)", (long)type, (long)size);
+                            std::sprintf(msg, "vector(%lx,%ld)", (long)type, (long)size);
                             break;
                     }
                     break;
                 case TAG_BOXFLOAT:
-                    sprintf(msg, "float(%ld)", (long)size);
+                    std::sprintf(msg, "float(%ld)", (long)size);
                     break;
                 default:
-                    sprintf(msg, "get_basic_vector(%lx,%ld)", (long)tag, (long)size);
+                    std::sprintf(msg, "get_basic_vector(%lx,%ld)", (long)tag, (long)size);
                     break;
             }
             reclaim(nil, msg, GC_VEC, alloc_size);
@@ -591,8 +717,7 @@ LispObject get_basic_vector(int tag, int type, size_t size)
 // certain that the loop here terminates!
             continue;
         }
-        vfringe = (LispObject)(r + alloc_size);
-        *((Header *)r) = type + (size << (Tw+5)) + TAG_HDR_IMMED;
+        *(Header *)r = type + (size << (Tw+5)) + TAG_HDR_IMMED;
 //
 // DANGER: the vector allocated here is left uninitialised at this stage.
 // This is OK if the vector will contain binary information, but if it
@@ -616,7 +741,7 @@ LispObject get_basic_vector(int tag, int type, size_t size)
 // and reduces its size to a total value len. It returns the shorter
 // vector. Only used on simple vectors.
 
-LispObject reduce_basic_vector_size(LispObject v, size_t len)
+LispObject reduce_basic_vector_size(LispObject v, std::size_t len)
 {   setvechdr(v, TYPE_SIMPLE_VEC + (len << (Tw+5)) + TAG_HDR_IMMED);
     return v;
 }
@@ -631,10 +756,10 @@ LispObject reduce_basic_vector_size(LispObject v, size_t len)
 // way. At present this scheme is only ever used while rehashing hash
 // tables.
 
-static size_t borrowed_pages_count;
+std::size_t borrowed_pages_count;
 static LispObject borrowed_vfringe, borrowed_vheaplimit;
 
-static void get_borrowed_page()
+void get_borrowed_page()
 {   if (borrowed_pages_count == 0)
     {   trace_printf("\nRun out of memory (for rehashing)\n");
 #ifdef DEBUG
@@ -645,22 +770,17 @@ static void get_borrowed_page()
     void *p = pages[--borrowed_pages_count];
     zero_out(p);
     borrowed_vfringe =
-        (LispObject)((char *)doubleword_align_up((intptr_t)p) + 8);
+        (LispObject)((char *)doubleword_align_up((std::intptr_t)p) + 8);
     borrowed_vheaplimit =
         (LispObject)((char *)borrowed_vfringe + (CSL_PAGE_SIZE-16));
 }
 
-void prepare_for_borrowing()
-{   borrowed_pages_count = pages_count;
-    get_borrowed_page();
-}
-
-LispObject borrow_basic_vector(int tag, int type, size_t size)
+LispObject borrow_basic_vector(int tag, int type, std::size_t size)
 {   for (;;)
     {   char *r = (char *)borrowed_vfringe;
-        size_t free = (size_t)((char *)borrowed_vheaplimit - r);
-        size_t alloc_size = (size_t)doubleword_align_up(size);
-        if (alloc_size > free)
+        std::size_t freespace = (std::size_t)((char *)borrowed_vheaplimit - r);
+        std::size_t alloc_size = (std::size_t)doubleword_align_up(size);
+        if (alloc_size > freespace)
         {   get_borrowed_page();
             continue;
         }
@@ -672,12 +792,12 @@ LispObject borrow_basic_vector(int tag, int type, size_t size)
     }
 }
 
-LispObject borrow_vector(int tag, int type, size_t n)
+LispObject borrow_vector(int tag, int type, std::size_t n)
 {   LispObject v;
     if (n-CELL > VECTOR_CHUNK_BYTES)
-    {   size_t chunks = (n - CELL + VECTOR_CHUNK_BYTES - 1)/VECTOR_CHUNK_BYTES;
-        size_t i;
-        size_t last_size = (n - CELL) % VECTOR_CHUNK_BYTES;
+    {   std::size_t chunks = (n - CELL + VECTOR_CHUNK_BYTES - 1)/VECTOR_CHUNK_BYTES;
+        std::size_t i;
+        std::size_t last_size = (n - CELL) % VECTOR_CHUNK_BYTES;
         if (last_size == 0) last_size = VECTOR_CHUNK_BYTES;
         v = borrow_basic_vector(TAG_VECTOR, TYPE_INDEXVEC, CELL*(chunks+1));
         for (i=0; i<chunks; i++)
@@ -688,8 +808,8 @@ LispObject borrow_vector(int tag, int type, size_t n)
             push(v);
             v1 = borrow_basic_vector(tag, type, k+CELL);
             pop(v);
-            size_t k1 = k/CELL;
-            for (size_t j=0; j<k1; j++)
+            std::size_t k1 = k/CELL;
+            for (std::size_t j=0; j<k1; j++)
                 basic_elt(v1, j) = nil;
             basic_elt(v, i) = v1;
         }

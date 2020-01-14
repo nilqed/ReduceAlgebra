@@ -38,7 +38,7 @@
 %% DAMAGE.                                                                *
 %%
 
-% $Id: jcomp.red 3884 2017-02-05 19:17:16Z arthurcnorman $
+% $Id: jcomp.red 5182 2019-11-02 21:47:16Z arthurcnorman $
 
 symbolic;
 
@@ -2163,7 +2163,7 @@ symbolic procedure j!:optimise_flowgraph(j!:startpoint, j!:all_blocks,
 % I will not do a stack check if I have a leaf procedure, and I hope
 % that this policy will speed up code a bit.
     if does_call then <<
-       j!:printf "    if (stack >= stacklimit)\n";
+       j!:printf "    if (stack >= stackLimit)\n";
        j!:printf "    {\n";
 % This is slightly clumsy code to save all args on the stack across the
 % call to reclaim(), but it is not executed often...

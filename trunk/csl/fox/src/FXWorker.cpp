@@ -44,7 +44,7 @@
 // unilaterally select just one version of the library to use, to the
 // potential detriment of those whose choice differs).
 
-/* $Id: FXWorker.cpp 5063 2019-07-31 16:57:00Z arthurcnorman $ */
+/* $Id: FXWorker.cpp 5246 2020-01-04 21:15:15Z arthurcnorman $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -57,6 +57,7 @@
 #include <signal.h>
 #include <time.h>
 #include <ctype.h>
+#include <thread>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -371,10 +372,10 @@ int windowed_worker(int argc, const char *argv[], fwin_entrypoint *fwin_main)
                                 (FXObject *)text, FXTerminal::ID_SAVE);
     new FXMenuCommand(fileMenu, "Save Se&lection...", NULL,
                                 (FXObject *)text, FXTerminal::ID_SAVE_SELECTION);
-    new FXMenuCommand(fileMenu, "&Print...", NULL,
-                                (FXObject *)text, FXTerminal::ID_PRINT);
-    new FXMenuCommand(fileMenu, "Pri&nt Selection...", NULL,
-                                (FXObject *)text, FXTerminal::ID_PRINT_SELECTION);
+//  new FXMenuCommand(fileMenu, "&Print...", NULL,
+//                              (FXObject *)text, FXTerminal::ID_PRINT);
+//  new FXMenuCommand(fileMenu, "Pri&nt Selection...", NULL,
+//                              (FXObject *)text, FXTerminal::ID_PRINT_SELECTION);
     new FXMenuCommand(fileMenu, "&Break\tCtl-C\tInterrupt", NULL,
                                 (FXObject *)text, FXTerminal::ID_BREAK);
     new FXMenuCommand(fileMenu, "Bac&ktrace\tCtl-G\tInterrupt/backtrace", NULL,
@@ -397,18 +398,18 @@ int windowed_worker(int argc, const char *argv[], fwin_entrypoint *fwin_main)
     new FXMenuTitle(main_menu_bar, "F&ile", NULL, fileMenu);
 
     editMenu = new FXMenuPane(main_window);
-    new FXMenuCommand(editMenu, "&Cut", NULL,
-                                (FXObject *)text, FXTerminal::ID_CUT_SEL_X);
-    new FXMenuCommand(editMenu, "C&opy", NULL,
-                                (FXObject *)text, FXTerminal::ID_COPY_SEL_X);
-    new FXMenuCommand(editMenu, "Copy &Text", NULL,
-                                (FXObject *)text, FXTerminal::ID_COPY_SEL_TEXT_X);
-    new FXMenuCommand(editMenu, "&Paste\tCtl-V", NULL,
-                                (FXObject *)text, FXTerminal::ID_PASTE_SEL_X);
-    new FXMenuCommand(editMenu, "&Reinput\tCtl-^\tReinput", NULL,
-                                (FXObject *)text, FXTerminal::ID_REINPUT);
-    new FXMenuCommand(editMenu, "Select &All", NULL,
-                                (FXObject *)text, FXText::ID_SELECT_ALL);
+//  new FXMenuCommand(editMenu, "&Cut", NULL,
+//                              (FXObject *)text, FXTerminal::ID_CUT_SEL_X);
+//  new FXMenuCommand(editMenu, "C&opy", NULL,
+//                              (FXObject *)text, FXTerminal::ID_COPY_SEL_X);
+//  new FXMenuCommand(editMenu, "Copy &Text", NULL,
+//                              (FXObject *)text, FXTerminal::ID_COPY_SEL_TEXT_X);
+//  new FXMenuCommand(editMenu, "&Paste\tCtl-V", NULL,
+//                              (FXObject *)text, FXTerminal::ID_PASTE_SEL_X);
+//  new FXMenuCommand(editMenu, "&Reinput\tCtl-^\tReinput", NULL,
+//                              (FXObject *)text, FXTerminal::ID_REINPUT);
+//  new FXMenuCommand(editMenu, "Select &All", NULL,
+//                              (FXObject *)text, FXText::ID_SELECT_ALL);
     new FXMenuCommand(editMenu, "C&lear\tCtl-L", NULL,
                                 (FXObject *)text, FXTerminal::ID_CLEAR);
     new FXMenuCommand(editMenu, "Re&draw\tCtl-R", NULL,
@@ -735,6 +736,14 @@ void *FXTerminal::worker_thread(void *arg)
 
 // run the application code.
     returncode = (*fwin_main1)(term->argc, term->argv);
+// Now if fwin_pause_at_end is true I want to hang around until mustQuit
+// has been set. It gets set when the user closes the various windows
+// either via File/Close or by clicking on the little close "x" button.
+    if (fwin_pause_at_end)
+    {   while (!mustQuit)
+        {   std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+    }
     wake_up_terminal(WORKER_EXITING);
 #ifdef WIN32
     ExitThread(returncode);
@@ -1040,8 +1049,10 @@ void fwin_ensure_screen()
     UnlockMutex(term->pauseMutex);
 }
 
+std::atomic<bool> mustQuit(false);
+
 int fwin_getchar()
-{
+{   if (mustQuit) return EOF;
     if (!windowed) return fwin_plain_getchar();
 // In general I have a line of stuff ready sitting in a buffer. So on
 // most calls to here I can just return what is in it.
@@ -1058,11 +1069,12 @@ int fwin_getchar()
 // Wait until the signal that I just sent has been received
 // and processed.
     regain_lockstep();
+    if (mustQuit) return EOF;
     if (delay_callback != NULL) (*delay_callback)(0);
 // I will try a convention that if inputBufferLen is zero that indicates
 // a dodgy state. Eg the user is sending an EOF or interrupt.
     int n = term->inputBufferLen;
-    if (n == 0) return EOF;
+    if (n == 0 || mustQuit) return EOF;
     const char *p = &term->inputBuffer[term->inputBufferP];
     while (n>0 && isspace(*p))
     {   n--;

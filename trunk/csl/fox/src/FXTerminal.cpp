@@ -1,5 +1,5 @@
 //
-// "FXTerminal.cpp"                         Copyright A C Norman 2003-2019
+// "FXTerminal.cpp"                         Copyright A C Norman 2003-2020
 //
 //
 // Window interface for old-fashioned C applications. Intended to
@@ -8,7 +8,7 @@
 //
 
 /******************************************************************************
-* Copyright (C) 2003-19 by Arthur Norman, Codemist.  All Rights Reserved.     *
+* Copyright (C) 2003-20 by Arthur Norman, Codemist.  All Rights Reserved.     *
 *******************************************************************************
 * This library is free software; you can redistribute it and/or               *
 * modify it under the terms of the GNU Lesser General Public                  *
@@ -47,7 +47,7 @@
 // potential detriment of those whose choice differs).
 
 
-/* $Id: FXTerminal.cpp 4975 2019-05-01 20:54:45Z arthurcnorman $ */
+/* $Id: FXTerminal.cpp 5246 2020-01-04 21:15:15Z arthurcnorman $ */
 
 // Apple no longer support the FinderLaunch sample code that they
 // published and that explained to me how to open an HTML document
@@ -77,6 +77,9 @@
 #else
 #include <pthread.h>
 #endif
+
+#include <thread>
+#include <chrono>
 
 #include <fxkeys.h>          // not included by <fx.h>
 
@@ -1713,6 +1716,36 @@ long FXTerminal::onCmdBreakLoop(FXObject *c, FXSelector s, void *ptr)
     return 1;
 }
 
+// This should be called when the window is being closed...
+
+void setEOF()
+{   if (text != NULL) text->setEOF();
+}
+
+void FXTerminal::setEOF()
+{   if (mustQuit) return; // already done!
+    mustQuit = true;
+// In CSL/Reduce is active doing computation it should detect the request
+// to quit that is set here...
+    if (async_interrupt_callback != NULL)
+        (*async_interrupt_callback)(QUIT_PROGRAM);
+// But maybe it was in fact hanging waiting for input. In which case I
+// can unlock some mutexes to allow it to move forward. Here I want to code
+// that tries to read characters to think it has some available. Because
+// I am not going to do anything much after this I can just unlock every
+// mutex that I think I might own and that the client might be waiting
+// on. It should then be able to move forward and detect the "give up"
+// flag that I have set!
+    if (sync_even)
+    {   UnlockMutex(mutex3);
+        UnlockMutex(mutex4);
+    }
+    else
+    {   UnlockMutex(mutex1);
+        UnlockMutex(mutex2);
+    }
+}
+
 
 // The following are concerned with a list of options and plugins that the
 // application may have.
@@ -2355,9 +2388,6 @@ case RESTORE_MAIN:
 
 long FXTerminal::requestWorkerExiting()
 {
-    if (fwin_pause_at_end)
-        FXMessageBox::information(this, MBOX_OK, "Pause at End",
-            "Application is exiting");
 #ifdef WIN32
     DWORD retval;
     switch (WaitForSingleObject(thread1, 10000))

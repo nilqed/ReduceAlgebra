@@ -1,8 +1,8 @@
-// babyreduce.cpp                          Copyright (C) 2016-2017 Codemist    
+// babyreduce.cpp                          Copyright (C) 2016-2019 Codemist    
 
 
 /**************************************************************************
- * Copyright (C) 2017, Codemist.                         A C Norman       *
+ * Copyright (C) 2019, Codemist.                         A C Norman       *
  *                                                                        *
  * Redistribution and use in source and binary forms, with or without     *
  * modification, are permitted provided that the following conditions are *
@@ -31,7 +31,7 @@
  *************************************************************************/
 
 
-// $Id: babyreduce.cpp 4975 2019-05-01 20:54:45Z arthurcnorman $
+// $Id: babyreduce.cpp 5230 2019-12-28 20:38:00Z arthurcnorman $
 
 //
 // This is for use via the "new-embedded" structure and it provides a
@@ -39,10 +39,10 @@
 // set up as anything can possibly be.
 //
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdint.h>
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
+#include <cstdint>
 
 #include "config.h"
 #include "machine.h"
@@ -67,8 +67,8 @@ static int iget(void)
 }
 
 static int iput(int c)
-{   putchar(c);
-    fflush(stdout);
+{   std::putchar(c);
+    std::fflush(stdout);
     return 0;
 }
 
@@ -84,15 +84,13 @@ static int submain(int argc, char *argv[])
     return 0;
 }
 
-
 int main(int argc, char *argv[])
 {   int res;
     if (find_program_directory(argv[0]))
-    {   fprintf(stderr, "Unable to identify program name and directory\n");
+    {   std::fprintf(stderr, "Unable to identify program name and directory\n");
         return 1;
     }
-    term_setup(argv[0], NULL);
-    atexit(term_close);
+    TermSetup ts(argv[0], NULL);
     try
     {   res = submain(argc, argv);
     }
@@ -101,6 +99,5 @@ int main(int argc, char *argv[])
     }
     return res;
 }
-
 
 // End of babyreduce.cpp

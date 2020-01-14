@@ -40,7 +40,7 @@
 % OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 % 
 
-% $Id: genparser.red 4208 2017-09-15 10:56:54Z arthurcnorman $
+% $Id: genparser.red 5217 2019-12-15 11:28:49Z arthurcnorman $
 
 %==============================================================================
 % Fluid Variables & Symbol Properties (& general notes)
@@ -284,7 +284,7 @@ symbolic procedure lalr_create_parser (precedence_list, grammar);
     % Generate the LR(0) itemset collection and then convert it to the final 
     % LALR(1) itemset collection. After this, all the fluid variables are in
     % their final state.
-    goto_table := mkhash(length symbols, 1, 1.5);
+    goto_table := mkhash(length symbols, 3, 1.5);
     lalr_generate_lr0_collection();
     lalr_generate_collection();
 

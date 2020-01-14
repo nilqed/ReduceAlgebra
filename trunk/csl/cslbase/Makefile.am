@@ -6,7 +6,7 @@
 
 # CSL and REDUCE build sequences
 
-# $Id: Makefile.am 5096 2019-08-21 10:57:31Z arthurcnorman $
+# $Id: Makefile.am 5248 2020-01-06 11:27:39Z arthurcnorman $
 
 # Set up ways to refer to files in the main Reduce source tree.
 
@@ -709,6 +709,8 @@ reduce_LDADD = $(reduceres) $(FOX_LIBS)
 if cygwin
 WINHELPERS=
 else !cygwin
+# The helper programs cygwin-isatty and not-under-cygwin will not be
+# needed in teh future, but leaving them present for now is safest!
 if win32bit
 WINHELPERS= cygwin-isatty.exe cygwin64-isatty.exe not-under-cygwin.exe
 else !win32bit
@@ -1877,13 +1879,13 @@ local_image_files = bootstrapreduce.img noinlines.img
 if win32bit
 win_specials = cygwin-reduce.exe cygwin-csl.exe cygwin-fwindemo.exe \
 	cygwin64-reduce cygwin64-csl \
-	not-under-cygwin.exe cygwin-isatty.exe cygwin64-isatty.exe csl \
-	reduce fwindemo
+	not-under-cygwin.exe cygwin-isatty.exe cygwin64-isatty.exe \
+	csl reduce fwindemo
 else !win32bit
 win_specials = \
 	cygwin64-reduce cygwin64-csl \
-	not-under-cygwin.exe cygwin64-isatty.exe csl \
-	reduce fwindemo
+	not-under-cygwin.exe cygwin64-isatty.exe \
+	csl reduce fwindemo
 endif !win32bit
 
 generatedfiles=$(console_binaries) $(noinstall_console_binaries) \
@@ -2020,8 +2022,10 @@ machineid.cpp:	reduce-cslread.$(OBJEXT) config.h objtype$(EXEEXT) makeheaders$(E
 			$(cslbase)/machine.h $(cslbase)/int128_t.h \
 			$(cslbase)/$(FWIN) \
 			$(cslbase)/tags.h $(cslbase)/cslerror.h \
+			$(cslbase)/thread_local.h \
 			$(cslbase)/externs.h $(cslbase)/arith.h \
 			$(cslbase)/entries.h $(cslbase)/lispthrow.h \
+			$(cslbase)/allocate.h $(cslbase)/newallocate.h \
 			$(USE_CORRECT_CYGWIN)
 	./objtype$(EXEEXT) reduce-cslread.$(OBJEXT) \
 		machineid-1.cpp $(COMPILE_DLL)
@@ -2030,6 +2034,7 @@ machineid.cpp:	reduce-cslread.$(OBJEXT) config.h objtype$(EXEEXT) makeheaders$(E
 		$(CYGSRC)/$(FWIN) \
 		$(CYGSRC)/int128_t.h \
 		$(CYGSRC)/tags.h \
+		$(CYGSRC)/thread_local.h \
 		$(CYGSRC)/cslerror.h \
 		$(CYGSRC)/externs.h \
 		$(CYGSRC)/arith.h \
@@ -2273,6 +2278,21 @@ profile:	bootstrapreduce.img $(USE_CORRECT_CYGWIN)
 if canrun
 	$(TRACE)mkdir -p buildlogs
 	chmod 664 $(gensrc)/*
+	if test -f $(INLINE_DEFS); \
+	then mv $(INLINE_DEFS) old-inline-defs.dat; \
+	else touch old-inline-defs.dat; \
+	fi
+	touch $(INLINE_DEFS)
+	$(RM) -f bootstrapreduce.img
+	$(USE_CORRECT_CYGWIN) $(MAKE) $(AM_MAKEFLAGS) bootstrapreduce.img
+	chmod 664 $(gensrc)/*
+	if diff $(INLINE_DEFS) old-inline-defs.dat > /dev/null; \
+	then \
+	  echo "Inline definitions have not changed"; \
+	  else \
+	  $(RM) bootstrapreduce.img; \
+	  $(USE_CORRECT_CYGWIN) $(MAKE) $(AM_MAKEFLAGS) bootstrapreduce.img; \
+	fi
 	$(USE_CORRECT_CYGWIN) ./bootstrapreduce$(EXEEXT) \
 		-w $(CSLFLAGS) -Dno_init_file \
 		$(CYGSRC)/profile.red \
@@ -2284,6 +2304,7 @@ if canrun
 	-$(CP) $(gensrc)/profile.dat $(gensrc)/profile.dat.old
 	mv profile.dat $(gensrc)
 	chmod 664 $(gensrc)/*
+	$(USE_CORRECT_CYGWIN) $(MAKE) standard-c-code
 else !canrun
 	echo Can not profile on this platform
 endif !canrun
@@ -2296,7 +2317,7 @@ $(gensrc)/profile.dat:	$(csl)/generated-c/profile.dat
 c-code:	$(gensrc)/make.stamp
 
 $(gensrc)/make.stamp:	$(bootstrapreducedep) $(gensrc)/profile.dat \
-		$(cslbase)/make-c-code.red
+		$(cslbase)/make-c-code.red $(cslbase)/compiler.lsp
 	chmod 664 $(gensrc)/*
 	$(TRACE)$(RM) -f $(gensrc)/make.tmp
 	touch $(gensrc)/make.tmp

@@ -32,7 +32,7 @@
  * DAMAGE.                                                                *
  *************************************************************************/
 
-// $Id: log.h 5060 2019-07-30 10:33:38Z arthurcnorman $
+// $Id: log.h 5179 2019-10-31 16:20:08Z arthurcnorman $
 
 
 #ifndef header_log_h
@@ -144,8 +144,8 @@ inline void printlog(const char *s, ...)
 extern const char *programDir;
 
 inline void printlog(const char *s, ...)
-{   static FILE *logfile = NULL;
-    va_list x;
+{   static std::FILE *logfile = NULL;
+    std::va_list x;
     if (logfile == NULL)
     {   char logfile_name[LONGEST_LEGAL_FILENAME];
         std::memset(logfile_name, 0, sizeof(logfile_name));

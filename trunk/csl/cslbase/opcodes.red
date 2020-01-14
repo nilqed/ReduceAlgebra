@@ -1,7 +1,7 @@
-% opcodes.red                              Copyright (C) Codemist 2016-2017
+% opcodes.red                              Copyright (C) Codemist 2016-2019
 
 %%
-%% Copyright (C) 2017, A C Norman, Codemist.                              *
+%% Copyright (C) 2019, A C Norman, Codemist.                              *
 %%                                                                        *
 %% Redistribution and use in source and binary forms, with or without     *
 %% modification, are permitted provided that the following conditions are *
@@ -29,7 +29,7 @@
 %% DAMAGE.                                                                *
 %%
 
-% $Id: opcodes.red 4188 2017-09-08 07:44:29Z arthurcnorman $
+% $Id: opcodes.red 5165 2019-10-10 14:22:18Z arthurcnorman $
 
 
 s!:opcodelist := '(

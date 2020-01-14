@@ -1,16 +1,16 @@
-/* $Id: wxshowmathdemo.cpp 3897 2017-02-12 11:33:33Z arthurcnorman $ */
+/* $Id: wxshowmathdemo.cpp 5180 2019-10-31 23:30:57Z arthurcnorman $ */
 
 #include "config.h"
 
 #include "wxfwin.h"
 
-#include <stdio.h>
+#include <cstdio>
 
 
 
 int main(int argc, char *argv[])
 {
-    fprintf(stderr, "wxshowmathdemo not implemented yet\n");
+    std::fprintf(stderr, "wxshowmathdemo not implemented yet\n");
     return 1;
 }
 
