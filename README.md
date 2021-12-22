@@ -3,6 +3,8 @@
 A portable general-purpose computer algebra system :sparkles:
 ----------------------------
 
+**NOTE** there is now an official  https://github.com/reduce-algebra/reduce-algebra
+
 This is a (unofficial) mirror of the REDUCE SVN code at SourceForge.
 
 Links: 
